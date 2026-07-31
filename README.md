@@ -1,10 +1,55 @@
 # physics-lab
 
-高中物理互动演示集合，包含：
+高中物理互动演示 + AI 驱动的物理教学演示桌面应用。
+
+## 现有演示（静态 HTML）
+
+纯静态 HTML，双击即可离线运行：
 
 - **球与弹簧** — 自由落体 + 弹簧回弹，Velocity Verlet 积分，能量守恒
 - **圆弧滑落 + 平抛** — 光滑圆弧最低点脱离，平抛运动，射程 `L=2√(rh)`
 - **等时圆** — 伽利略等时性，任意弦滑落时间相等 `t=√(2d/g)`
 - **斜面挡板** — 弹性碰撞多视角（主视/俯视/侧视），3D 渲染
 
-纯静态 HTML，双击即可离线运行。
+## 桌面应用（开发中）
+
+一款 Electron 桌面应用，物理老师通过 Chat 与 AI 对话，输入物理题目或演示需求，AI 自动生成交互式 HTML 动画，右侧 Preview 面板实时预览。
+
+### 架构概览
+
+```
+Electron 主进程                     渲染进程
+┌──────────────────┐    ┌──────────┬──────────┐
+│ Pi Agent SDK     │    │ Chat     │ Preview  │
+│ (AgentSession)   │←IPC→│ (流式)    │ (iframe) │
+│ + defineTool()   │    │          │          │
+│ + 文件管理        │    │ 可折叠    │ 自动刷新  │
+└──────────────────┘    └──────────┴──────────┘
+```
+
+### 核心决策
+
+| 决策 | 选择 | 原因 |
+|---|---|---|
+| 桌面框架 | Electron | Pi Agent SDK 直接 `import`，零 IPC 开销 |
+| Agent 集成 | Pi Agent SDK stream | 逐 token 流式输出到 Chat |
+| Few-shot | 目录索引 + 按需读取 | 省 token，可扩展 |
+| Preview | `file://` iframe | 相对路径天然工作 |
+| 标签页 | 与 AgentSession 1:1 | 独立上下文，互不干扰 |
+| 文件识别 | `<!-- physics-demo: 标题 -->` | 低调，同时标记和标题 |
+| LLM 配置 | `safeStorage` 加密 | 本地安全存储 API Key |
+| 会话持久化 | Pi Agent SDK 自动 | 关标签页不丢历史 |
+
+详见 [`CONTEXT.md`](./CONTEXT.md) 和 [`docs/adr/`](./docs/adr/)。
+
+### MVP v0.1 范围
+
+- Electron 单窗口，Chat + Preview 分栏，可折叠可拖拽
+- 首次启动配置 LLM（API key / endpoint / model）
+- 选择工作目录，自动复制 `lib/` + `examples/`
+- 顶部标签栏，一个标签页 = 一个 HTML + 一个 AgentSession
+- 文件树过滤 `<!-- physics-demo: 标题 -->` 标记
+- Chat 流式输出 — 【问题理解】→【解答】→【演示生成】→ ✅ 文件已更新
+- Agent 本轮完成 → Preview 自动刷新
+- 标签页关闭 → session 保留，重开恢复历史
+- 暗/亮主题
