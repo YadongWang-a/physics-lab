@@ -1,19 +1,13 @@
 /* ============================================================
    common.css — 物理实验演示公用样式
-   包含: 主题变量基色 / 基础重置 / 布局 / 按钮 / 控件 /
-         图例条 / 读数面板 / 阶段标签 / 分割按钮组
+   包含: 主题变量(浅色) / 基础重置 / 布局 / 按钮 / 控件 /
+         图例条 / 读数面板 / 阶段标签 / 分割按钮组 / 演示模式 reflow
    各页面在自身 <style> 中补充画布专用变量和页面特有组件
    ============================================================ */
 
-/* ---- 主题变量(基色,所有页面共用) ---- */
+/* ---- 主题变量(浅色,所有页面共用) ----
+   浅色唯一(见 ADR 0006),无深色覆盖、无 [data-theme]。 ---- */
 :root {
-  --bg: #0f1420; --panel: #161c2c; --panel2: #1d2538; --line: #2a3450;
-  --txt: #e6ecf7; --dim: #8893ad; --cyan: #36d6e7; --orange: #f5a623;
-  --green: #5bd98a; --red: #ef6f6f; --blue: #5a9bf0; --purple: #b48cf5;
-  --input-bg: #0d1322; --code-bg: #0d1322;
-  --grad-start: #1a2238; --grad-end: var(--bg);
-}
-[data-theme="light"] {
   --bg: #f0f2f7; --panel: #ffffff; --panel2: #eef0f5; --line: #c8cdd8;
   --txt: #1a1e2e; --dim: #6b7280; --cyan: #0e8fa0; --orange: #c47d10;
   --green: #1a8a4a; --red: #c94040; --blue: #2f6fd0; --purple: #7c3aed;
@@ -37,13 +31,6 @@ h1 { font-size: clamp(15px, 1.4vw, 20px); margin: 0 0 4px; font-weight: 600; let
 .sub { color: var(--dim); font-size: clamp(11px, 0.95vw, 13px); margin-bottom: 14px; line-height: 1.6 }
 .head-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .head-row .sub { margin-bottom: 14px; }
-.head-row .theme-btn {
-  flex-shrink: 0; margin-top: 2px;
-  background: var(--panel2); border: 1px solid var(--line); color: var(--txt);
-  padding: 6px 10px; border-radius: 8px; font-size: clamp(13px, 1.1vw, 16px);
-  cursor: pointer; transition: .15s; user-select: none; line-height: 1;
-}
-.head-row .theme-btn:hover { border-color: var(--blue); }
 .wrap { max-width: 1500px; margin: 0 auto; width: 96%; }
 code { background: var(--code-bg); padding: 1px 6px; border-radius: 4px; color: var(--cyan) }
 
@@ -182,3 +169,31 @@ canvas { display: block; width: 100%; border-radius: 8px; min-height: 45vh; }
   color: var(--dim); font-size: 11px; margin-top: 14px;
   text-align: center; line-height: 1.6;
 }
+
+/* ---- 演示模式 (.present) — E3 布局 reflow (见 ADR 0007) ----
+   由应用经 postMessage {cmd:"present",value} 给 <body> 加 .present 触发。
+   顶栏(.topbar/.seg 临界状态)保留在顶部; 场景卡撑满; 控制卡折为底部抽屉;
+   .scene-actions 仍在画布上方(dock 左上); 图例/相位/能量留在场景卡内。
+   抽屉的收起/展开由 common.js 注入的 .drawer-toggle 控制。 */
+body.present { padding: 8px; }
+body.present .wrap { max-width: 100%; width: 100%; }
+body.present .head-row .sub { display: none; }          /* 长描述让位 */
+body.present .grid {
+  display: flex; flex-direction: column; gap: 8px;
+}
+body.present .grid > .card:first-child {               /* 场景卡 */
+  flex: 1 1 auto; min-height: 70vh;
+}
+body.present .grid > .card:last-child {                /* 控制卡 → 底部抽屉 */
+  flex: 0 0 auto;
+}
+body.present canvas { min-height: 68vh; }
+.drawer-toggle { display: none; }                        /* 仅演示态显示 */
+body.present .drawer-toggle {
+  display: block; width: 100%; box-sizing: border-box;
+  background: var(--panel2); border: 1px solid var(--line); color: var(--txt);
+  padding: 6px 12px; border-radius: 8px; font-size: 12px;
+  cursor: pointer; margin-bottom: 6px; text-align: left;
+}
+body.present .drawer-toggle:hover { border-color: var(--blue); }
+body.present .grid > .card:last-child.collapsed .controls { display: none; }

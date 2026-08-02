@@ -1,3 +1,4 @@
+<!-- physics-demo: 自由落体 + 弹簧回弹 · 球与弹簧 -->
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -6,16 +7,8 @@
 <title>自由落体 + 弹簧回弹 · 球与弹簧</title>
 <link rel="stylesheet" href="lib/common.css">
 <style>
-  /* ---- 页面专用 CSS 变量(画布颜色等) ---- */
+  /* ---- 页面专用 CSS 变量(画布颜色等, 浅色) ---- */
   :root{
-    --statehead-bg:linear-gradient(90deg,#222c44,#1a2238);
-    --ke-grad:#1c8a99; --peg-grad:#9c5d10; --pes-grad:#6a44a0;
-    --canvas-grid:rgba(80,100,140,.07); --canvas-ground:#3a466a; --canvas-ground-hatch:#2a3450;
-    --canvas-base:#4a567e; --canvas-spring:#9fb0d8; --canvas-ball-hi:#7fb0ff; --canvas-ball-lo:#2f6fd0;
-    --canvas-ball-stroke:#bcd6ff; --canvas-ball-txt:#dbe7ff; --canvas-ruler:#5a6680;
-    --canvas-ruler-tick:rgba(90,102,128,.4); --canvas-dim-txt:#8893ad;
-  }
-  [data-theme="light"]{
     --statehead-bg:linear-gradient(90deg,#e0e4f0,#d8dce8);
     --ke-grad:#0e8fa0; --peg-grad:#c47d10; --pes-grad:#7c3aed;
     --canvas-grid:rgba(0,0,0,.04); --canvas-ground:#8a8fa0; --canvas-ground-hatch:#a0a5b5;
@@ -58,7 +51,6 @@
       <h1>自由落体 + 弹簧回弹 · 球与弹簧</h1>
       <div class="sub">两阶段物理:空中 <code>a=−g</code> · 接触 <code>a=kx/m−g</code> · Velocity Verlet 积分 · 能量守恒</div>
     </div>
-    <button class="theme-btn" id="themeBtn" title="切换浅色/深色主题">🌙</button>
   </div>
 
   <!-- ====== 顶栏 · 临界状态快捷跳转 ====== -->
@@ -276,7 +268,7 @@ function drawScene(){
   const cRed=cs.getPropertyValue('--red').trim();
   const cCyan=cs.getPropertyValue('--cyan').trim();
   const cPurple=cs.getPropertyValue('--purple').trim();
-  const light=getTheme()==='light';
+  const light=true;
 
   ctx.strokeStyle=cGrid; ctx.lineWidth=1;
   for (let gx=0;gx<w;gx+=40){ctx.beginPath();ctx.moveTo(gx,0);ctx.lineTo(gx,h);ctx.stroke();}
@@ -500,11 +492,10 @@ function frame(now){
   requestAnimationFrame(frame);
 }
 
-/* ---------- 按钮 / 键盘 / 主题 ---------- */
+/* ---------- 按钮 / 键盘 ---------- */
 $('run').onclick =function(){S.running=true;S.last=null;};
 $('pause').onclick=function(){S.running=false;};
 $('reset').onclick=function(){S.running=false;S.y=S.h0;S.v=0;S.t=0;render();};
-setupThemeButton();
 setupLegend('legendBar', S.show, render);
 setupKeyboard(S, function(){ $('reset').click(); });
 

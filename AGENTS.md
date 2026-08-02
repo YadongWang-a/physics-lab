@@ -16,28 +16,21 @@
 ### Agent Session 模型
 
 - 每个标签页 = 一个独立的 `AgentSession`
-- Session 由 Pi Agent SDK 自动持久化到 `~/.pi/agent/`
+- Session 由 Pi Agent SDK 自动持久化到 `<工作目录>/.pi/agent/sessions/`（通过 `agentDir` 配置，见 ADR 0004）
 - 关标签页不销毁 session，重开恢复历史
 - 支持手动删除不需要的 session
 
 ### Agent 工具定义
 
 ```
-工具集（P0）：
-  read_file(path)    → 读取文件内容
-  write_file(path, content) → 写入 HTML 文件
-  preview()          → 通知前端刷新 Preview
-
-物理常量（内置 system prompt）：
-  g = 9.8 m/s², G = 6.67×10⁻¹¹ N·m²/kg², ...
-
-CSS 组件（内置 system prompt）：
-  .btn, .card, .topbar, .seg, .grid, ...
+工具集（见 ADR 0009）：
+  read / write / edit / ls / find / grep — SDK 内置，**禁 bash**
+  Preview：主进程 fs.watch 自动刷新，不做工具
 ```
 
 ### Few-shot 示例策略
 
-System prompt 包含示例目录索引（功能描述，不含代码）。Agent 根据用户需求判断最相关的示例，调用 `read_file` 读取后参考。
+System prompt 包含示例目录索引（功能描述，不含代码）。Agent 根据用户需求判断最相关的示例，调用 `read` 读取后参考。
 
 ```
 索引示例：
@@ -58,6 +51,7 @@ System prompt 包含示例目录索引（功能描述，不含代码）。Agent 
 生成的文件要求：
 - 第一行：`<!-- physics-demo: 中文标题 -->`
 - 引入 `lib/common.css`
-- 支持 `[data-theme="light"]` 暗/亮切换
+- 浅色主题唯一（无 `[data-theme]`、无 🌙 按钮，见 ADR 0006）
+- 内嵌演示模式 postMessage 监听器 + E3 区域结构（见 ADR 0007）
 - Canvas 高 DPI 适配
 - 文件名：英文 slug（如 `incline-spring.html`）

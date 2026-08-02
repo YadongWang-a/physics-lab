@@ -1,0 +1,19 @@
+{
+  "name": "physics-lab-app",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AI 驱动的物理演示生成器（Electron + Pi Agent SDK）",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "dependencies": {
+    "@earendil-works/pi-ai": "^0.83.0",
+    "@earendil-works/pi-coding-agent": "^0.83.0"
+  },
+  "devDependencies": {
+    "electron": "^43.0.0",
+    "jsdom": "^29.1.1",
+    "vitest": "^4.1.10"
+  }
+}

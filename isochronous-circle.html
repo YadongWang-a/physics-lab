@@ -1,3 +1,4 @@
+<!-- physics-demo: 等时圆 · 伽利略等时性 -->
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -15,13 +16,8 @@
 <script src="lib/mathjax.js" async></script>
 <link rel="stylesheet" href="lib/common.css">
 <style>
-  /* ---- 页面专用 CSS 变量(画布颜色等) ---- */
+  /* ---- 页面专用 CSS 变量(画布颜色等, 浅色) ---- */
   :root{
-    --canvas-grid:rgba(80,100,140,.07); --canvas-dim-txt:#8893ad;
-    --canvas-ruler:#5a6680; --canvas-arc-fill:rgba(90,155,240,.04);
-    --canvas-arc-stroke:#5a9bf0; --canvas-txt:#e6ecf7;
-  }
-  [data-theme="light"]{
     --canvas-grid:rgba(0,0,0,.04); --canvas-dim-txt:#6b7280;
     --canvas-ruler:#6b7280; --canvas-arc-fill:rgba(47,111,208,.04);
     --canvas-arc-stroke:#2f6fd0; --canvas-txt:#1a1e2e;
@@ -56,7 +52,6 @@
       <div class="sub">竖直圆上,从圆周任一点沿光滑弦滑到最低点(或从最高点沿弦滑下),所用时间均相等,等于 $t=\sqrt{2d/g}$(d 为直径)。<br>
         精髓:弦越长则倾角越大、加速度也越大,两者恰好抵消,时间与弦无关。</div>
     </div>
-    <button class="theme-btn" id="themeBtn" title="切换浅色/深色主题">🌙</button>
   </div>
 
   <!-- ====== 顶栏 · 模式切换 ====== -->
@@ -189,7 +184,7 @@ function drawScene(){
   const cTxt=cs.getPropertyValue('--canvas-txt').trim();
   const cGreen=cs.getPropertyValue('--green').trim();
   const cRed=cs.getPropertyValue('--red').trim();
-  const light=getTheme()==='light';
+  const light=true;
 
   ctx.strokeStyle=cGrid; ctx.lineWidth=1;
   for (let gx=0;gx<w;gx+=40){ctx.beginPath();ctx.moveTo(gx,0);ctx.lineTo(gx,h);ctx.stroke();}
@@ -335,7 +330,6 @@ document.querySelectorAll('#modeSeg button').forEach(function(btn){
 $('run').onclick =function(){ if(S.balls.every(function(b){return b.done;})) rebuild(); S.running=true; S.last=null; };
 $('pause').onclick=function(){S.running=false;};
 $('reset').onclick=function(){rebuild();};
-setupThemeButton();
 setupKeyboard(S, function(){rebuild();});
 
 rebuild();

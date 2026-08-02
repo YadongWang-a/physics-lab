@@ -1,3 +1,4 @@
+<!-- physics-demo: 斜面挡板 · 甲乙弹性碰撞(多视角) -->
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -15,18 +16,8 @@
 <script src="lib/mathjax.js" async></script>
 <link rel="stylesheet" href="lib/common.css">
 <style>
-  /* ---- 页面专用 CSS 变量(3D面颜色等) ---- */
+  /* ---- 页面专用 CSS 变量(3D面颜色等, 浅色) ---- */
   :root{
-    --canvas-grid:rgba(80,100,140,.07); --canvas-dim-txt:#8893ad;
-    --canvas-ruler:#5a6680; --canvas-txt:#e6ecf7; --canvas-ball-txt:#fff;
-    --canvas-trajA:rgba(54,214,231,.5); --canvas-trajB:rgba(180,140,245,.6);
-    --face-top-fill:rgba(90,155,240,.12); --face-top-stroke:rgba(90,155,240,.4);
-    --face-bot-fill:rgba(60,80,120,.3); --face-bot-stroke:rgba(120,140,180,.35);
-    --face-hi-fill:rgba(60,80,120,.5); --face-hi-stroke:rgba(140,160,200,.6);
-    --face-front-fill:rgba(70,95,140,.55); --face-front-stroke:rgba(150,170,210,.7);
-    --face-back-fill:rgba(55,75,115,.4); --face-back-stroke:rgba(120,140,180,.4);
-  }
-  [data-theme="light"]{
     --canvas-grid:rgba(0,0,0,.04); --canvas-dim-txt:#6b7280;
     --canvas-ruler:#6b7280; --canvas-txt:#1a1e2e; --canvas-ball-txt:#1a1e2e;
     --canvas-trajA:rgba(14,143,160,.5); --canvas-trajB:rgba(124,58,237,.5);
@@ -65,7 +56,6 @@
       <h1>斜面挡板 · 小球甲乙弹性碰撞(多视角)</h1>
       <div class="sub">装置在斜面平面内:直挡板 ab(7R)沿坡向,半圆挡板(半径 R)凸向坡上,bd 沿等高线,de∥ab。有效重力 \(g' = g\sin\theta\) 指向坡下。甲 a&rarr;b&rarr;c 与乙弹性碰撞,乙做"平抛"(斜面平面内)。</div>
     </div>
-    <button class="theme-btn" id="themeBtn" title="切换浅色/深色主题">🌙</button>
   </div>
 
   <!-- ====== 顶栏 · 临界状态快捷跳转 ====== -->
@@ -668,7 +658,6 @@ $('cClear').onclick =function(){initSim();render();};
 $('run').onclick=function(){if(S.phase==='done')initSim();S.running=true;S.last=null;};
 $('pause').onclick=function(){S.running=false;};
 $('reset').onclick=function(){S.running=false;initSim();render();};
-setupThemeButton();
 setupLegend('legendBar', S.show, render);
 setupKeyboard(S, function(){initSim();render();});
 

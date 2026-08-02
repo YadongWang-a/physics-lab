@@ -1,3 +1,4 @@
+<!-- physics-demo: 圆弧滑落 + 平抛 · 球的抛体运动 -->
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -6,15 +7,8 @@
 <title>圆弧滑落 + 平抛 · 球的抛体运动</title>
 <link rel="stylesheet" href="lib/common.css">
 <style>
-  /* ---- 页面专用 CSS 变量(画布颜色等) ---- */
+  /* ---- 页面专用 CSS 变量(画布颜色等, 浅色) ---- */
   :root{
-    --canvas-grid:rgba(80,100,140,.07); --canvas-ground:#3a466a; --canvas-ground-hatch:#2a3450;
-    --canvas-ball-hi:#7fb0ff; --canvas-ball-lo:#2f6fd0; --canvas-ball-stroke:#bcd6ff;
-    --canvas-ruler:#5a6680; --canvas-dim-txt:#8893ad;
-    --canvas-arc-fill:rgba(90,155,240,.06); --canvas-arc-stroke:#5a9bf0;
-    --canvas-traj:rgba(91,217,138,.7); --canvas-para:rgba(54,214,231,.35);
-  }
-  [data-theme="light"]{
     --canvas-grid:rgba(0,0,0,.04); --canvas-ground:#8a8fa0; --canvas-ground-hatch:#a0a5b5;
     --canvas-ball-hi:#a0c4ff; --canvas-ball-lo:#2f6fd0; --canvas-ball-stroke:#1a4fa0;
     --canvas-ruler:#6b7280; --canvas-dim-txt:#6b7280;
@@ -43,7 +37,6 @@
       <h1>圆弧滑落 + 平抛 · 球的抛体运动</h1>
       <div class="sub">光滑圆弧(无摩擦)·最低点脱离·平抛落地 · 能量守恒 <code>v=√(2gr)</code> · 射程 <code>L=2√(rh)</code></div>
     </div>
-    <button class="theme-btn" id="themeBtn" title="切换浅色/深色主题">🌙</button>
   </div>
 
   <!-- ====== 顶栏 · 临界状态快捷跳转 ====== -->
@@ -243,7 +236,7 @@ function drawScene(){
   const cCyan=cs.getPropertyValue('--cyan').trim();
   const cBlue=cs.getPropertyValue('--blue').trim();
   const cPurple=cs.getPropertyValue('--purple').trim();
-  const light=getTheme()==='light';
+  const light=true;
 
   ctx.strokeStyle=cGrid; ctx.lineWidth=1;
   for (let gx=0;gx<w;gx+=40){ctx.beginPath();ctx.moveTo(gx,0);ctx.lineTo(gx,h);ctx.stroke();}
@@ -445,7 +438,6 @@ function reset(){
 $('run').onclick =function(){ if(S.phase==='done') reset(); S.running=true; S.last=null; };
 $('pause').onclick=function(){S.running=false;};
 $('reset').onclick=reset;
-setupThemeButton();
 setupLegend('legendBar', S.show, render);
 setupKeyboard(S, reset);
 
