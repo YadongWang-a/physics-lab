@@ -12,9 +12,9 @@ function renderMD(text) {
     .replace(/`([^`]+)`/g, '<code class="bg-muted px-1.5 py-0.5 rounded text-[13px]">$1</code>')
     // 表格
     .replace(/\|(.+)\|\n\|[-| ]+\|\n((?:\|.+\|\n?)*)/g, (_, hdr, rows) => {
-      const thead = '<tr>' + hdr.split('|').map(c => '<th class="text-left px-3 py-1.5 border-b border-border text-[13px]">' + c.trim() + '</th>').join('') + '</tr>';
-      const tbody = rows.trim().split('\n').map(r =>
-        '<tr>' + r.split('|').map(c => '<td class="px-3 py-1.5 text-[13px]">' + c.trim() + '</td>').join('') + '</tr>'
+      const thead = '<tr>' + hdr.split('|').filter(c=>c.trim()).map(c => '<th class="text-left px-3 py-1.5 border-b border-border text-[13px]">' + c.trim() + '</th>').join('') + '</tr>';
+      const tbody = rows.trim().split('\n').filter(r=>r.trim()).map(r =>
+        '<tr>' + r.split('|').filter(c=>c.trim()).map(c => '<td class="px-3 py-1.5 text-[13px]">' + c.trim() + '</td>').join('') + '</tr>'
       ).join('');
       return '<table class="w-full my-2 border-collapse">' + thead + tbody + '</table>';
     })
@@ -22,11 +22,20 @@ function renderMD(text) {
     .replace(/\$\$([\s\S]*?)\$\$/g, '<div class="bg-muted rounded-lg p-4 my-2 text-center text-[14px] font-mono">$1</div>')
     // 行内公式 $...$
     .replace(/\$([^$]+)\$/g, '<code class="bg-muted px-1 rounded text-[13px] font-mono">$1</code>')
-    // 粗体
+    // 标题（吞尾随换行，避免后置 <br>）
+    .replace(/^#### (.+)\n?/gm, '<h4 class="text-[14px] font-semibold mt-3 mb-1">$1</h4>')
+    .replace(/^### (.+)\n?/gm, '<h3 class="text-[15px] font-semibold mt-3 mb-1">$1</h3>')
+    .replace(/^## (.+)\n?/gm, '<h2 class="text-[17px] font-semibold mt-4 mb-2">$1</h2>')
+    .replace(/^# (.+)\n?/gm, '<h1 class="text-[19px] font-bold mt-4 mb-2">$1</h1>')
+    // 粗体/斜体
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    // 有序/无序列表（吞尾随换行）
+    .replace(/^(\d+)\. (.+)\n?/gm, '<div class="flex gap-2 ml-2"><span class="text-muted-foreground">$1.</span><span>$2</span></div>')
+    .replace(/^[-*] (.+)\n?/gm, '<div class="flex gap-2 ml-2"><span class="text-muted-foreground">·</span><span>$1</span></div>')
     // 分割线
-    .replace(/^---$/gm, '<hr class="border-border my-3">')
-    // 换行
+    .replace(/^---\n?/gm, '<hr class="border-border my-3">')
+    // 剩余换行
     .replace(/\n/g, '<br>');
   return h;
 }
@@ -94,8 +103,9 @@ export function createChat(container, textarea, sendBtn, { onSend }) {
   function clear() { container.innerHTML = ''; }
 
   let aiCard = null;
+  let rawText = ''; // 原始 markdown 累加器（避免 textContent 剥掉格式）
   function streamStart() {
-    if (!streaming) { streaming = true; setEnabled(false); }
+    if (!streaming) { rawText = ''; streaming = true; setEnabled(false); }
     if (!aiCard) {
       const el = bubbleAI();
       container.appendChild(el);
@@ -107,18 +117,18 @@ export function createChat(container, textarea, sendBtn, { onSend }) {
   return {
     append,
     clear,
-    streamDelta(text) { streamStart(); aiCard.innerHTML = renderMD(aiCard.textContent + text); scrollDown(); },
+    streamDelta(text) { streamStart(); rawText += text; aiCard.innerHTML = renderMD(rawText); scrollDown(); },
     streamTool(name) {
       streamStart();
-      const cur = aiCard ? aiCard.textContent : '';
-      if (name === 'write') aiCard.innerHTML = renderMD(cur + '\n⏳ 写入文件…');
-      else if (name === 'read') aiCard.innerHTML = renderMD(cur + '\n⏳ 读取示例…');
-      else aiCard.innerHTML = renderMD(cur + '\n⏳ ' + name + '…');
+      if (name === 'write') rawText += '\n⏳ 写入文件…';
+      else if (name === 'read') rawText += '\n⏳ 读取示例…';
+      else rawText += '\n⏳ ' + name + '…';
+      aiCard.innerHTML = renderMD(rawText);
       scrollDown();
     },
     streamDone() {
-      if (aiCard) aiCard.innerHTML = renderMD(aiCard.textContent);
-      streaming = false; aiCard = null; setEnabled(true); textarea.focus();
+      if (aiCard) aiCard.innerHTML = renderMD(rawText);
+      streaming = false; rawText = ''; aiCard = null; setEnabled(true); textarea.focus();
     },
     streamError(text) { streaming = false; aiCard = null; setEnabled(true); container.appendChild(bubbleError(text)); scrollDown(); },
     setEnabled,

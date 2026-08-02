@@ -84,7 +84,6 @@
       <div class="legendbar" id="legendBar">
         <span class="lg-item on" data-k="v" style="--c:#36d6e7"><span class="lg-sw"></span>速度 v</span>
         <span class="lg-item on" data-k="a" style="--c:#ffd24a"><span class="lg-sw"></span>加速度 a</span>
-        <span class="lg-item on" data-k="mg" style="--c:#ef6f6f"><span class="lg-sw"></span>重力 mg</span>
         <span class="lg-item on" data-k="kx" style="--c:#b48cf5"><span class="lg-sw"></span>弹力 kx</span>
       </div>
       <!-- 阶段标签 -->
@@ -111,7 +110,6 @@
           <table class="stbl">
             <tr><th>球心高度 y</th><td id="sY">—</td><th>弹簧压缩 x</th><td id="sX">—</td></tr>
             <tr><th>速度 v</th><td id="sV">—</td><th>加速度 a</th><td id="sA">—</td></tr>
-            <tr><th>重力 mg</th><td id="sG">—</td><th>弹力 kx</th><td id="sK">—</td></tr>
             <tr><th>动能 KE</th><td id="sKE">—</td><th>弹性势能 PE_s</th><td id="sPES">—</td></tr>
             <tr><th>重力势能 PE_g</th><td id="sPEG">—</td><th>总能 E</th><td id="sE">—</td></tr>
           </table>
@@ -162,7 +160,7 @@
 "use strict";
 /* ---------- 物理常量 / 状态 ---------- */
 const G = 9.81, L0 = 3.0, R = 0.35;
-const S = { k:50, m:1, h0:6, loss:0, speed:0.6, y:6, v:0, t:0, running:false, last:null, show:{v:true,a:true,mg:true,kx:true} };
+const S = { k:50, m:1, h0:6, loss:0, speed:0.6, y:6, v:0, t:0, running:false, last:null, show:{v:true,a:true,kx:true} };
 
 const TOP = function(){ return L0 + R; };
 
@@ -316,14 +314,12 @@ function drawScene(){
   const a = accel(S.y, S.v);
   const comp = Math.max(0, TOP() - S.y);
   const Fspring = S.k * comp;
-  const Fgrav = S.m * G;
   const rPx = R*ppm;
   const leftX  = cx - rPx - 16;
   const rightX = cx + rPx + 16;
 
   if (S.show.v)  drawVecV(ctx, leftX, by, S.v, 14, cCyan, 'v');
   if (S.show.a)  drawVecV(ctx, leftX - 30, by, a, 10, light?'#b8960a':'#ffd24a', 'a');
-  if (S.show.mg) drawVecV(ctx, rightX, by, -Fgrav, 3.0, cRed, 'mg');
   if (S.show.kx && Fspring > 0.01){
     drawVecV(ctx, rightX + 30, by, Fspring, 3.0, cPurple, 'kx');
   }
@@ -439,7 +435,7 @@ function fillStatePanel(key, c){
   const y = c.y;
   const comp = Math.max(0, TOP() - y);
   const a = accel(y, S.v);
-  const Fg = S.m*G, Fs = S.k*comp;
+  const Fs = S.k*comp;
   const ke = 0.5*S.m*S.v*S.v;
   const peg = S.m*G*y;
   const pes = 0.5*S.k*comp*comp;
@@ -464,7 +460,7 @@ function fillStatePanel(key, c){
   const u=function(v,unt){return v.toFixed(3)+'<small>'+(unt||'')+'</small>';};
   $('sY').innerHTML=u(y,'m');        $('sX').innerHTML=u(comp,'m');
   $('sV').innerHTML=u(S.v,'m/s');    $('sA').innerHTML=u(a,'m/s²');
-  $('sG').innerHTML=u(Fg,'N');       $('sK').innerHTML=u(Fs,'N');
+  $('sK').innerHTML=u(Fs,'N');
   $('sKE').innerHTML=u(ke,'J');      $('sPES').innerHTML=u(pes,'J');
   $('sPEG').innerHTML=u(peg,'J');    $('sE').innerHTML=u(E,'J');
 }
