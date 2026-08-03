@@ -7,6 +7,7 @@ const llmConfig = require('./llm-config');
 const { selectWorkdir, setupWorkdir } = require('./workdir');
 const { createAgent } = require('./agent');
 const { createTabManager } = require('./tab-manager');
+const { createBackup, cleanupStaleUnbound } = require('./demo-write');
 
 let win = null;
 let tm = null;             // TabManager — 替换旧的 agents Map + ensureAgent + scanTabs
@@ -27,7 +28,15 @@ function initTabManager() {
     workdir,
     llm,
     agentFactory({ workdir, llm, file }) {
-      return createAgent({ workdir, llm, file });
+      return createAgent({
+        workdir, llm, file,
+        // 改名（write_demo 写新文件名）→ TabManager 重挂 key + 刷新预览（ADR 0013）
+        onRename(oldPath, newPath) {
+          if (!tm) return;
+          tm.rekey(oldPath, newPath);
+          if (win && !win.isDestroyed()) win.webContents.send('preview:file-changed', { path: newPath });
+        },
+      });
     },
   });
 
@@ -37,6 +46,10 @@ function initTabManager() {
     const ae = event.assistantMessageEvent;
     if (event.type === 'message_update' && ae && ae.type === 'text_delta') {
       win.webContents.send('chat:stream', { type: 'delta', text: ae.delta || '' });
+    } else if (event.type === 'message_update' && ae && ae.type === 'thinking_delta') {
+      win.webContents.send('chat:stream', { type: 'thinking-delta', text: ae.delta || '' });
+    } else if (event.type === 'message_update' && ae && ae.type === 'thinking_end') {
+      win.webContents.send('chat:stream', { type: 'thinking-end' });
     } else if (event.type === 'message_update' && ae && (ae.type === 'tool_use' || ae.type === 'tool_call')) {
       win.webContents.send('chat:stream', { type: 'tool', name: ae.toolName || ae.name || ae.tool || '工具' });
     } else if (event.type === 'message_update' && ae && ae.type === 'tool_result') {
@@ -137,9 +150,15 @@ ipcMain.handle('chat:send', async (_e, text) => {
   }
   if (!a) return { ok: false, error: 'Agent 未就绪' };
   try {
-    // 强制输出结构：拼在用户消息前面，确保 agent 生成 HTML
-    const prompt = '【输出要求 — 必须严格遵守】\n你的回答必须包含四个阶段，并用 write 工具创建 HTML 演示文件：\n\n1. 【问题理解】— 简述物理问题\n2. 【解答】— 物理推导与结论（公式用 $$...$$ 或 $...$）\n3. 【演示生成】— 说明生成了什么交互演示，然后**立即调用 write 工具写出 HTML 文件**（文件名用英文 slug，第一行 `<!-- physics-demo: 标题 -->`；文件规范见 system prompt）\n4. ✅ 文件已更新：[文件名]\n\n⚠️ 核心任务：生成可交互的 HTML 物理演示，不只是回答问题！\n\n---\n用户消息：\n' + text;
-    await a.send(prompt);
+    // 写前备份：目标文件存在时快照到 .piagent/<stem>/backups/（保留 10 版，ADR 0011）
+    if (activeTab) {
+      try { createBackup(workdir, path.basename(activeTab).replace(/\.html$/, ''), Date.now()); } catch {}
+    }
+    await a.send(text);
+    // 回合结束刷新预览（agent 写文件发生在回合内；ADR 0003）
+    if (activeTab && win && !win.isDestroyed()) {
+      win.webContents.send('preview:file-changed', { path: activeTab });
+    }
     return { ok: true };
   } catch (e) {
     win && win.webContents.send('chat:stream', { type: 'error', text: String(e && e.message || e) });
@@ -151,6 +170,7 @@ app.whenReady().then(async () => {
   workdir = loadWorkdir();
   if (workdir && fs.existsSync(workdir)) {
     setupWorkdir(workdir);
+    cleanupStaleUnbound(workdir); // 清理上次崩溃残留的未绑定会话目录（ADR 0013）
     initTabManager();
   } else { workdir = null; }
   createWindow();

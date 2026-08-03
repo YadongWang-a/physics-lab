@@ -31,6 +31,8 @@ if (inp) inp.addEventListener('keydown', (e) => {
 // 流式事件
 onStream((p) => {
   if (p.type === 'delta') chat.streamDelta(p.text);
+  else if (p.type === 'thinking-delta') chat.streamThinking(p.text);
+  else if (p.type === 'thinking-end') chat.streamThinkingEnd();
   else if (p.type === 'tool') chat.streamTool(p.name);
   else if (p.type === 'done') chat.streamDone();
   else if (p.type === 'error') chat.streamError(p.text);

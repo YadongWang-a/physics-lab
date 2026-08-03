@@ -45,16 +45,33 @@ function createTabManager({ workdir, llm, agentFactory }) {
 
   startWatcher();
 
+  // 改名（write_demo 写新文件名）时重挂 key：agents Map 与 activePath（ADR 0013）。
+  // 通知由 notify() 与 fs.watch 双保险触发；Preview 刷新由 main 的 onRename 转发。
+  function rekey(oldPath, newPath) {
+    if (!agents.has(oldPath)) return;
+    const agent = agents.get(oldPath);
+    agents.delete(oldPath);
+    agents.set(newPath, agent);
+    if (_activePath === oldPath) _activePath = newPath;
+    notify();
+  }
+
   return {
     /** 获取或创建 agent——ADR 0004：一个文件一个 session（异步） */
     async getOrCreate(filePath) {
       if (disposed) throw new Error('TabManager disposed');
       if (agents.has(filePath)) return agents.get(filePath);
-      const agent = await agentFactory({ workdir, llm, file: filePath });
+      const agent = await agentFactory({
+        workdir, llm, file: filePath,
+        onRename: (oldPath, newPath) => rekey(oldPath, newPath),
+      });
       agents.set(filePath, agent);
       _activePath = filePath;
       return agent;
     },
+
+    /** 改名重挂：agents Map key 与 activePath 迁移到新路径 */
+    rekey,
 
     /** 扫描工作目录中带 physics-demo 标记的 .html */
     listFiles() { return scanFiles(); },

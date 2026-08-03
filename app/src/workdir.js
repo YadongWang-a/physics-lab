@@ -35,6 +35,10 @@ function setupWorkdir(workdir) {
   const dstLib = path.join(workdir, 'lib');
   copyDir(srcLib, dstLib);
 
+  // CONVENTIONS.md：写作规范（ADR 0012），agent 写前必须读取；始终覆盖刷新
+  const srcConv = path.join(__dirname, '..', 'CONVENTIONS.md');
+  if (fs.existsSync(srcConv)) fs.copyFileSync(srcConv, path.join(workdir, 'CONVENTIONS.md'));
+
   // 示例 HTML：放 workdir 根（与 lib/ 同级），始终覆盖刷新（保证标记/样式与源同步）
   for (const f of DEMO_FILES) {
     const src = path.join(root, f);

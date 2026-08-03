@@ -104,7 +104,41 @@ export function createChat(container, textarea, sendBtn, { onSend }) {
 
   let aiCard = null;
   let rawText = ''; // 原始 markdown 累加器（避免 textContent 剥掉格式）
+
+  // thinking teaser：只显示前 THINKING_TEASER 字，thinking 结束即移除（ADR 0011 附注）
+  const THINKING_TEASER = 120;
+  let thinkingEl = null;
+  let rawThinking = '';
+  function streamThinking(text) {
+    rawThinking += text;
+    if (!thinkingEl) {
+      const el = document.createElement('div');
+      el.className = 'flex gap-3';
+      el.innerHTML =
+        `<div class="flex-1 min-w-0">` +
+        `<div class="text-[12px] text-muted-foreground mb-1">Physics Lab Agent · 思考中</div>` +
+        `<div class="thinking-teaser inline-block max-w-full rounded-xl rounded-tl-sm bg-muted/50 px-4 py-2 text-[13px] leading-relaxed text-muted-foreground"></div>` +
+        `</div>`;
+      container.appendChild(el);
+      thinkingEl = el.querySelector('.thinking-teaser');
+    }
+    thinkingEl.textContent = rawThinking.length > THINKING_TEASER
+      ? rawThinking.slice(0, THINKING_TEASER) + '…'
+      : rawThinking;
+    scrollDown();
+  }
+  function streamThinkingEnd() {
+    if (thinkingEl) {
+      const row = thinkingEl.closest('.flex');
+      if (row) row.remove();
+      thinkingEl = null;
+      rawThinking = '';
+      scrollDown();
+    }
+  }
+
   function streamStart() {
+    streamThinkingEnd(); // 安全兜底：答案流开始时移除残留 teaser
     if (!streaming) { rawText = ''; streaming = true; setEnabled(false); }
     if (!aiCard) {
       const el = bubbleAI();
@@ -120,17 +154,22 @@ export function createChat(container, textarea, sendBtn, { onSend }) {
     streamDelta(text) { streamStart(); rawText += text; aiCard.innerHTML = renderMD(rawText); scrollDown(); },
     streamTool(name) {
       streamStart();
-      if (name === 'write') rawText += '\n⏳ 写入文件…';
+      if (name === 'write_demo') rawText += '\n⏳ 写入演示文件…';
+      else if (name === 'edit_demo') rawText += '\n⏳ 修改演示文件…';
+      else if (name === 'validate_demo') rawText += '\n⏳ 校验演示…';
       else if (name === 'read') rawText += '\n⏳ 读取示例…';
       else rawText += '\n⏳ ' + name + '…';
       aiCard.innerHTML = renderMD(rawText);
       scrollDown();
     },
+    streamThinking,
+    streamThinkingEnd,
     streamDone() {
+      streamThinkingEnd();
       if (aiCard) aiCard.innerHTML = renderMD(rawText);
       streaming = false; rawText = ''; aiCard = null; setEnabled(true); textarea.focus();
     },
-    streamError(text) { streaming = false; aiCard = null; setEnabled(true); container.appendChild(bubbleError(text)); scrollDown(); },
+    streamError(text) { streamThinkingEnd(); streaming = false; aiCard = null; setEnabled(true); container.appendChild(bubbleError(text)); scrollDown(); },
     setEnabled,
     switchContext(title) {
       clear();

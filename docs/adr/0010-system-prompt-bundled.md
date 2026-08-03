@@ -1,7 +1,7 @@
 # ADR 0010: System prompt 应用内联，不写 AGENTS.md 到工作目录
 
 **日期**: 2026-08-01
-**状态**: 已接受
+**状态**: 已被 [ADR 0012](./0012-conventions-file-based.md) 取代（规范文件化，prompt 收为薄骨架）
 
 ## 背景
 

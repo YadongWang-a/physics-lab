@@ -44,22 +44,26 @@ CSS 变量（浅色）：
 
 ```
 Electron 主进程
-├── Pi Agent SDK（createAgentSession, defineTool）
-├── 文件管理（工作目录、lib/ 复制）
+├── Pi Agent SDK（createAgentSession + customTools）
+├── 文件管理（工作目录、lib/ + CONVENTIONS.md 复制）
+├── demo-write.js（校验/备份/会话绑定纯逻辑，唯一测试接缝）
 ├── LLM 配置（OpenAI 兼容 endpoint + 密钥 + 模型名，safeStorage 加密，见 ADR 0008）
 └── IPC 桥接 → 渲染进程
 
 渲染进程
-├── Chat 面板（流式输出）
+├── Chat 面板（流式输出 + thinking teaser）
 ├── Preview 面板（iframe file://）
 ├── 标签栏（Tab = HTML + Session）
 └── 文件树（过滤 physics-demo 注释标记）
 ```
 
-Agent 工具（见 ADR 0009）：
-- SDK 内置 `read`/`write`/`edit`/`ls`/`find`/`grep`，**禁用 `bash`**，无路径隔离（Pi 无内置沙箱，接受逃逸风险）
-- Preview：主进程 `fs.watch` 监听当前演示文件自动刷新 iframe，**不做工具**
-- System prompt 应用内联（经 `DefaultResourceLoader({ systemPrompt })`），含示例目录索引 + 输出结构 + 浅色/演示模式约定（见 ADR 0010）
+Agent 工具（见 ADR 0011，取代 0009 工具列表）：
+- 白名单 `read`/`grep`/`find`/`ls` + 自定义 `write_demo`（整写）/`edit_demo`（局部改）/`validate_demo`（自检），**禁用 `bash`**，无路径隔离（Pi 无内置沙箱，接受逃逸风险）
+- 写入前主进程校验拦截：命名 kebab-case、作用域、结构、`physics-demo` 标记、演示模式监听器、内联 JS 语法 = 硬错误；浅色违规/形态要素 = 非阻塞警告
+- 每轮对话写前自动备份（`.piagent/<stem>/backups/`，留 10 版）；无 undo 命令（数据留作安全网）
+- System prompt 收为薄骨架（纪律 + 输出结构 + 示例索引，ADR 0012）；写作规范在 `app/CONVENTIONS.md`（随 lib/ 复制进工作目录），agent 写前必须 read
+- 会话：`.piagent/<stem>/` 布局，打开文件标签恢复历史，新建演示 `_new-<token>` 未绑定、关闭标签时绑定（ADR 0013）
+- 演示形态：静态/动态双形态，`<meta name="demo-mode">` 必声明，硬校验（ADR 0014）
 
 Agent 输出结构：
 1. 【问题理解】— 复述物理问题
@@ -80,6 +84,11 @@ Agent 输出结构：
 | 为什么只有浅色 | `docs/adr/0006-light-theme-only.md` |
 | 演示模式怎么工作 | `docs/adr/0007-present-mode.md` |
 | LLM 怎么接入 | `docs/adr/0008-llm-openai-compatible.md` |
-| Agent 工具与沙箱取舍 | `docs/adr/0009-agent-tools-no-sandbox.md` |
-| System prompt 放哪 | `docs/adr/0010-system-prompt-bundled.md` |
+| Agent 工具与沙箱取舍 | `docs/adr/0009-agent-tools-no-sandbox.md`（工具列表已被 0011 取代） |
+| System prompt 放哪 | `docs/adr/0010-system-prompt-bundled.md`（已被 0012 取代） |
+| 写入校验怎么工作 | `docs/adr/0011-validation-gated-write-tools.md` |
+| 写作规范放哪 | `docs/adr/0012-conventions-file-based.md` → `app/CONVENTIONS.md` |
+| 会话怎么持久化 | `docs/adr/0013-session-persistence-restore.md` |
+| 静态/动态双形态 | `docs/adr/0014-demo-mode-morphology.md` |
+| 校验/备份/绑定逻辑 | `app/src/demo-write.js`（纯逻辑 + vitest 全分支覆盖） |
 | 现有演示长什么样 | `ball-spring.html`, `arc-projectile.html`, etc. |

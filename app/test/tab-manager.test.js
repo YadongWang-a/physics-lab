@@ -12,8 +12,8 @@ const { createTabManager } = require('../src/tab-manager');
 describe('TabManager', () => {
   let workdir, tm, agentsCreated;
 
-  function fakeFactory({ workdir, llm, file }) {
-    agentsCreated.push({ workdir, llm, file });
+  function fakeFactory({ workdir, llm, file, onRename }) {
+    agentsCreated.push({ workdir, llm, file, onRename });
     return Promise.resolve({
       file,
       _subscribed: false,
@@ -100,5 +100,32 @@ describe('TabManager', () => {
     expect(tm.activePath).toBe('b.html');
     await tm.getOrCreate(null);
     expect(tm.activePath).toBeNull();
+  });
+
+  // ── Seam G：改名重挂（write_demo 写新文件名 → rekey，ADR 0013） ──
+  it('rekey moves the agent to the new path and updates activePath', async () => {
+    const a = await tm.getOrCreate('a.html');
+    const cb = vi.fn();
+    tm.onChange(cb);
+    tm.rekey('a.html', 'b.html');
+    expect(tm.activePath).toBe('b.html');
+    // 复用同一 agent 实例
+    const a2 = await tm.getOrCreate('b.html');
+    expect(a2).toBe(a);
+    expect(agentsCreated.length).toBe(1);
+    // 旧路径不再命中
+    expect(await tm.getOrCreate('a.html')).not.toBe(a);
+    // 通知触发
+    expect(cb).toHaveBeenCalled();
+  });
+
+  it('agentFactory 收到 onRename 回调且回调会重挂 key', async () => {
+    const a = await tm.getOrCreate('a.html');
+    const args = agentsCreated.find((x) => x.file === 'a.html');
+    expect(typeof args.onRename).toBe('function');
+    args.onRename('a.html', 'renamed.html');
+    expect(tm.activePath).toBe('renamed.html');
+    const again = await tm.getOrCreate('renamed.html');
+    expect(again).toBe(a);
   });
 });

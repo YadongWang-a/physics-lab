@@ -37,8 +37,11 @@ Electron 主进程                     渲染进程
 | Preview | `file://` iframe | 相对路径天然工作 |
 | 标签页 | 与 AgentSession 1:1 | 独立上下文，互不干扰 |
 | 文件识别 | `<!-- physics-demo: 标题 -->` | 低调，同时标记和标题 |
+| 写入校验 | `write_demo`/`edit_demo`/`validate_demo` | 写入过主进程校验拦截，lib/规范/命名不被破坏（ADR 0011） |
+| 写作规范 | `CONVENTIONS.md` 文件化 | agent 写前必读，规范与代码解耦（ADR 0012） |
+| 会话持久化 | `.piagent/<stem>/` + 恢复 | 隔天重启同一文件接着聊（ADR 0013） |
+| 演示形态 | 静态/动态双形态 `demo-mode` | 平衡/受力类不做强行动画（ADR 0014） |
 | LLM 配置 | `safeStorage` 加密 | 本地安全存储 API Key |
-| 会话持久化 | Pi Agent SDK 自动 | 关标签页不丢历史 |
 
 详见 [`CONTEXT.md`](./CONTEXT.md) 和 [`docs/adr/`](./docs/adr/)。
 
@@ -46,11 +49,12 @@ Electron 主进程                     渲染进程
 
 - Electron 单窗口，Chat + Preview 分栏，可折叠可拖拽
 - 首次启动配置 LLM（API key / endpoint / model）
-- 选择工作目录，自动复制 `lib/` + `examples/`
+- 选择工作目录，自动复制 `lib/` + `CONVENTIONS.md` + examples
 - 顶部标签栏，一个标签页 = 一个 HTML + 一个 AgentSession
 - 文件树过滤 `<!-- physics-demo: 标题 -->` 标记
-- Chat 流式输出 — 【问题理解】→【解答】→【演示生成】→ ✅ 文件已更新
-- Agent 本轮完成 → Preview 自动刷新
-- 标签页关闭 → session 保留，重开恢复历史
-- 浅色主题（唯一）
+- Chat 流式输出 — 【问题理解】→【解答】→【演示生成】→ ✅ 文件已更新（thinking 只显示前 120 字、完毕即隐藏）
+- Agent 写文件过校验拦截（结构/标记/语法硬错误，浅色/形态违规警告）
+- 每轮写前自动备份到 `.piagent/<stem>/backups/`（保留 10 版）
+- Agent 本轮完成 → Preview 自动刷新；文件改名 → 标签/预览自动跟随
+- 打开文件标签恢复历史会话；浅色主题（唯一）
 - 演示模式：一键收起 Chat、画布撑满，便于投屏讲解

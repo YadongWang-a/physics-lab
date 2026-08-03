@@ -16,15 +16,18 @@
 ### Agent Session 模型
 
 - 每个标签页 = 一个独立的 `AgentSession`
-- Session 由 Pi Agent SDK 自动持久化到 `<工作目录>/.pi/agent/sessions/`（通过 `agentDir` 配置，见 ADR 0004）
-- 关标签页不销毁 session，重开恢复历史
-- 支持手动删除不需要的 session
+- Session 持久化到 `<工作目录>/.piagent/<stem>/`（ADR 0013）：打开文件标签自动恢复历史；新建演示用未绑定目录 `_new-<token>`，关闭标签/退出时绑定，未写文件则清理，启动时清残留
+- 文件改名（agent 写新文件名）→ TabManager 重挂 key、Preview 刷新
 
 ### Agent 工具定义
 
 ```
-工具集（见 ADR 0009）：
-  read / write / edit / ls / find / grep — SDK 内置，**禁 bash**
+工具集（见 ADR 0011，取代 0009 工具列表）：
+  read / grep / find / ls — 只读内置，**禁 bash**
+  write_demo(name, content) — 整文件写，写入前主进程校验拦截（硬错误：命名/作用域/结构/physics-demo 标记/演示监听器/内联 JS 语法；警告：浅色违规/形态要素）
+  edit_demo(old_text, new_text) — 局部修改目标文件，修改后的完整文件过同一校验
+  validate_demo(name, content) — 写前自检，不写盘
+  备份：每轮对话写前快照到 .piagent/<stem>/backups/（留 10 版，无 undo 命令）
   Preview：主进程 fs.watch 自动刷新，不做工具
 ```
 
