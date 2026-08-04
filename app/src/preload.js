@@ -12,6 +12,7 @@ contextBridge.exposeInMainWorld('api', {
 
   // Chat
   send: (text) => ipcRenderer.invoke('chat:send', text),
+  stop: () => ipcRenderer.invoke('chat:stop'),
   onStream: (cb) => {
     const h = (_e, payload) => cb(payload);
     ipcRenderer.on('chat:stream', h);

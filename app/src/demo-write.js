@@ -2,11 +2,10 @@
 // 移植自 pi-agent-test/cli/core.mjs：命名校验 / validate_demo 规则 / 备份轮转 / 会话绑定。
 // 差异：a) app 用 safeStorage 存配置，故无 loadConfig；b) 增加 app 专属硬校验
 // （physics-demo 标记、演示模式监听器，见 ADR 0005/0007）与浅色/形态警告；
-// c) 增加内联 JS 语法检查（node --check）。
+// c) 增加内联 JS 语法检查（new Function 编译检查，零进程开销）。
 // 不依赖 pi SDK；纯 Node fs；可写可测。
 'use strict';
 
-const { spawnSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
@@ -173,7 +172,7 @@ function appWarnings(html) {
   return warnings;
 }
 
-/* ---------- 内联 JS 语法检查(硬错误,node --check) ---------- */
+/* ---------- 内联 JS 语法检查(硬错误,new Function 编译检查) ---------- */
 
 /**
  * 提取内联 <script>(无 src)并逐个做语法检查。
@@ -183,9 +182,18 @@ function checkInlineJsSyntax(html) {
   const errors = [];
   const scripts = [...html.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi)];
   for (const [i, m] of scripts.entries()) {
-    const check = spawnSync(process.execPath, ['--check', '-'], { input: m[1], encoding: 'utf8' });
-    if (check.status !== 0) {
-      errors.push(`内联脚本 #${i + 1} 语法错误: ${String(check.stderr).trim().slice(0, 300)}`);
+    // 用 new Function 做语法编译检查：只编译不执行，零进程开销、不阻塞主进程。
+    // 原 spawnSync(process.execPath,['--check','-']) 用 Electron 二进制跑 node --check，
+    // Electron 不认纯 node 的 --check -，子进程挂起/拉起整套 GUI 进程，spawnSync 永久阻塞主进程致"未响应"。
+    // 等价性：demo 内联脚本均为普通脚本（无 import/export 顶层 ESM 语法，见 CONVENTIONS），
+    // new Function 按函数体解析，对普通脚本的语法错误检测与 node --check 等价。
+    try {
+      // eslint-disable-next-line no-new-func
+      new Function(m[1]);
+    } catch (e) {
+      if (e instanceof SyntaxError) {
+        errors.push(`内联脚本 #${i + 1} 语法错误: ${String(e.message).trim().slice(0, 300)}`);
+      }
     }
   }
   return errors;

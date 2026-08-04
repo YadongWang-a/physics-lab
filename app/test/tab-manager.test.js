@@ -102,6 +102,34 @@ describe('TabManager', () => {
     expect(tm.activePath).toBeNull();
   });
 
+  // ── Seam H：并发防护（getOrCreate 同文件并发只创建一次 agent） ──
+  it('concurrent getOrCreate for same file creates only one agent', async () => {
+    // 用延迟的 factory 模拟耗时创建，暴露"进行中 agents.has 仍为 false"的竞态
+    let resolveCreate;
+    const slowFactory = ({ workdir, llm, file, onRename }) => {
+      agentsCreated.push({ file });
+      return new Promise((resolve) => { resolveCreate = () => resolve({
+        file, _subscribed: false, send: vi.fn().mockResolvedValue(undefined),
+        subscribe: vi.fn().mockReturnValue(() => {}), dispose: vi.fn(),
+      }); });
+    };
+    const slowTm = createTabManager({
+      workdir, llm: { baseUrl: 'x', apiKey: 'k', model: 'm' }, agentFactory: slowFactory,
+    });
+    try {
+      // 两次并发调用（都未 resolve 前）
+      const p1 = slowTm.getOrCreate('a.html');
+      const p2 = slowTm.getOrCreate('a.html');
+      expect(agentsCreated.length).toBe(1); // 第二次复用进行中的创建，不新建
+      resolveCreate();
+      const [a1, a2] = await Promise.all([p1, p2]);
+      expect(a1).toBe(a2); // 同一个 agent 实例
+      expect(agentsCreated.length).toBe(1);
+    } finally {
+      slowTm.dispose();
+    }
+  });
+
   // ── Seam G：改名重挂（write_demo 写新文件名 → rekey，ADR 0013） ──
   it('rekey moves the agent to the new path and updates activePath', async () => {
     const a = await tm.getOrCreate('a.html');

@@ -4,7 +4,7 @@ import { createTabBar } from './tabs.js';
 import { createPreview } from './preview.js';
 
 const { getConfig, setConfig, getWorkdir, selectWorkdir, scanTabs, activateTab, onTabsChanged,
-        send, onStream, onFileChanged, debug } = window.api;
+        send, stop, onStream, onFileChanged, debug } = window.api;
 const $ = (id) => document.getElementById(id);
 
 // ---- 聊天模块 ----
@@ -17,15 +17,19 @@ const chat = createChat(
       const res = await send(text);
       if (!res.ok) chat.streamError(res.error || '发送失败');
     },
+    onStop: async () => {
+      const res = await stop();
+      if (!res.ok) chat.streamError(res.error || '停止失败');
+    },
   },
 );
 
-// 表单提交
+// 表单提交（send 按钮点击走 handleSendClick 分发：streaming 时中断、否则发送）
 const sendBtn = document.querySelector('[data-dom-id="btn-send-message"]');
-if (sendBtn) sendBtn.addEventListener('click', () => chat.send());
+if (sendBtn) sendBtn.addEventListener('click', () => chat.handleSendClick());
 const inp = $('input');
 if (inp) inp.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); chat.send(); }
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); chat.handleSendClick(); }
 });
 
 // 流式事件

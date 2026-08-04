@@ -67,10 +67,9 @@ function initTabManager() {
     const a = await _origGetOrCreate(filePath);
     if (a && !a._subscribed) {
       a._subscribed = true;
-      // 全量事件日志（调试用）——帮我们看到 tool 事件的真实类型
-      a.session.subscribe((evt) => {
-        try { fs.appendFileSync(path.join(app.getPath('userData'), 'events.log'), JSON.stringify({ type: evt && evt.type, aeType: evt && evt.assistantMessageEvent && evt.assistantMessageEvent.type, keys: evt ? Object.keys(evt).slice(0,10) : [] }) + '\n'); } catch {}
-      });
+      // 全量事件转发到渲染进程（_onEvt）。
+      // 注：曾有同步 fs.appendFileSync 的调试日志订阅器，每个 thinking_delta 同步写盘，
+      // 高频事件下阻塞主进程致"没响应"（events.log 堆到 27 万行）。已删除。
       a.subscribe(_onEvt);
     }
     return a;
@@ -162,6 +161,17 @@ ipcMain.handle('chat:send', async (_e, text) => {
     return { ok: true };
   } catch (e) {
     win && win.webContents.send('chat:stream', { type: 'error', text: String(e && e.message || e) });
+    return { ok: false, error: String(e && e.message || e) };
+  }
+});
+
+ipcMain.handle('chat:stop', async () => {
+  if (!tm || !activeTab) return { ok: false, error: '无活动标签页' };
+  try {
+    const a = await tm.getOrCreate(activeTab);
+    if (a && a.stop) await a.stop();
+    return { ok: true };
+  } catch (e) {
     return { ok: false, error: String(e && e.message || e) };
   }
 });

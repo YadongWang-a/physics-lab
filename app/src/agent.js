@@ -92,6 +92,9 @@ function makeWriteDemo(state, onRename) {
         state.bound = true;
         state.stem = stemOf(name);
         log(`工具 write_demo 首次写入 token=${state.token} → ${name}(退出时绑定)`);
+        // 通知主进程新文件路径：rekey 把 agents Map 的 key 从 null 迁到新路径 + onRename 发 preview:file-changed
+        // （新生成场景 activeTab=null，main.js 的 chat:send 末尾 if(activeTab) 不成立不会发 preview，故此处补）
+        try { onRename(null, path.join(state.cwd, name)); } catch {}
         return toolOk(`已生成 ${name}。${warnSuffix(warnings)}请按 CONVENTIONS 自检清单逐条报告(含⑧形态判定)。`);
       }
 
@@ -218,6 +221,8 @@ async function createAgent({ workdir, llm, file, onRename }) {
   log('ModelRuntime created, built-in providers: ' + modelRuntime.getProviders().map(p => p.id).join(','));
 
   // 2. 注册自定义 OpenAI-compatible provider（baseUrl + model 定义，key 后面运行时注入）
+  // 模型定义对齐 SDK 内置 deepseek.json：reasoning:true + thinkingFormat:"deepseek" + thinkingLevelMap
+  // （原 reasoning:false 会跳过 deepseek 思考分支，导致 thinking level 全无效、reasoning_content 解析异常）
   modelRuntime.registerProvider('app-openai', {
     name: 'App OpenAI',
     baseUrl: llm.baseUrl,
@@ -225,11 +230,28 @@ async function createAgent({ workdir, llm, file, onRename }) {
     models: [{
       id: llm.model,
       name: llm.model,
-      reasoning: false,
+      reasoning: true,
       input: ['text'],
       cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
       contextWindow: 128000,
       maxTokens: 8192,
+      // deepseek 思考格式：让 SDK 走 thinkingFormat==="deepseek" 分支，
+      // 发 thinking:{type:enabled} + reasoning_effort 参数；requiresReasoningContentOnAssistantMessages
+      // 让历史消息正确携带 reasoning_content（避免多轮丢失上下文）
+      compat: {
+        thinkingFormat: 'deepseek',
+        requiresReasoningContentOnAssistantMessages: true,
+        supportsReasoningEffort: true,
+      },
+      // thinkingLevelMap：控制可用思考档位与发往 API 的 reasoning_effort 值。
+      // getSupportedThinkingLevels 把 mapped===null 的档位过滤为"不可用"（会被 clamp 回退），
+      // 故要让 low 真正生效，其值必须非 null（自映射 'low'），否则 clampThinkingLevel('low') 会回退到 high。
+      // off -> 'disabled'：可用（非 null）；clamp 返回 'off'，streamSimple 把 'off' 转成 reasoningEffort=undefined，
+      //   走 :596 分支发 thinking:{type:"disabled"} 关思考。
+      // low -> 'low'：可用；reasoningEffort='low'，发 thinking:{type:"enabled"} + reasoning_effort:"low"（少想）。
+      // minimal/medium -> null：不可用（被过滤），避免误用中间档。
+      // high/max -> 显式映射；xhigh 不在 map 里 -> 不可用。
+      thinkingLevelMap: { minimal: null, low: 'low', medium: null, high: 'high', max: 'max', off: 'disabled' },
     }],
   });
   log('registered provider app-openai');
@@ -271,6 +293,17 @@ async function createAgent({ workdir, llm, file, onRename }) {
   });
   log('createAgentSession ok, sessionId=' + session.sessionId + ' isStreaming=' + session.isStreaming);
 
+  // 7. 默认思考档设为 low（少想、保速度）
+  // 对 DeepSeek：reasoning_effort:"low" 让模型缩短思考；若 endpoint 不认该参数则退化为默认思考量。
+  // off/high/max 也可用（thinkingLevelMap 已配），需要时由 UI 切换。
+  try {
+    const supported = session.getAvailableThinkingLevels ? session.getAvailableThinkingLevels() : [];
+    session.setThinkingLevel('low');
+    log('setThinkingLevel low (supported: ' + JSON.stringify(supported) + ')');
+  } catch (e) {
+    log('setThinkingLevel failed: ' + (e && e.message || e));
+  }
+
   let firstTurn = mode === 'generate';
 
   return {
@@ -296,6 +329,18 @@ ${text}`;
       log('session.prompt start');
       await session.prompt(text);
       log('session.prompt end');
+    },
+    // 中断当前回合（SDK 公开 API session.abort()，见 agent-session.d.ts:440）。
+    // abort 后 SDK 仍发 turn_end（_runAgentSettled 在 finally 必跑）-> main.js turn_end 处理器
+    // -> chat:stream {type:'done'} -> streamDone() 恢复 UI，故此处无需额外状态恢复。
+    async stop() {
+      try {
+        log('session.abort start');
+        await session.abort();
+        log('session.abort end');
+      } catch (e) {
+        log('session.abort failed: ' + (e && e.message || e));
+      }
     },
     async dispose() {
       try { session.dispose(); } catch {}

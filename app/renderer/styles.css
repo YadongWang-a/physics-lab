@@ -57,3 +57,26 @@ header button, header .brand, header .win-controls, header input { -webkit-app-r
 }
 .win-btn:hover { background: var(--pl-muted); color: var(--pl-foreground); }
 .win-btn-close:hover { background: var(--pl-state-error); color: #fff; }
+
+/* ---- thinking 滚动尾窗（ADR 0011 附注：UI 细节，思考结束即移除）---- */
+.thinking-teaser {
+  position: relative;
+  display: block;            /* 升级为块级定高框（原 inline teaser） */
+  max-height: 80px;         /* ~3 行 */
+  overflow-y: auto;
+  scroll-behavior: smooth;
+  white-space: pre-wrap;    /* 保留思考原文换行 */
+  word-break: break-word;
+  width: 100%;               /* 覆盖 inline-block，撑满气泡宽度 */
+  box-sizing: border-box;
+}
+/* 顶部渐隐遮罩：字向上滚出时淡入背景而非硬切 */
+.thinking-teaser::before {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; top: 0;
+  height: 1.5em;            /* 约一行高 */
+  background: linear-gradient(to bottom, var(--pl-muted), rgba(241,245,249,0));
+  pointer-events: none;
+  z-index: 1;
+}

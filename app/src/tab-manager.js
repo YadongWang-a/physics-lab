@@ -6,6 +6,7 @@ const path = require('path');
 
 function createTabManager({ workdir, llm, agentFactory }) {
   const agents = new Map();          // filePath|null → AgentHandle
+  const pending = new Map();         // filePath -> in-flight Promise<AgentHandle>（getOrCreate 并发防护）
   const listeners = new Set();       // (tabs: Tab[]) => void
   let _activePath = null;            // null = 新建演示
   let watcher = null;
@@ -61,13 +62,23 @@ function createTabManager({ workdir, llm, agentFactory }) {
     async getOrCreate(filePath) {
       if (disposed) throw new Error('TabManager disposed');
       if (agents.has(filePath)) return agents.get(filePath);
-      const agent = await agentFactory({
+      // 并发防护：创建中进行时复用同一个 in-flight Promise，避免重复 createAgent
+      // （重复 createAgent 会重复 loadSdk import + 重复 SessionManager.open 同一会话目录 -> 死锁）
+      if (pending.has(filePath)) return pending.get(filePath);
+      const p = Promise.resolve(agentFactory({
         workdir, llm, file: filePath,
         onRename: (oldPath, newPath) => rekey(oldPath, newPath),
+      })).then((agent) => {
+        agents.set(filePath, agent);
+        _activePath = filePath;
+        pending.delete(filePath);
+        return agent;
+      }).catch((err) => {
+        pending.delete(filePath); // 失败也要清理，避免永久卡死
+        throw err;
       });
-      agents.set(filePath, agent);
-      _activePath = filePath;
-      return agent;
+      pending.set(filePath, p);
+      return p;
     },
 
     /** 改名重挂：agents Map key 与 activePath 迁移到新路径 */
@@ -94,6 +105,7 @@ function createTabManager({ workdir, llm, agentFactory }) {
       if (watcher) { try { watcher.close(); } catch {} watcher = null; }
       for (const a of agents.values()) { try { a.dispose(); } catch {} }
       agents.clear();
+      pending.clear();
       listeners.clear();
     },
   };

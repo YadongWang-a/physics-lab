@@ -42,8 +42,11 @@ function renderMD(text) {
 
 const AVATAR_AI = '<svg class="w-3.5 h-3.5 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3L12 3Z"/></svg>';
 const AVATAR_USER = '<svg class="w-3.5 h-3.5 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
+// 发送/停止按钮图标（streaming 时 send 按钮切换为停止按钮，复用同一 DOM）
+const ICON_SEND = '<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>';
+const ICON_STOP = '<svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>';
 
-export function createChat(container, textarea, sendBtn, { onSend }) {
+export function createChat(container, textarea, sendBtn, { onSend, onStop }) {
   let streaming = false;
 
   function scrollDown() { container.scrollTop = container.scrollHeight; }
@@ -68,7 +71,7 @@ export function createChat(container, textarea, sendBtn, { onSend }) {
       `<div class="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0">${AVATAR_AI}</div>` +
       `<div class="flex-1 min-w-0">` +
       `<div class="text-[12px] text-muted-foreground mb-1">Physics Lab Agent</div>` +
-      `<div class="inline-block max-w-full rounded-xl rounded-tl-sm bg-card border border-border px-4 py-3 text-[14px] leading-relaxed text-foreground"></div>` +
+      `<div class="inline-block max-w-full rounded-xl rounded-tl-sm bg-card border border-border px-4 py-3 text-[14px] leading-relaxed text-foreground whitespace-pre-wrap"></div>` +
       `</div>`;
     return el;
   }
@@ -82,9 +85,20 @@ export function createChat(container, textarea, sendBtn, { onSend }) {
     return el;
   }
 
+  // send 按钮在"发送"与"停止"两种模式间切换：streaming 时变停止按钮（可中断），空闲时变发送按钮。
+  function setSendMode(mode) {
+    if (!sendBtn) return;
+    sendBtn.dataset.mode = mode;
+    sendBtn.disabled = false; // 两种模式都可点
+    sendBtn.innerHTML = mode === 'stop' ? ICON_STOP : ICON_SEND;
+    sendBtn.title = mode === 'stop' ? '停止生成' : '发送';
+  }
+  setSendMode('send'); // 初始发送态
+
   function setEnabled(ok) {
     textarea.disabled = !ok;
-    if (sendBtn) sendBtn.disabled = !ok;
+    // send 按钮的禁用只在发送态生效；停止态（streaming）强制可用
+    if (sendBtn && sendBtn.dataset.mode !== 'stop') sendBtn.disabled = !ok;
   }
 
   function append(type, text) {
@@ -105,10 +119,16 @@ export function createChat(container, textarea, sendBtn, { onSend }) {
   let aiCard = null;
   let rawText = ''; // 原始 markdown 累加器（避免 textContent 剥掉格式）
 
-  // thinking teaser：只显示前 THINKING_TEASER 字，thinking 结束即移除（ADR 0011 附注）
-  const THINKING_TEASER = 120;
+  // thinking 滚动尾窗：定高框显示思考全文，每个 delta 滚到底，思考结束即移除。
+  // 策略（前 120 字 teaser）已升级为尾窗式滚动 teaser，仍属 UI 细节，不单开 ADR（ADR 0011 附注）。
+  const THINKING_TAIL = 120; // 尾窗字数：超过则只保留最新 N 字，避免框无限增长
   let thinkingEl = null;
   let rawThinking = '';
+  let thinkingRaf = 0; // requestAnimationFrame 句柄，合并同帧多次 delta 防跳
+  function scrollThinking() {
+    thinkingRaf = 0;
+    if (thinkingEl) thinkingEl.scrollTop = thinkingEl.scrollHeight;
+  }
   function streamThinking(text) {
     rawThinking += text;
     if (!thinkingEl) {
@@ -117,17 +137,22 @@ export function createChat(container, textarea, sendBtn, { onSend }) {
       el.innerHTML =
         `<div class="flex-1 min-w-0">` +
         `<div class="text-[12px] text-muted-foreground mb-1">Physics Lab Agent · 思考中</div>` +
-        `<div class="thinking-teaser inline-block max-w-full rounded-xl rounded-tl-sm bg-muted/50 px-4 py-2 text-[13px] leading-relaxed text-muted-foreground"></div>` +
+        `<div class="thinking-teaser rounded-xl rounded-tl-sm bg-muted/50 px-4 py-2 text-[13px] leading-relaxed text-muted-foreground"></div>` +
         `</div>`;
       container.appendChild(el);
       thinkingEl = el.querySelector('.thinking-teaser');
     }
-    thinkingEl.textContent = rawThinking.length > THINKING_TEASER
-      ? rawThinking.slice(0, THINKING_TEASER) + '…'
+    // 尾窗：超过 N 字只保留最新部分，使内容持续向上滚出而非冻在头部
+    const tail = rawThinking.length > THINKING_TAIL
+      ? rawThinking.slice(-THINKING_TAIL)
       : rawThinking;
+    thinkingEl.textContent = tail;
     scrollDown();
+    // 平滑滚动到底；一帧内多次 delta 合并（reasoning 可能高频，避免逐字跳）
+    if (!thinkingRaf) thinkingRaf = requestAnimationFrame(scrollThinking);
   }
   function streamThinkingEnd() {
+    if (thinkingRaf) { cancelAnimationFrame(thinkingRaf); thinkingRaf = 0; }
     if (thinkingEl) {
       const row = thinkingEl.closest('.flex');
       if (row) row.remove();
@@ -139,7 +164,7 @@ export function createChat(container, textarea, sendBtn, { onSend }) {
 
   function streamStart() {
     streamThinkingEnd(); // 安全兜底：答案流开始时移除残留 teaser
-    if (!streaming) { rawText = ''; streaming = true; setEnabled(false); }
+    if (!streaming) { rawText = ''; streaming = true; setEnabled(false); setSendMode('stop'); }
     if (!aiCard) {
       const el = bubbleAI();
       container.appendChild(el);
@@ -148,10 +173,15 @@ export function createChat(container, textarea, sendBtn, { onSend }) {
     scrollDown();
   }
 
+  // 流式渲染策略（方案 b）：streaming 期间用 textContent 显示累积原文，
+  // 不调 renderMD/不设 innerHTML -> 不触发 Tailwind 运行时 MutationObserver 全量重扫
+  // （长回答下 Tailwind 重扫是渲染进程内存爆/满核"未响应"的根因）。streamDone 时一次性 renderMD 渲染格式。
+  // whitespace-pre-wrap（见 bubbleAI）保证 textContent 的 \n 流式期间可见。
+
   return {
     append,
     clear,
-    streamDelta(text) { streamStart(); rawText += text; aiCard.innerHTML = renderMD(rawText); scrollDown(); },
+    streamDelta(text) { streamStart(); rawText += text; aiCard.textContent = rawText; scrollDown(); },
     streamTool(name) {
       streamStart();
       if (name === 'write_demo') rawText += '\n⏳ 写入演示文件…';
@@ -159,17 +189,18 @@ export function createChat(container, textarea, sendBtn, { onSend }) {
       else if (name === 'validate_demo') rawText += '\n⏳ 校验演示…';
       else if (name === 'read') rawText += '\n⏳ 读取示例…';
       else rawText += '\n⏳ ' + name + '…';
-      aiCard.innerHTML = renderMD(rawText);
+      aiCard.textContent = rawText;
       scrollDown();
     },
     streamThinking,
     streamThinkingEnd,
     streamDone() {
       streamThinkingEnd();
+      // 结束时一次性渲染完整 markdown 格式（streaming 期间只显示纯文本）
       if (aiCard) aiCard.innerHTML = renderMD(rawText);
-      streaming = false; rawText = ''; aiCard = null; setEnabled(true); textarea.focus();
+      streaming = false; rawText = ''; aiCard = null; setEnabled(true); setSendMode('send'); textarea.focus();
     },
-    streamError(text) { streamThinkingEnd(); streaming = false; aiCard = null; setEnabled(true); container.appendChild(bubbleError(text)); scrollDown(); },
+    streamError(text) { streamThinkingEnd(); streaming = false; aiCard = null; setEnabled(true); setSendMode('send'); container.appendChild(bubbleError(text)); scrollDown(); },
     setEnabled,
     switchContext(title) {
       clear();
@@ -188,6 +219,11 @@ export function createChat(container, textarea, sendBtn, { onSend }) {
       append('user', text);
       aiCard = null;
       onSend(text);
+    },
+    // send 按钮点击分发：streaming 时中断，否则发送
+    handleSendClick() {
+      if (streaming) { if (onStop) onStop(); }
+      else this.send();
     },
   };
 }
