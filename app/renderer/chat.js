@@ -44,7 +44,7 @@ const AVATAR_AI = '<svg class="w-3.5 h-3.5 text-primary" viewBox="0 0 24 24" fil
 const AVATAR_USER = '<svg class="w-3.5 h-3.5 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
 // 发送/停止按钮图标（streaming 时 send 按钮切换为停止按钮，复用同一 DOM）
 const ICON_SEND = '<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>';
-const ICON_STOP = '<svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>';
+const ICON_STOP = '<svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>';
 
 export function createChat(container, textarea, sendBtn, { onSend, onStop }) {
   let streaming = false;
@@ -205,7 +205,7 @@ export function createChat(container, textarea, sendBtn, { onSend, onStop }) {
     switchContext(title) {
       clear();
       streaming = false; aiCard = null;
-      setEnabled(true);
+      setEnabled(true); setSendMode('send'); // 切 tab 时若处于停止态，图标必须复位，否则按钮停在"停止"却实际在发送
       const w = bubbleAI();
       w.querySelector('.bg-card').innerHTML = renderMD('**当前演示：' + (title || '新建演示') + '**\n\n输入物理题或演示需求。');
       container.appendChild(w);

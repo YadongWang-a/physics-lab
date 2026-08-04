@@ -30,9 +30,8 @@
 - 引入 `lib/common.js`（工具函数）
 - 需要公式时引入 `lib/mathjax.js`
 - 主题：**浅色唯一**，无 `[data-theme]`、无 🌙 切换按钮（见 [ADR 0006](./docs/adr/0006-light-theme-only.md)）
-- 演示模式：HTML 内挂 postMessage 监听器（`{cmd:"present",value}` → `body.present`），无演示按钮；区域结构按 E3（见 [ADR 0007](./docs/adr/0007-present-mode.md)）
 - Canvas 使用 `requestAnimationFrame`，支持 `devicePixelRatio > 1`
-- 布局：`.grid` 双列（场景 + 控制面板），`.card` 卡片容器；演示态（`.present`）下画布撑满、参数折为底部抽屉、顶栏与 ▶⏸↺ 保留
+- 布局：`.grid` 双列（场景 + 控制面板），`.card` 卡片容器
 
 CSS 变量（浅色）：
 - `--bg` / `--panel2` — 背景层级
@@ -82,7 +81,6 @@ Agent 输出结构：
 | Tab 和 Session 的关系 | `docs/adr/0004-tab-session-one-to-one.md` |
 | 文件怎么识别 | `docs/adr/0005-physics-demo-comment-marker.md` |
 | 为什么只有浅色 | `docs/adr/0006-light-theme-only.md` |
-| 演示模式怎么工作 | `docs/adr/0007-present-mode.md` |
 | LLM 怎么接入 | `docs/adr/0008-llm-openai-compatible.md` |
 | Agent 工具与沙箱取舍 | `docs/adr/0009-agent-tools-no-sandbox.md`（工具列表已被 0011 取代） |
 | System prompt 放哪 | `docs/adr/0010-system-prompt-bundled.md`（已被 0012 取代） |

@@ -243,8 +243,6 @@ function drawScene(){
   const cCyan=cs.getPropertyValue('--cyan').trim();
   const cBlue=cs.getPropertyValue('--blue').trim();
   const cPurple=cs.getPropertyValue('--purple').trim();
-  const light=true;
-
   ctx.strokeStyle=cGrid; ctx.lineWidth=1;
   for (let gx=0;gx<w;gx+=40){ctx.beginPath();ctx.moveTo(gx,0);ctx.lineTo(gx,h);ctx.stroke();}
   for (let gy=0;gy<h;gy+=40){ctx.beginPath();ctx.moveTo(0,gy);ctx.lineTo(w,gy);ctx.stroke();}
@@ -257,7 +255,7 @@ function drawScene(){
 
   // 基线
   const baseY = Y(0, V);
-  ctx.strokeStyle=light?'rgba(0,0,0,.12)':'rgba(120,140,180,.25)'; ctx.setLineDash([3,5]); ctx.lineWidth=1;
+  ctx.strokeStyle='rgba(0,0,0,.12)'; ctx.setLineDash([3,5]); ctx.lineWidth=1;
   ctx.beginPath();ctx.moveTo(0,baseY);ctx.lineTo(X(S.r,V),baseY);ctx.stroke();ctx.setLineDash([]);
 
   // 圆弧
@@ -279,7 +277,7 @@ function drawScene(){
   ctx.fillText('O', cxs+5, cys-5);
 
   // 半径标注
-  ctx.strokeStyle=light?'rgba(0,0,0,.15)':'rgba(120,140,180,.35)'; ctx.setLineDash([2,4]); ctx.lineWidth=1;
+  ctx.strokeStyle='rgba(0,0,0,.15)'; ctx.setLineDash([2,4]); ctx.lineWidth=1;
   ctx.beginPath();ctx.moveTo(cxs,cys);ctx.lineTo(cxs,cys+rad);ctx.stroke();ctx.setLineDash([]);
   ctx.fillStyle=cDim; ctx.textAlign='left';
   ctx.fillText('r='+S.r.toFixed(1), cxs+5, cys+rad/2);
@@ -289,7 +287,7 @@ function drawScene(){
   ctx.fillStyle=cDim; ctx.textAlign='right';
   ctx.fillText('起点', X(startP.x,V)-8, Y(startP.y,V));
   // 高度标注
-  ctx.strokeStyle=light?'rgba(201,64,64,.35)':'rgba(239,111,111,.4)'; ctx.setLineDash([4,5]); ctx.lineWidth=1.2;
+  ctx.strokeStyle='rgba(201,64,64,.35)'; ctx.setLineDash([4,5]); ctx.lineWidth=1.2;
   ctx.beginPath();ctx.moveTo(X(S.r,V),baseY);ctx.lineTo(X(S.r,V),groundY);ctx.stroke();ctx.setLineDash([]);
   ctx.fillStyle=cRed; ctx.textAlign='left';
   ctx.fillText('h='+S.h.toFixed(1)+'m', X(S.r,V)+6, (baseY+groundY)/2);

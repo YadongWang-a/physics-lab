@@ -1,7 +1,7 @@
 # physics-lab 桌面应用（G1 walking skeleton）
 
 Electron + Pi Agent SDK（`@earendil-works/pi-coding-agent`）。AI 驱动的物理演示生成器。
-当前为 G1：单 Chat + 单 Preview，无标签页/文件树/演示按钮。架构决定见 `../docs/adr/0001`–`0010` 与 `../CONTEXT.md`。
+当前为 G1：单 Chat + 单 Preview + 标签页，无文件树。架构决定见 `../docs/adr/0001`–`0014` 与 `../CONTEXT.md`。
 
 ## 运行
 

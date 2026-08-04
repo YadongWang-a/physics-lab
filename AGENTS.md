@@ -24,7 +24,7 @@
 ```
 工具集（见 ADR 0011，取代 0009 工具列表）：
   read / grep / find / ls — 只读内置，**禁 bash**
-  write_demo(name, content) — 整文件写，写入前主进程校验拦截（硬错误：命名/作用域/结构/physics-demo 标记/演示监听器/内联 JS 语法；警告：浅色违规/形态要素）
+  write_demo(name, content) — 整文件写，写入前主进程校验拦截（硬错误：命名/作用域/结构/physics-demo 标记/内联 JS 语法；警告：浅色违规/形态要素）
   edit_demo(old_text, new_text) — 局部修改目标文件，修改后的完整文件过同一校验
   validate_demo(name, content) — 写前自检，不写盘
   备份：每轮对话写前快照到 .piagent/<stem>/backups/（留 10 版，无 undo 命令）
@@ -55,6 +55,5 @@ System prompt 包含示例目录索引（功能描述，不含代码）。Agent 
 - 第一行：`<!-- physics-demo: 中文标题 -->`
 - 引入 `lib/common.css`
 - 浅色主题唯一（无 `[data-theme]`、无 🌙 按钮，见 ADR 0006）
-- 内嵌演示模式 postMessage 监听器 + E3 区域结构（见 ADR 0007）
 - Canvas 高 DPI 适配
 - 文件名：英文 slug（如 `incline-spring.html`）

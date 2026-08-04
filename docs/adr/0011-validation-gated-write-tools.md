@@ -20,7 +20,7 @@ pi-agent-test 参考项目（CLI）验证过一个关键结论：**Pi SDK 的内
 白名单：`read / grep / find / ls + write_demo + edit_demo + validate_demo`（无 bash）。
 
 校验内容分两级：
-- **硬错误（拦截）**：命名（kebab-case）、作用域（已绑定只写目标文件/改名走新名路径）、结构（DOCTYPE / demo-mode meta / lib 引用 / canvas / 配对）、app 功能依赖（`physics-demo` 标记、演示模式监听器）、**内联 JS 语法（node --check）**——语法错误是唯一能让 Preview 白屏的失败，参考项目只在独立脚本里查，本应用没有"人工跑脚本"这层，故并入拦截（有意加严）
+- **硬错误（拦截）**：命名（kebab-case）、作用域（已绑定只写目标文件/改名走新名路径）、结构（DOCTYPE / demo-mode meta / lib 引用 / canvas / 配对）、app 功能依赖（`physics-demo` 标记）、**内联 JS 语法（`new Function` 编译检查）**——语法错误是唯一能让 Preview 白屏的失败，参考项目只在独立脚本里查，本应用没有"人工跑脚本"这层，故并入拦截（有意加严）。不用 `node --check` 的原因：Electron 二进制不认纯 node 的 `--check -`，子进程会挂起并阻塞主进程（详见 `demo-write.js` 注释）；`new Function` 只编译不执行，对普通脚本的语法错误检测等价
 - **非阻塞警告**（随工具结果回显，不拦截）：浅色唯一违规（`[data-theme]`/`themeBtn`）、形态要素（静态含动画 / 动态缺 run/startAnimation/setupKeyboard）
 
 ### B. 只做结构校验（严格对齐参考）

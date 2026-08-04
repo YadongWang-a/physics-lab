@@ -5,7 +5,7 @@ const path = require('path');
 const fs = require('fs');
 const llmConfig = require('./llm-config');
 const { selectWorkdir, setupWorkdir } = require('./workdir');
-const { createAgent } = require('./agent');
+const { createAgent, stemOf } = require('./agent');
 const { createTabManager } = require('./tab-manager');
 const { createBackup, cleanupStaleUnbound } = require('./demo-write');
 
@@ -34,6 +34,9 @@ function initTabManager() {
         onRename(oldPath, newPath) {
           if (!tm) return;
           tm.rekey(oldPath, newPath);
+          // 活动 tab 改名时同步 activeTab：编辑模式命中 oldPath；生成模式（oldPath=null）且当前
+          // activeTab=null 即该生成会话——否则下次 chat:send/chat:stop 会对已删除的旧路径重建 agent
+          if (activeTab === oldPath || (oldPath === null && activeTab === null)) activeTab = newPath;
           if (win && !win.isDestroyed()) win.webContents.send('preview:file-changed', { path: newPath });
         },
       });
@@ -151,7 +154,7 @@ ipcMain.handle('chat:send', async (_e, text) => {
   try {
     // 写前备份：目标文件存在时快照到 .piagent/<stem>/backups/（保留 10 版，ADR 0011）
     if (activeTab) {
-      try { createBackup(workdir, path.basename(activeTab).replace(/\.html$/, ''), Date.now()); } catch {}
+      try { createBackup(workdir, stemOf(path.basename(activeTab)), Date.now()); } catch {}
     }
     await a.send(text);
     // 回合结束刷新预览（agent 写文件发生在回合内；ADR 0003）
@@ -166,7 +169,8 @@ ipcMain.handle('chat:send', async (_e, text) => {
 });
 
 ipcMain.handle('chat:stop', async () => {
-  if (!tm || !activeTab) return { ok: false, error: '无活动标签页' };
+  // 与 chat:send 同款守卫：activeTab 为 null（新建演示会话）时同样允许停止——生成回合正是卡住高发场景
+  if (!tm || activeTab === undefined) return { ok: false, error: '未选择标签页' };
   try {
     const a = await tm.getOrCreate(activeTab);
     if (a && a.stop) await a.stop();

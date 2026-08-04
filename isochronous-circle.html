@@ -191,8 +191,6 @@ function drawScene(){
   const cTxt=cs.getPropertyValue('--canvas-txt').trim();
   const cGreen=cs.getPropertyValue('--green').trim();
   const cRed=cs.getPropertyValue('--red').trim();
-  const light=true;
-
   ctx.strokeStyle=cGrid; ctx.lineWidth=1;
   for (let gx=0;gx<w;gx+=40){ctx.beginPath();ctx.moveTo(gx,0);ctx.lineTo(gx,h);ctx.stroke();}
   for (let gy=0;gy<h;gy+=40){ctx.beginPath();ctx.moveTo(0,gy);ctx.lineTo(w,gy);ctx.stroke();}
@@ -202,7 +200,7 @@ function drawScene(){
   const cxs=SX(cx,V), cys=SY(cy,V), rPix=R*V.s;
 
   // 竖直直径
-  ctx.strokeStyle=light?'rgba(0,0,0,.15)':'rgba(120,140,180,.35)'; ctx.setLineDash([4,5]); ctx.lineWidth=1.2;
+  ctx.strokeStyle='rgba(0,0,0,.15)'; ctx.setLineDash([4,5]); ctx.lineWidth=1.2;
   ctx.beginPath();ctx.moveTo(SX(0,V),SY(0,V));ctx.lineTo(SX(0,V),SY(2*R,V));ctx.stroke();ctx.setLineDash([]);
 
   // 圆
@@ -222,7 +220,7 @@ function drawScene(){
   ctx.fillText('T(最高点)', SX(0,V)+8, SY(2*R,V)-6);
 
   // 半径标注
-  ctx.strokeStyle=light?'rgba(0,0,0,.12)':'rgba(120,140,180,.3)'; ctx.setLineDash([2,4]); ctx.lineWidth=1;
+  ctx.strokeStyle='rgba(0,0,0,.12)'; ctx.setLineDash([2,4]); ctx.lineWidth=1;
   ctx.beginPath();ctx.moveTo(cxs,cys);ctx.lineTo(cxs+rPix,cys);ctx.stroke();ctx.setLineDash([]);
   ctx.fillStyle=cDim; ctx.fillText('R', cxs+rPix/2, cys-5);
   ctx.fillText('直径 d=2R', SX(0,V)+8, (SY(0,V)+SY(2*R,V))/2);
@@ -240,7 +238,7 @@ function drawScene(){
     // 小球
     const px=ax+(bx-ax)*b.s, py=ay+(by-ay)*b.s;
     const grad=ctx.createRadialGradient(px-3,py-3,1,px,py,8);
-    grad.addColorStop(0,light?'#ffffff':'#fff'); grad.addColorStop(1,col);
+    grad.addColorStop(0,'#ffffff'); grad.addColorStop(1,col);
     ctx.fillStyle=grad; ctx.beginPath();ctx.arc(px,py,8,0,7);ctx.fill();
     ctx.strokeStyle=col; ctx.lineWidth=1.5; ctx.stroke();
     if (b.done){

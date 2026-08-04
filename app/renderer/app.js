@@ -43,12 +43,10 @@ onStream((p) => {
 });
 
 // ---- 标签页模块 ----
-let activePath = null;
 const tabBar = createTabBar(
   document.querySelector('[data-region="tab-bar"]'),
   {
     onActivate: (t) => {
-      activePath = t.path;
       chat.switchContext(t.title);
       preview.load(t.path);
       try { activateTab(t.path); } catch {}
@@ -64,7 +62,6 @@ const tabBar = createTabBar(
       btn.addEventListener('click', () => {
         bar.querySelectorAll('.tab').forEach(x => x.classList.remove('tab-active'));
         btn.classList.add('tab-active');
-        activePath = '__new__';
         chat.switchContext('新建演示');
         preview.clear();
         try { activateTab('__new__'); } catch {}
@@ -85,9 +82,8 @@ async function refreshTabs() {
 }
 onTabsChanged((tabs) => { if (tabs) tabBar.render(tabs); });
 
-// 文件变化 → 更新 activePath + 预览
+// 文件变化 → 刷新预览
 onFileChanged(({ path }) => {
-  activePath = path;
   preview.load(path);
 });
 

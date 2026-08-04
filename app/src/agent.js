@@ -363,4 +363,4 @@ ${text}`;
   };
 }
 
-module.exports = { createAgent, AGENT_TOOLS };
+module.exports = { createAgent, AGENT_TOOLS, stemOf };
