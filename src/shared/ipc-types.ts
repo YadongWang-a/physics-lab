@@ -16,6 +16,11 @@ export interface WorkspaceSnapshot {
   demos: DemoMeta[]
 }
 
+export interface ChatHistoryEntry {
+  role: 'user' | 'assistant'
+  text: string
+}
+
 /** preload 暴露给渲染层的 API 形状（contextBridge） */
 export interface RendererApi {
   ping: () => string
@@ -28,5 +33,21 @@ export interface RendererApi {
     rescan: () => Promise<WorkspaceSnapshot>
     /** 删除演示（html + 会话文件 + 清单条目）；UI 层负责二次确认 */
     remove: (file: string) => Promise<WorkspaceSnapshot>
+  }
+  chat: {
+    /** 向某演示的 agent 会话发送消息；file 为 null 表示新会话。返回会话 key（事件匹配用） */
+    send: (file: string | null, text: string) => Promise<{ ok: boolean; key: string }>
+    /** 停止当前回合 */
+    abort: (file: string) => Promise<{ ok: boolean }>
+    /** 会话历史摘要（内存或磁盘恢复，切换演示时显示） */
+    history: (file: string) => Promise<ChatHistoryEntry[]>
+    /** 订阅 agent 事件流；返回取消函数 */
+    onEvent: (cb: (payload: { file: string; event: unknown }) => void) => () => void
+  }
+  preview: {
+    /** 订阅演示文件变化（fs.watch 防抖）；返回取消函数 */
+    onChanged: (cb: (payload: { file: string }) => void) => () => void
+    /** 订阅工作目录清单变化（新演示生成等）；返回取消函数 */
+    onWorkspaceChanged: (cb: () => void) => () => void
   }
 }

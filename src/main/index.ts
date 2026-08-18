@@ -1,17 +1,33 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, renameSync, watch, writeFileSync, type FSWatcher } from 'node:fs'
 import { createPhysicsSession } from './agent/agent-runner'
 import { loadEnvFile } from '../shared/load-env'
+import { isInsufficientBalance } from '../shared/balance'
 import type { WorkspaceSnapshot } from '../shared/ipc-types'
 import { WorkspaceManager } from './workspace/workspace-manager'
 import { SettingsStore } from './workspace/app-settings'
+import { seedLibIntoWorkspace } from './workspace/lib-seed'
+import { SessionHost } from './agent/session-host'
 
 loadEnvFile()
 
 let currentWs: WorkspaceManager | null = null
 let settings: SettingsStore | null = null
+let sessionHost: SessionHost | null = null
+let watcher: FSWatcher | null = null
+let watcherTimer: NodeJS.Timeout | null = null
+
+function skillDir(): string {
+  return join(app.getAppPath(), 'resources', 'physics-lab-skill')
+}
+
+function broadcast(channel: string, payload: unknown): void {
+  for (const win of BrowserWindow.getAllWindows()) {
+    win.webContents.send(channel, payload)
+  }
+}
 
 function snapshot(): WorkspaceSnapshot {
   if (!currentWs) throw new Error('尚未选择工作目录')
@@ -21,8 +37,24 @@ function snapshot(): WorkspaceSnapshot {
 async function openWorkspace(dir: string): Promise<WorkspaceSnapshot> {
   currentWs = WorkspaceManager.open(dir)
   currentWs.scan()
+  seedLibIntoWorkspace(dir, skillDir())
+  startWorkspaceWatcher(dir)
   settings?.save({ workspaceDir: dir })
   return snapshot()
+}
+
+/** 监听工作目录 .html 变化 → 防抖通知渲染层刷新预览 */
+function startWorkspaceWatcher(dir: string): void {
+  watcher?.close()
+  watcher = null
+  watcher = watch(dir, (event, filename) => {
+    if (!filename || !filename.toString().toLowerCase().endsWith('.html')) return
+    if (watcherTimer) clearTimeout(watcherTimer)
+    watcherTimer = setTimeout(() => {
+      currentWs?.scan()
+      broadcast('preview:changed', { file: filename.toString() })
+    }, 300)
+  })
 }
 
 function registerWorkspaceIpc(): void {
@@ -51,8 +83,66 @@ function registerWorkspaceIpc(): void {
   ipcMain.handle('workspace:remove', async (_event, file: string) => {
     if (!currentWs) throw new Error('尚未选择工作目录')
     currentWs.remove(file)
+    sessionHost?.release(file)
     return snapshot()
   })
+
+  // ---- chat：每演示一个 agent 会话，事件流经 chat:event 推送 ----
+  ipcMain.handle('chat:send', async (event, file: string | null, text: string) => {
+    if (!currentWs) throw new Error('尚未选择工作目录')
+    const host = ensureSessionHost()
+    const { key } = await host.getSession(currentWs.dirname, file, (e) => {
+      broadcast('chat:event', { file: key, event: e })
+      // 新会话生成完成 → 绑定 HTML 并刷新列表
+      if (!file && (e as { type?: string }).type === 'agent_settled') {
+        finalizeNewSession(`${key}.jsonl`)
+      }
+    })
+    host.prompt(key, text).catch((err: unknown) => {
+      broadcast('chat:event', {
+        file: key,
+        event: { type: 'chat_error', message: err instanceof Error ? err.message : String(err) }
+      })
+    })
+    return { ok: true, key }
+  })
+
+  ipcMain.handle('chat:abort', async (_event, file: string) => {
+    await sessionHost?.abort(file)
+    return { ok: true }
+  })
+
+  ipcMain.handle('chat:history', (event, file: string) => {
+    if (!currentWs) return []
+    return ensureSessionHost().history(file, currentWs.dirname)
+  })
+}
+
+function ensureSessionHost(): SessionHost {
+  if (!sessionHost) {
+    throw new Error('会话宿主未初始化')
+  }
+  return sessionHost
+}
+
+/**
+ * 新会话生成完成后：扫描识别新 HTML，把临时会话文件（_new-<ts>.jsonl）
+ * 重命名为 <新html>.jsonl（与清单约定一致），并通知渲染层刷新列表。
+ */
+function finalizeNewSession(pendingSessionFile: string): void {
+  if (!currentWs) return
+  const before = new Set(currentWs.list().map((d) => d.file))
+  currentWs.scan()
+  const after = currentWs.list().map((d) => d.file)
+  const created = after.filter((f) => !before.has(f))
+  if (created.length !== 1) return
+  const stem = created[0]!.replace(/\.html$/i, '')
+  const oldPath = join(currentWs.dirname, '.pi-sessions', pendingSessionFile)
+  const newPath = join(currentWs.dirname, '.pi-sessions', `${stem}.jsonl`)
+  if (existsSync(oldPath) && !existsSync(newPath)) {
+    renameSync(oldPath, newPath)
+  }
+  broadcast('workspace:changed', {})
 }
 
 function createWindow(): void {
@@ -64,7 +154,8 @@ function createWindow(): void {
       preload: join(__dirname, '../preload/index.cjs'),
       sandbox: true,
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      webviewTag: true
     }
   })
 
@@ -115,6 +206,13 @@ async function smokeAgent(): Promise<void> {
     }
   })
   await session.prompt('只回复两个字：你好')
+  // DeepSeek 余额不足（402）时显式 SKIP，而非 FAIL（余额恢复后自动生效）
+  if (isInsufficientBalance(session.messages[session.messages.length - 1])) {
+    console.log('[smoke] SKIP (Insufficient Balance — 需充值 DeepSeek 账户)')
+    dispose()
+    app.exit(0)
+    return
+  }
   const ok = deltas > 0 && settled
   console.log(`[smoke] ${ok ? 'PASS' : 'FAIL'}`)
   dispose()
@@ -157,19 +255,22 @@ async function smokeWorkspace(): Promise<void> {
   if (!win) throw new Error('窗口未创建')
   // 轮询等待渲染层完成列表渲染（dev 首载 vite transform 耗时不定）；单次原子查询
   const deadline = Date.now() + 45000
-  let state = { count: 0, dirShown: false }
+  let state = { count: 0, dirShown: false, webview: false }
   while (Date.now() < deadline) {
     state = await win.webContents.executeJavaScript(
       `(() => ({
         count: document.querySelectorAll('[data-demo-item]').length,
-        dirShown: document.body.innerText.includes(${JSON.stringify(dir)})
+        dirShown: document.body.innerText.includes(${JSON.stringify(dir)}),
+        webview: !!document.querySelector('webview')
       }))()`
     )
-    if (state.count === 1 && state.dirShown) break
+    if (state.count === 1 && state.dirShown && state.webview) break
     await delay(500)
   }
-  console.log(`[smoke-workspace] demo items=${state.count}; dir shown=${state.dirShown}`)
-  app.exit(state.count === 1 && state.dirShown ? 0 : 1)
+  console.log(
+    `[smoke-workspace] demo items=${state.count}; dir shown=${state.dirShown}; webview=${state.webview}`
+  )
+  app.exit(state.count === 1 && state.dirShown && state.webview ? 0 : 1)
 }
 
 app.whenReady().then(async () => {
@@ -178,6 +279,10 @@ app.whenReady().then(async () => {
     app.setPath('userData', mkdtempSync(join(tmpdir(), 'physics-lab-smoke-userdata-')))
   }
   settings = SettingsStore.at(app.getPath('userData'))
+  sessionHost = new SessionHost({
+    agentDir: join(app.getPath('userData'), 'agent'),
+    skillDir: skillDir()
+  })
   registerWorkspaceIpc()
 
   if (process.argv.includes('--smoke-agent')) {

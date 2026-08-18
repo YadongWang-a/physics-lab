@@ -13,6 +13,15 @@ import { createPhysicsSession } from '../src/main/agent/agent-runner'
 
 const hasKey = !!process.env.DEEPSEEK_API_KEY
 
+/** DeepSeek 账户余额不足（402）时动态跳过；余额恢复后测试自动生效 */
+function skipOnInsufficientBalance(ctx: { skip: () => unknown }, messages: unknown[]): void {
+  const last = messages[messages.length - 1] as { role?: string; errorMessage?: string } | undefined
+  const errMsg = last?.role === 'assistant' ? last.errorMessage ?? '' : ''
+  if (errMsg.includes('402') || errMsg.includes('Insufficient Balance')) {
+    ctx.skip()
+  }
+}
+
 function makeDirs(): { cwd: string; sessionDir: string; agentDir: string } {
   const base = mkdtempSync(join(tmpdir(), 'physics-lab-test-'))
   return {
@@ -23,7 +32,7 @@ function makeDirs(): { cwd: string; sessionDir: string; agentDir: string } {
 }
 
 describe.skipIf(!hasKey)('SDK 层：agent 会话（真实 Key）', () => {
-  it('创建会话并完成一次 prompt，事件流与消息可观测', async () => {
+  it('创建会话并完成一次 prompt，事件流与消息可观测', async (ctx) => {
     const dirs = makeDirs()
     const { session, dispose } = await createPhysicsSession(dirs)
 
@@ -38,6 +47,7 @@ describe.skipIf(!hasKey)('SDK 层：agent 会话（真实 Key）', () => {
     })
 
     await session.prompt('只回复两个字：你好')
+    skipOnInsufficientBalance(ctx, session.messages)
 
     expect(deltas.length).toBeGreaterThan(0)
     expect(settled).toBe(true)
@@ -64,10 +74,11 @@ describe.skipIf(!hasKey)('SDK 层：agent 会话（真实 Key）', () => {
     expect(types.some((t) => t === 'message')).toBe(true)
   })
 
-  it('会话可恢复：恢复后保留历史并可继续对话', async () => {
+  it('会话可恢复：恢复后保留历史并可继续对话', async (ctx) => {
     const dirs = makeDirs()
     const first = await createPhysicsSession(dirs)
     await first.session.prompt('只回复两个字：你好')
+    skipOnInsufficientBalance(ctx, first.session.messages)
     const sessionFile = first.session.sessionFile!
     const historyCount = first.session.messages.length
     first.dispose()
