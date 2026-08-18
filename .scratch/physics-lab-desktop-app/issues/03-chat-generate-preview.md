@@ -15,9 +15,10 @@
 
 ## Comments
 
-实现于 commit db42c63。验证记录：
-- 测试 15 通过 + 3 跳过；typecheck 双端 OK；smoke-workspace PASS（列表/目录/webview 全链路）
+实现于 commit db42c63；默认模型切换 opencode-go 于 commit 83100db。验证记录：
+- 测试 18/18 通过（agent-runner 3、workspace-manager 9、session-resume 2、agent-skill 4）；typecheck 双端 OK；smoke-workspace PASS（列表/目录/webview 全链路）
 - skill 注册与系统提示常驻：无 Key 测试验证（skills 含 physics-lab-skill、SKILL.md 未改动）
-- **外部阻塞（非代码缺陷）**：DeepSeek API Key 余额不足（402 Insufficient Balance）—— 端到端生成测试与 smoke-agent 已做余额感知（动态 SKIP），余额充值后自动生效
+- **端到端真实跑通**：物理题 → skill 完整流程（探索 → 读 SKILL.md/模板 → write → 自检）→ 生成 `free-fall-ball.html`（kebab + lib 引用 + 自检清单通过）
+- **模型接入**：默认 `opencode-go` 网关（opencode.ai/zen/go，`OPENCODE_API_KEY`，本机 opencode 账户 key）；`deepseek`（直连，DEEPSEEK_API_KEY）保留为备选；DeepSeek 直连余额 402 已绕过
+- **性能注意**：推理模型（deepseek-v4-flash thinking）单次生成约 5-8 分钟 —— 后续可评估换用 opencode-go 上的非推理模型（glm-5.x/minimax-m2.7）或由设置页提供模型选择（ticket 05）
 - 关键工程决策：lib 由应用预置（避免 agent 读取 2.1MB mathjax.js 进上下文）；空工作目录可直接发起新会话（_new-<ts> 生成后绑定重命名）
-- code-review 修复：首次生成入口、streaming 按会话 key、事件转发 broadcast、磁盘历史恢复、规则合规
