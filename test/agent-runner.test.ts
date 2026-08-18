@@ -11,7 +11,7 @@ import { createPhysicsSession } from '../src/main/agent/agent-runner'
  * 断言外部行为：会话创建、事件流、会话文件落盘、会话恢复。
  */
 
-const hasKey = !!process.env.DEEPSEEK_API_KEY
+const hasKey = !!process.env.DEEPSEEK_API_KEY || !!process.env.OPENCODE_API_KEY
 
 /** DeepSeek 账户余额不足（402）时动态跳过；余额恢复后测试自动生效 */
 function skipOnInsufficientBalance(ctx: { skip: () => unknown }, messages: unknown[]): void {

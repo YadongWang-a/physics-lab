@@ -26,7 +26,9 @@ export interface PhysicsAgentOptions {
   sessionDir: string
   /** 应用私有 agent 配置目录 */
   agentDir: string
-  /** DeepSeek API Key；缺省时回落到环境变量 DEEPSEEK_API_KEY */
+  /** 供应商 id（缺省 opencode-go：https://opencode.ai/zen/go） */
+  provider?: string
+  /** DeepSeek/opencode API Key；缺省时按供应商读环境变量 */
   apiKey?: string
   /** 模型 id，默认 deepseek-v4-flash */
   modelId?: string
@@ -50,7 +52,13 @@ export const SKILL_SYSTEM_PROMPT = `你是「物理演示生成助手」，为�
 不要跳过任何步骤。`
 
 export const DEFAULT_MODEL = 'deepseek-v4-flash'
-export const DEFAULT_PROVIDER = 'deepseek'
+export const DEFAULT_PROVIDER = 'opencode-go'
+
+/** 供应商 → 环境变量 Key 名；缺省回落到 DEEPSEEK_API_KEY */
+const PROVIDER_ENV: Record<string, string> = {
+  'opencode-go': 'OPENCODE_API_KEY',
+  deepseek: 'DEEPSEEK_API_KEY'
+}
 
 export interface PhysicsSession {
   session: AgentSession
@@ -72,6 +80,7 @@ export async function createPhysicsSession(options: PhysicsAgentOptions): Promis
     sessionDir,
     agentDir,
     apiKey,
+    provider = DEFAULT_PROVIDER,
     modelId = DEFAULT_MODEL,
     sessionManager,
     skillDir,
@@ -83,16 +92,17 @@ export async function createPhysicsSession(options: PhysicsAgentOptions): Promis
   const modelRuntime = await ModelRuntime.create({
     authPath: join(agentDir, 'auth.json')
   })
-  const key = apiKey ?? process.env.DEEPSEEK_API_KEY
+  const envVar = PROVIDER_ENV[provider]
+  const key = apiKey ?? (envVar ? process.env[envVar] : undefined) ?? process.env.DEEPSEEK_API_KEY
   if (key) {
-    await modelRuntime.setRuntimeApiKey(DEFAULT_PROVIDER, key)
+    await modelRuntime.setRuntimeApiKey(provider, key)
   }
 
   const registry = new ModelRegistry(modelRuntime)
   await registry.refresh()
-  const model = registry.find(DEFAULT_PROVIDER, modelId)
+  const model = registry.find(provider, modelId)
   if (!model) {
-    throw new Error(`模型不存在: ${DEFAULT_PROVIDER}/${modelId}`)
+    throw new Error(`模型不存在: ${provider}/${modelId}`)
   }
 
   // 只读注册 skill（ADR-0003：不修改 skill 内容）+ 系统提示常驻触发

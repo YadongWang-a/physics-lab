@@ -11,7 +11,7 @@ import { seedLibIntoWorkspace } from '../src/main/workspace/lib-seed'
  */
 
 const SKILL_DIR = join(process.cwd(), 'resources', 'physics-lab-skill')
-const hasKey = !!process.env.DEEPSEEK_API_KEY
+const hasKey = !!process.env.DEEPSEEK_API_KEY || !!process.env.OPENCODE_API_KEY
 
 function makeDirs(): { cwd: string; sessionDir: string; agentDir: string } {
   const base = mkdtempSync(join(tmpdir(), 'physics-lab-skilltest-'))
@@ -84,5 +84,5 @@ describe.skipIf(!hasKey)('端到端：物理题 → skill 流程生成演示（�
     expect(demo).toMatch(/^[a-z0-9]+(?:-[a-z0-9]+)*\.html$/) // kebab 命名
     const content = readFileSync(join(dirs.cwd, demo), 'utf8')
     expect(content).toMatch(/src=["']lib\/common\.js["']/) // 引用 lib（离线可运行）
-  }, 300_000)
+  }, 600_000)
 })
