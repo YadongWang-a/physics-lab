@@ -1,0 +1,430 @@
+<!-- physics-lab-skill: 等时圆 · 伽利略等时性 -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>等时圆 · 伽利略等时性</title>
+<meta name="demo-mode" content="dynamic">
+<script>
+  window.addEventListener("message", function(e){
+    var d=e.data; if(!d||d.cmd!=="present")return;
+    document.body.classList.toggle("present", !!d.value);
+  });
+</script>
+<script>
+  window.MathJax = {
+    tex: { inlineMath: [['$','$'],['\\(','\\)']], displayMath: [['$$','$$'],['\\[','\\]']] },
+    svg: { fontURL: 'lib/fonts' },
+    startup: { typeset: true },
+    options: { enableMenu: false, a11y: { speech: false } }
+  };
+</script>
+<script src="lib/mathjax.js" async></script>
+<link rel="stylesheet" href="lib/common.css">
+<style>
+  /* ---- 页面专用 CSS 变量(画布颜色等, 浅色) ---- */
+  :root{
+    --canvas-grid:rgba(0,0,0,.04); --canvas-dim-txt:#6b7280;
+    --canvas-ruler:#6b7280; --canvas-arc-fill:rgba(47,111,208,.04);
+    --canvas-arc-stroke:#2f6fd0; --canvas-txt:#1a1e2e;
+  }
+  /* ---- 页面专用布局 ---- */
+  .grid{display:grid;grid-template-columns:2.8fr 0.8fr;gap:14px}.grid>.card:last-child{min-width:0}
+  @media(max-width:1100px){.grid{grid-template-columns:1fr}}
+  /* ---- 阶段标签 ---- */
+  .phase{color:var(--green)}
+  /* ---- 弦参数卡片 ---- */
+  .chords{margin-top:12px;display:grid;grid-template-columns:1fr;gap:6px}
+  .chord{display:flex;align-items:center;gap:10px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:7px 12px;font-size:12px;font-variant-numeric:tabular-nums}
+  .chord .sw{width:12px;height:12px;border-radius:3px;flex-shrink:0;box-shadow:0 0 5px currentColor}
+  .chord .nm{color:var(--dim);width:60px;flex-shrink:0}
+  .chord .det{flex:1;color:var(--txt)}
+  .chord .det b{color:var(--cyan)}
+  .chord .tv{font-weight:600;color:var(--green);width:70px;text-align:right;flex-shrink:0}
+  /* ---- 证明卡片 ---- */
+  .proof{margin-top:12px;padding:11px 14px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;font-size:12px;color:var(--dim);line-height:1.85}
+  .proof b{color:var(--txt)}
+  .proof code{background:var(--code-bg);padding:1px 5px;border-radius:4px;color:var(--cyan)}
+  .proof .hl{color:var(--green);font-weight:600}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ====== 标题行 ====== -->
+  <div class="head-row">
+    <div>
+      <h1>等时圆 · 伽利略等时性</h1>
+    </div>
+  </div>
+
+  <!-- ====== 顶栏 · 模式切换 ====== -->
+  <div class="topbar">
+    <div class="seg" id="modeSeg">
+      <button class="on" data-mode="down">滑到最低点</button>
+      <button data-mode="top">从最高点滑下</button>
+    </div>
+  </div>
+
+  <!-- ====== 双列布局 ====== -->
+  <div class="grid">
+
+    <!-- ====== 场景卡片 ====== -->
+    <div class="card">
+      <!-- 操作按钮由 setupScene 注入 -->
+      <!-- 画布 -->
+      <canvas id="scene" height="510"></canvas>
+      <!-- 阶段标签 -->
+      <div class="phase" id="phase">● 点击"同时释放":所有小球同时出发,同时到达</div>
+    </div>
+
+    <!-- ====== 右侧卡片 · 参数 + 弦参数 + 证明 ====== -->
+    <div class="card">
+      <h2>参数调整</h2>
+      <div class="controls">
+        <div class="ctl"><label>圆半径 R</label>
+          <input type="range" id="rR" min="1" max="3" step="0.1" value="2">
+          <input type="number" id="rN" min="1" max="3" step="0.1" value="2"><span class="unit">m</span></div>
+        <div class="ctl"><label>重力 g</label>
+          <input type="range" id="gR" min="1" max="20" step="0.5" value="9.81">
+          <input type="number" id="gN" min="1" max="20" step="0.5" value="9.81"><span class="unit">m/s²</span></div>
+        <div class="ctl"><label>弦数</label>
+          <input type="range" id="nR" min="2" max="6" step="1" value="5">
+          <input type="number" id="nN" min="2" max="6" step="1" value="5"></div>
+        <div class="ctl"><label>动画速度</label>
+          <input type="range" id="speedR" min="0.1" max="2" step="0.1" value="0.5">
+          <input type="number" id="speedN" min="0.1" max="2" step="0.1" value="0.5"></div>
+      </div>
+      <h2 style="margin-top:12px">各弦参数(均相等才是等时)</h2>
+      <div class="chords" id="chords"></div>
+      <div class="proof">
+        <b>证明</b>(光滑弦, 内接三角形 + 受力分解):<br>
+        弦两端与最高点 T、最低点 B 构成内接三角形 △TAB; TB 为直径 ⟹ \(\angle TAB=90^\circ\)(直径所对圆周角为直角)。<br>
+        重力 \(mg\) 竖直(\(\parallel TB\)), 分解为沿弦分量 \(mg\cos\alpha\) 与垂直分量 \(mg\sin\alpha\)(被管壁支持力 \(N\) 平衡)。<br>
+        弦长 \(L=2R\cos\alpha\)(直角三角形, 斜边 TB=2R), 加速度 \(a=g\cos\alpha\)<br>
+        \(t=\sqrt{\dfrac{2L}{a}}=\sqrt{\dfrac{2\cdot 2R\cos\alpha}{g\cos\alpha}}\)<br>
+        <span class="hl">\(\cos\alpha\) 恰好约掉 ⟹ \(t=\sqrt{4R/g}=\sqrt{2d/g}\), 与弦的倾角无关!</span><br>
+        <span style="color:var(--dim)">α=弦与竖直方向夹角, β=弦与水平方向夹角(α+β=90°); 弦越长 ⟹ α 越小 ⟹ 沿弦加速度越大, 二者抵消, 故等时。</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot">
+    光滑弦·无摩擦·内接三角形 ⟹ 重力沿弦分量 $a=g\cos\alpha$ · 等时 $t=\sqrt{2d/g}$ · 双击此 HTML 即可离线运行 · 空格暂停 / R 重置
+  </div>
+</div>
+
+<script src="lib/common.js"></script>
+<script>
+"use strict";
+/* ---------- 状态 ---------- */
+const S = { R:2, g:9.81, nChords:5, speed:0.5, mode:'down', t:0, running:false, last:null, balls:[], arrived:0 };
+const PALETTE=['#5a9bf0','#36d6e7','#5bd98a','#f5a623','#b48cf5','#ef6f6f'];
+const VP = { zoom:1, panX:0, panY:0 };
+
+function tIso(){ return Math.sqrt(4*S.R/S.g); }
+
+function chordGeom(i, n){
+  if (S.mode==='down'){
+    const phi = Math.PI * (n===1 ? 0.6 : (1 - (i+1)/(n+1)));
+    const A = {x: S.R*Math.sin(phi), y: S.R*(1-Math.cos(phi))};
+    const B = {x:0, y:0};
+    const beta = phi/2;
+    const L = 2*S.R*Math.sin(phi/2);
+    return {A, B, L, beta, phi};
+  } else {
+    const phi = Math.PI * (i+1)/(n+1);
+    const T = {x:0, y:2*S.R};
+    const P = {x: S.R*Math.sin(phi), y: S.R*(1-Math.cos(phi))};
+    const dx=P.x-T.x, dy=P.y-T.y;
+    const L=Math.hypot(dx,dy);
+    const beta=Math.atan2(-dy, dx);
+    return {A:T, B:P, L, beta, phi};
+  }
+}
+
+function buildBalls(){
+  S.balls=[];
+  for (let i=0;i<S.nChords;i++){
+    const g=chordGeom(i, S.nChords);
+    const a=S.g*Math.sin(g.beta);
+    S.balls.push({i, g, a, s:0, done:false});
+  }
+}
+
+/* ---------- 画布 ---------- */
+const sceneC = $('scene');
+let scene = fitCanvas(sceneC);
+window.addEventListener('resize', function(){ scene = fitCanvas(sceneC); });
+
+/* ---------- 坐标变换 (2D) ---------- */
+function view(){
+  const {w,h}=scene;
+  const R=S.R;
+  const yMax=2*R, yMin=-0.3;
+  const xMax=R+0.4;                       /* 世界 x 对称范围 */
+  const f = fitView(w, h, -xMax, xMax, yMin, yMax, {l:30, r:30, t:24, b:30});
+  /* 原布局: 圆始终水平居中(w/2), 纵向 fit —— 覆写 ox 复现 */
+  return {s: f.s, ox: w/2, oy: f.oy, w, h};
+}
+/* 世界坐标 → 画布坐标(仅在 drawScene 的 translate+scale 变换内使用):
+   X 原样(x 右正), Y 翻转(y 上正 → 画布 y 下正)。 */
+const X = function(x){ return x; };
+const Y = function(y){ return -y; };
+
+/* ---------- 颜色(一次缓存) ---------- */
+const C = palette();
+
+/* 世界字号 → font 串: 四舍五入到 2 位小数(Chrome 对 canvas font 的 px 尺寸按 2 位小数向下取整,
+   0.118241px 会被当 0.11px 用 → 字缩小 7%; 取整后与名义 px 误差 ≤0.5%) */
+const F = function(px, s){ return (Math.round(px/s*100)/100)+'px sans-serif'; };
+
+/* ---------- 场景绘制 ---------- */
+function drawScene(){
+  const {ctx,w,h}=scene, V=view();
+  ctx.clearRect(0,0,w,h);
+  ctx.save();
+  applyViewport(ctx,w,h,VP);
+  ctx.translate(V.ox, V.oy);
+  ctx.scale(V.s, V.s);                /* 世界空间: 1 世界单位 = V.s px —— 此后尺寸一律世界单位 */
+  const s = V.s;
+
+  const cGrid=C.canvas.grid, cDim=C.canvas.dimTxt, cRuler=C.canvas.ruler;
+  const cArcFill=C.canvas.arcFill, cArcSt=C.canvas.arcStroke, cTxt=C.canvas.txt;
+  const cGreen=C.green, cRed=C.red;
+  const light=true;
+
+  // 网格(40px → 世界步长 40/s, 覆盖全画布)
+  ctx.strokeStyle=cGrid; ctx.lineWidth=1/s;
+  const gs=40/s, gx0=-V.ox/s, gx1=(V.w-V.ox)/s, gy0=(V.oy-V.h)/s, gy1=V.oy/s;
+  for (let gx=gx0;gx<=gx1;gx+=gs){ctx.beginPath();ctx.moveTo(gx,gy0);ctx.lineTo(gx,gy1);ctx.stroke();}
+  for (let gy=gy0;gy<=gy1;gy+=gs){ctx.beginPath();ctx.moveTo(gx0,gy);ctx.lineTo(gx1,gy);ctx.stroke();}
+
+  const R=S.R;
+  const cxs=X(0), cys=Y(R);           /* 圆心: 世界 (0, R) */
+
+  // 竖直直径(虚线·浅色) — 原语库 dashLine
+  dashLine(ctx, X(0), Y(0), X(0), Y(2*R),
+    {color:light?'rgba(0,0,0,.35)':'rgba(150,165,200,.5)', dash:[4,5], lw:1.2, scale:s});
+
+  // 圆
+  ctx.strokeStyle=cArcSt; ctx.lineWidth=2.5/s;
+  ctx.beginPath();ctx.arc(cxs,cys,R,0,7);ctx.stroke();
+  ctx.fillStyle=cArcFill; ctx.fill();
+
+  // 圆心 — 原语库 dot + 单段标签 fillText
+  dot(ctx, cxs, cys, {color:cRuler, r:3, scale:s});
+  ctx.font=F(11,s); ctx.textAlign='left';
+  ctx.fillText('O', X(6/s), Y(R+4/s));
+
+  // 最低点/最高点 — 原语库 dot + 单段标签 fillText
+  dot(ctx, X(0), Y(0), {color:cGreen, r:4, scale:s});
+  ctx.fillText('B(最低点)', X(8/s), Y(-4/s));
+  dot(ctx, X(0), Y(2*R), {color:cRed, r:4, scale:s});
+  ctx.fillText('T(最高点)', X(8/s), Y(2*R+6/s));
+
+  // 半径标注(虚线·浅色) — 原语库 dashLine + 单段标签 fillText
+  dashLine(ctx, cxs, cys, cxs+R, cys,
+    {color:light?'rgba(0,0,0,.3)':'rgba(140,160,195,.45)', dash:[2,4], lw:1, scale:s});
+  ctx.fillStyle=cDim; ctx.fillText('R', X(R/2), Y(R+5/s));
+  ctx.fillText('直径 d=2R', X(8/s), Y(R));
+
+  // 证明辅助线(图例可关): 水平参考线 + 直角标记(竖直直径 ⊥ 水平 ⟹ 由等腰△可读 β=φ/2)
+  const proofIdx = Math.floor((S.nChords-1)/2);   // 代表弦(取中间一条)
+  if (S.show.proof){
+    const refW = (S.mode==='down') ? 0 : 2*R;     /* 世界 y */
+    dashLine(ctx, X(-0.42*R), Y(refW), X(0.42*R), Y(refW),
+      {color:'rgba(0,0,0,.38)', dash:[4,5], lw:1.2, scale:s});
+    const tk=0.055*R, vdir=(S.mode==='down')?-1:1;   /* 标记朝圆内: 世界 y 内移 vdir */
+    ctx.strokeStyle='rgba(0,0,0,.45)'; ctx.lineWidth=1.2/s; ctx.setLineDash([2,2].map(function(v){return v/s;}));
+    ctx.beginPath();
+    ctx.moveTo(X(tk), Y(refW)); ctx.lineTo(X(tk), Y(refW-vdir*tk)); ctx.lineTo(X(0), Y(refW-vdir*tk));
+    ctx.stroke(); ctx.setLineDash([]);
+    /* 起点竖直参考线(重力方向 ∥ 竖直) + α 角弧(弦与竖直方向夹角, 受力分解的角度) */
+    const g0 = chordGeom(proofIdx, S.nChords);
+    const stx=g0.A.x, sty=g0.A.y;
+    if (S.mode==='down'){
+      dashLine(ctx, X(stx), Y(sty+0.32*R), X(stx), Y(sty-0.30*R),
+        {color:'rgba(0,0,0,.35)', dash:[4,5], lw:1.2, scale:s});
+    }
+    const dxc=g0.B.x-g0.A.x, dyc=g0.B.y-g0.A.y;
+    const caA=Math.atan2(-dyc, dxc);              /* 弦方向(起点→终点)画布角 */
+    angleArc(ctx, X(stx), Y(sty), 0.24*R, Math.PI/2, caA,
+      {ccw:caA<Math.PI/2, color:'#8a93a6', label:'α', font:10, lw:1.2, dash:[3,3], scale:s});
+  }
+
+  // 各弦 + 小球
+  S.balls.forEach(function(b,idx){
+    const col=PALETTE[idx%PALETTE.length];
+    const {A,B}=b.g;
+    const ax=X(A.x), ay=Y(A.y), bx=X(B.x), by=Y(B.y);
+    // 弦
+    ctx.strokeStyle=col+'88'; ctx.lineWidth=2/s; ctx.lineCap='round';
+    ctx.beginPath();ctx.moveTo(ax,ay);ctx.lineTo(bx,by);ctx.stroke();
+    // 证明辅助线(仅代表弦, 与证明卡同参 φ/β): 半径 O→圆上点, 中心角 φ 弧, 倾角 β 弧
+    if (S.show.proof && idx === proofIdx){
+      const oc = (S.mode==='down') ? A : B;   // 圆上端点
+      const mt = (S.mode==='down') ? B : A;   // 汇集端点(最低/最高)
+      const ocx=X(oc.x), ocy=Y(oc.y), mtx=X(mt.x), mty=Y(mt.y);
+      dashLine(ctx, cxs, cys, ocx, ocy, {color:col+'88', dash:[3,4], lw:1, scale:s});
+      angleArc(ctx, cxs, cys, 0.30*R, Math.PI/2, Math.PI/2-b.g.phi,
+        {ccw:true, color:col+'88', label:'φ', font:10, lw:1.2, dash:[4,3], scale:s});
+      const ca=Math.atan2(ocy-mty, ocx-mtx);   // 弦方向(汇集端点→圆上点, 画布角, 自水平起)
+      angleArc(ctx, mtx, mty, 0.22*R, 0, ca,
+        {ccw:ca<0, color:col+'88', label:'β', font:10, lw:1.2, dash:[4,3], scale:s});
+    }
+    // 起点小圆 — 原语库 dot
+    dot(ctx, ax, ay, {color:col, r:3.5, scale:s});
+    // 小球 — 原语库 ball (渐变 gx/gy/r0 精确复现原 (px-3,py-3,1) 渐变)
+    const px=A.x+(B.x-A.x)*b.s, py=A.y+(B.y-A.y)*b.s;
+    ball(ctx, X(px), Y(py), 8/s, {hi:'#ffffff', lo:col, st:col, lw:1.5, scale:s, gx:3/s, gy:3/s, r0:1/s});
+    // 完成球虚线圆 — 原语库 dashCircle
+    if (b.done){
+      dashCircle(ctx, bx, by, 9/s, {color:col, dash:[2,3], lw:2, scale:s});
+    }
+    /* 内接三角形(证明): T-圆上点-B; TB 为直径 ⟹ 圆周角 90°(直角标记于圆上点); 属辅助线组, 浅色虚线 */
+    if (S.show.proof && idx === proofIdx){
+      const tx2=0, ty2=2*R, bx2=0, by2=0;
+      const onx=(S.mode==='down')?A.x:B.x, ony=(S.mode==='down')?A.y:B.y;
+      ctx.strokeStyle='rgba(58,91,184,.55)'; ctx.lineWidth=1.5/s; ctx.lineJoin='round';
+      ctx.setLineDash([6,5].map(function(v){return v/s;}));
+      ctx.beginPath();
+      ctx.moveTo(X(tx2),Y(ty2)); ctx.lineTo(X(onx),Y(ony));
+      ctx.lineTo(X(bx2),Y(by2)); ctx.closePath(); ctx.stroke();
+      const k=0.07*R;
+      const u1x=bx2-onx, u1y=by2-ony, u1l=Math.hypot(u1x,u1y);
+      const u2x=tx2-onx, u2y=ty2-ony, u2l=Math.hypot(u2x,u2y);
+      ctx.lineWidth=1.2/s;
+      ctx.beginPath();
+      ctx.moveTo(X(onx),Y(ony));
+      ctx.lineTo(X(onx+u1x/u1l*k), Y(ony+u1y/u1l*k));
+      ctx.lineTo(X(onx+(u1x/u1l+u2x/u2l)*k), Y(ony+(u1y/u1l+u2y/u2l)*k));
+      ctx.lineTo(X(onx+u2x/u2l*k), Y(ony+u2y/u2l*k));
+      ctx.closePath(); ctx.stroke();
+      ctx.setLineDash([]);
+      /* 三角形标注(新边 T-圆上点 中点外侧) */
+      const mdx=onx-tx2, mdy=ony-ty2, ml=Math.hypot(mdx,mdy);
+      const plx=-mdy/ml, ply=mdx/ml;
+      const lx=(tx2+onx)/2+plx*0.18*R, ly=(ty2+ony)/2+ply*0.18*R;
+      ctx.fillStyle='#5a77c9'; ctx.font='bold '+F(11,s); ctx.textAlign='center';
+      ctx.fillText((S.mode==='down')?'△TAB':'△TPB', X(lx), Y(ly));
+    }
+    /* 受力分析(证明, 代表弦): mg 分解为沿弦 mg·cosα 与垂直 mg·sinα, 支持力 N 平衡垂直分量 */
+    if (S.show.force && idx === proofIdx){
+      const dxc=B.x-A.x, dyc=B.y-A.y, Lc=Math.hypot(dxc,dyc);
+      const ux=dxc/Lc, uy=dyc/Lc;                     /* 沿弦单位(运动方向) */
+      const Lm=0.5, ox2=px, oy2=py;                   /* mg 长度(世界) + 受力点(球心) */
+      const gvx=0, gvy=-Lm;                           /* mg 向量(竖直向下) */
+      const para=gvx*ux+gvy*uy;                       /* 沿弦分量(带符号长度) */
+      const pax=para*ux, pay=para*uy;                 /* 沿弦分量向量 */
+      const nvx=gvx-pax, nvy=gvy-pay;                 /* 垂直分量向量(mg−沿弦分量) */
+      drawArrow(ctx, X(ox2), Y(oy2), X(ox2+gvx), Y(oy2+gvy), '#c94040', 'mg', s);
+      dashLine(ctx, X(ox2+gvx), Y(oy2+gvy), X(ox2+pax), Y(oy2+pay),
+        {color:'rgba(0,0,0,.4)', dash:[3,3], lw:1.2, scale:s});
+      dashLine(ctx, X(ox2+gvx), Y(oy2+gvy), X(ox2+nvx), Y(oy2+nvy),
+        {color:'rgba(0,0,0,.4)', dash:[3,3], lw:1.2, scale:s});
+      drawArrow(ctx, X(ox2), Y(oy2), X(ox2+pax), Y(oy2+pay), '#1a8a4a', 'mg·cosα', s, [5,4]);
+      drawArrow(ctx, X(ox2), Y(oy2), X(ox2+nvx), Y(oy2+nvy), '#6b7280', 'mg·sinα', s, [5,4]);
+      drawArrow(ctx, X(ox2), Y(oy2), X(ox2-nvx), Y(oy2-nvy), '#7c3aed', 'N', s);
+    }
+  });
+
+  ctx.restore();
+
+  // 计时器(屏幕空间 HUD, 视口变换外)
+  ctx.fillStyle=cTxt; ctx.font='bold 16px sans-serif'; ctx.textAlign='left';
+  ctx.fillText('t = '+S.t.toFixed(3)+' s', 14, 22);
+  ctx.fillStyle=cGreen; ctx.font='11px sans-serif';
+  ctx.fillText('等时 T=√(2d/g)='+tIso().toFixed(3)+'s', 14, 38);
+}
+
+/* ---------- 物理 ---------- */
+function step(dt){
+  S.balls.forEach(function(b){
+    if (b.done) return;
+    const v = b.a*S.t;
+    b.s += v*dt/b.g.L;
+    if (b.s>=1){ b.s=1; b.done=true; S.arrived++; }
+  });
+  S.t+=dt;
+  if (S.balls.length && S.balls.every(function(b){return b.done;})){ S.running=false; }
+}
+
+/* ---------- 主循环: lib startLoop (子步积分已内置) ---------- */
+
+function render(){
+  drawScene();
+  /* renderChords 每帧重建 DOM + MathJax 重新排版是帧率杀手(原页面即有);
+     chord 表仅 t 动态且各行相同 → 节流到 t 每变化 0.25s 重排一次 */
+  if (S._chordsT === undefined || Math.abs(S.t - S._chordsT) >= 0.25){
+    S._chordsT = S.t;
+    renderChords();
+  }
+  const ph=$('phase');
+  if (!S.running && S.balls.length && S.balls.every(function(b){return b.done;})){
+    ph.textContent='● 全部同时到达! 等时性验证: 任意弦 t='+tIso().toFixed(3)+'s';
+    ph.style.color='var(--green)';
+  } else if (S.running){
+    ph.textContent='● 运行中: 已到达 '+S.arrived+'/'+S.balls.length+'  (t='+S.t.toFixed(3)+'s)';
+    ph.style.color='var(--cyan)';
+  } else {
+    ph.textContent='● 点击"同时释放":所有小球同时出发,同时到达';
+    ph.style.color='var(--green)';
+  }
+  SC.syncRun();
+}
+
+function renderChords(){
+  const box=$('chords');
+  box.innerHTML='';
+  S.balls.forEach(function(b,idx){
+    const col=PALETTE[idx%PALETTE.length];
+    const div=document.createElement('div');
+    div.className='chord';
+    const tEnd=Math.sqrt(2*b.g.L/b.a);
+    div.innerHTML='<div class="sw" style="background:'+col+';color:'+col+'"></div>'+
+      '<div class="nm">弦 '+(idx+1)+'</div>'+
+      '<div class="det">$\\varphi='+(b.g.phi*180/Math.PI).toFixed(0)+'^\\circ$ $\\beta='+(b.g.beta*180/Math.PI).toFixed(0)+'^\\circ$ $L=<b>'+b.g.L.toFixed(2)+'</b>$ $a=<b>'+b.a.toFixed(2)+'</b>$</div>'+
+      '<div class="tv">$t='+tEnd.toFixed(3)+'\\,\\text{s}$</div>';
+    box.appendChild(div);
+  });
+  if (window.MathJax && MathJax.typesetPromise){
+    MathJax.typesetPromise([box]).catch(function(){});
+  }
+}
+
+/* ---------- 控件绑定 ---------- */
+function rebuild(){ S.t=0; S.arrived=0; S.running=false; buildBalls(); render(); }
+bindRangeNumber('rR','rN',parseFloat,function(v){S.R=v;rebuild();});
+bindRangeNumber('gR','gN',parseFloat,function(v){S.g=v;rebuild();});
+bindRangeNumber('nR','nN',parseInt,function(v){S.nChords=v;rebuild();});
+bindRangeNumber('speedR','speedN',parseFloat,function(v){S.speed=v;});
+
+// 模式切换
+document.querySelectorAll('#modeSeg button').forEach(function(btn){
+  btn.addEventListener('click',function(){
+    document.querySelectorAll('#modeSeg button').forEach(function(b){b.classList.remove('on');});
+    btn.classList.add('on');
+    S.mode=btn.dataset.mode;
+    rebuild();
+  });
+});
+
+/* ---------- 场景标准件 (按钮/视口/键盘 由 setupScene 注入并绑定; 本页无图例) ---------- */
+const SC = setupScene({
+  canvas: sceneC, vp: VP, state: S, render: render,
+  resetFn: function(){ rebuild(); },
+  runLabel: '▶ 同时释放', panDrag: true,
+  legend: [
+    {k:'proof', label:'辅助线',   color:'#2f6fd0'},
+    {k:'force', label:'受力分析', color:'#c94040'}
+  ],
+  onBeforeRun: function(){ if(S.balls.every(function(b){return b.done;})) rebuild(); }
+});
+
+rebuild();
+startLoop(S, { sub: 0.002, step: step, render: render });
+</script>
+</body>
+</html>

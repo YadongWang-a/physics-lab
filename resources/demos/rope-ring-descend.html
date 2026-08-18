@@ -1,0 +1,337 @@
+<!-- physics-lab-skill: 绳环悬物 · 缓慢下降(F/F_f/F_N 变化分析) -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>绳环悬物 · 缓慢下降</title>
+<meta name="demo-mode" content="dynamic">
+<script>
+  window.addEventListener("message", function(e){
+    var d=e.data; if(!d||d.cmd!=="present")return;
+    document.body.classList.toggle("present", !!d.value);
+  });
+</script>
+<link rel="stylesheet" href="lib/common.css">
+<style>
+  /* ---- 页面专用 CSS 变量 ---- */
+  :root{
+    --canvas-grid:rgba(0,0,0,.04);
+    --canvas-dim-txt:#6b7280;
+    --canvas-txt:#1a1e2e;
+    --canvas-ball-hi:#ffd9a0;
+    --canvas-ball-lo:#c47d10;
+    --canvas-ball-stroke:#a86a0a;
+    --canvas-ball-txt:#ffffff;
+  }
+  .grid{display:grid;grid-template-columns:2.8fr 0.8fr;gap:14px}.grid>.card:last-child{min-width:0}
+  @media(max-width:1100px){.grid{grid-template-columns:1fr}}
+  /* ---- 答案卡内件(判定卡/答案卡基础样式在 lib/common.css) ---- */
+  .tbl{width:100%;border-collapse:collapse;margin-top:4px;font-size:12px;color:var(--txt)}
+  .tbl th,.tbl td{border:1px solid var(--line);padding:3px 6px;text-align:center}
+  .tbl th{background:var(--panel);color:var(--dim);font-weight:600}
+  .tbl .down{color:var(--red);font-weight:600}
+  .tbl .same{color:var(--green);font-weight:600}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ====== 标题行 ====== -->
+  <div class="head-row">
+    <div>
+      <h1>绳环悬物 · 缓慢下降</h1>
+    </div>
+  </div>
+
+  <!-- ====== 顶栏 · 状态切换 ====== -->
+  <div class="topbar" style="gap:8px">
+    <div style="font-size:12px;color:var(--dim);margin-right:4px">状态 ▶</div>
+    <div class="seg" id="stateSeg">
+      <button class="on" data-m="solid">实线位置</button>
+      <button data-m="anim">动画下降</button>
+      <button data-m="dash">虚线位置</button>
+    </div>
+    <span style="font-size:12px;color:var(--dim)">α 增大 → F 增大; 物体下降时 α 减小</span>
+  </div>
+
+  <!-- ====== 双列布局 ====== -->
+  <div class="grid">
+
+    <!-- ====== 场景卡片 ====== -->
+    <div class="card">
+      <!-- 操作按钮 + 图例栏由 setupScene 注入到 canvas 前/后 -->
+      <canvas id="scene" height="480"></canvas>
+      <!-- 阶段标签 -->
+      <div class="phase" id="phase">● 实线位置</div>
+    </div>
+
+    <!-- ====== 右侧卡片 · 参数 + 读数 + 判定 + 答案 ====== -->
+    <div class="card">
+      <h2>参数调整</h2>
+      <div class="controls">
+        <div class="ctl"><label>上段绳夹角 α</label>
+          <input type="range" id="aR" min="15" max="55" step="0.5" value="53">
+          <input type="number" id="aN" min="15" max="55" step="0.5" value="53"><span class="unit">°</span></div>
+        <div class="hint">α = 上段绳(环→结点)与竖直方向夹角; 实线 53° → 虚线 15°</div>
+      </div>
+      <h2 style="margin-top:12px">实时读数</h2>
+      <div class="readouts">
+        <div class="ro"><div class="k">夹角 α</div><div class="v" id="aV">0<small>°</small></div></div>
+        <div class="ro"><div class="k">水平拉力 F</div><div class="v" id="FV">0<small>mg</small></div></div>
+        <div class="ro"><div class="k">环杆摩擦力 F<sub>f</sub></div><div class="v" id="ffV">0<small>mg</small></div></div>
+        <div class="ro"><div class="k">环对杆压力 F<sub>N</sub></div><div class="v" id="nV">0<small>mg</small></div></div>
+        <div class="ro"><div class="k">绳张力 T₁</div><div class="v" id="t1V">0<small>mg</small></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 问题/推导/答案 弹层(右缘「解析」标签打开) -->
+  <div class="mpop" id="mpop">
+    <div class="mpop-back"></div>
+    <div class="mpop-panel" role="dialog" aria-modal="true">
+      <div class="sec"><button type="button" class="vhead" aria-expanded="true">问题 <span class="vcaret">▾</span></button>
+        <div class="sec-body"><div class="prob">轻绳一端系于圆环(套在粗糙水平杆 MN 上)、另一端挂重物 m,水平力 F 拉绳上结点。缓慢下降 → 上段绳(环→结点)与竖直方向夹角 α 减小,分析 F、F<sub>f</sub>、F<sub>N</sub> 的变化。</div></div></div>
+      <div class="sec"><button type="button" class="vhead" aria-expanded="true">推导 <span class="vcaret">▾</span></button>
+        <div class="sec-body"><div class="verdict" id="verdict"></div></div></div>
+      <div class="sec"><button type="button" class="vhead" aria-expanded="true">答案 <span class="vcaret">▾</span></button>
+        <div class="sec-body"><div class="ans" id="ans">
+          <b>参考答案: D</b> — 缓慢下降时 α 减小(53°→15°):
+          <table class="tbl">
+            <tr><th></th><th>实线 (α=53°)</th><th>虚线 (α=15°)</th><th>趋势</th></tr>
+            <tr><td>F</td><td id="tF1">–</td><td id="tF2">–</td><td class="down">↓</td></tr>
+            <tr><td>F<sub>f</sub></td><td id="tf1">–</td><td id="tf2">–</td><td class="down">↓</td></tr>
+            <tr><td>F<sub>N</sub></td><td id="tN1">–</td><td id="tN2">–</td><td class="same">—</td></tr>
+          </table>
+        </div></div></div>
+    </div>
+  </div>
+
+  <div class="foot">准静态缓慢下降, 每瞬平衡 · 结点三力 F+T₁+mg=0 · 环静摩擦 f=F(向左) · 空格暂停 / R 重置 · 双击此 HTML 离线运行</div>
+</div>
+
+<script src="lib/common.js"></script>
+<script>
+"use strict";
+/* ---------- 物理常量 / 状态 ---------- */
+const A_SOLID = 53, A_DASH = 15, DESC_RATE = 7;   // 实线/虚线夹角(°), 下降速率(°/s)
+const L1 = 1.5, L2 = 1.0;                          // 上段绳长(环→结点) / 下段绳长(结点→重物), 世界单位
+const MG_LEN = 0.6;                                // mg 力箭头绘制长度(世界单位)
+const HB = 0.12;                                   // 物块半边长(世界单位, 方块边长 0.24)
+const S = { alpha: A_SOLID, mode: 'solid', speed: 1, running: false, last: null };
+const VP = { zoom: 1, panX: 0, panY: 0 };
+
+/* ---------- 几何 / 受力 ---------- */
+function knotPos(){ const a = S.alpha * Math.PI / 180; return { x: L1 * Math.sin(a), y: -L1 * Math.cos(a) }; }
+function massPos(){ const k = knotPos(); return { x: k.x, y: k.y - L2 }; }
+function forces(){
+  const a = S.alpha * Math.PI / 180, t = Math.tan(a), c = Math.cos(a);
+  return { F: MG_LEN * t, T1: MG_LEN / c, mg: MG_LEN, f: MG_LEN * t, N: MG_LEN };
+}
+function ghostAngle(){ return S.mode === 'solid' ? A_DASH : A_SOLID; }   // 参照 = 另一状态; 动画中参照起点(实线)
+
+/* ---------- 画布 ---------- */
+const sceneC = $('scene');
+let scene = fitCanvas(sceneC);
+window.addEventListener('resize', function(){ scene = fitCanvas(sceneC); });
+
+/* ---------- 坐标变换 (2D) ---------- */
+function view(){
+  const {w,h}=scene;
+  const xMin=-1.05, xMax=3.15, yMin=-2.72, yMax=0.75;
+  const {s, ox, oy} = fitView(w, h, xMin, xMax, yMin, yMax, {l:40, r:20, t:20, b:30});
+  return {s, ox, oy, w, h};
+}
+const X = function(x){ return x; };
+const Y = function(y){ return -y; };
+
+/* ---------- 颜色 ---------- */
+const C = palette();
+const ROPE = '#000000', RING = '#4a4f5a', ROD = '#8a8fa0', GHOST = 'rgba(0,0,0,.4)';  /* 辅助线浅色虚线(见 drawing.md 视觉规则表) */
+
+/* ---------- 场景绘制 ---------- */
+function drawScene(){
+  const {ctx,w,h}=scene;
+  const V=view();
+  ctx.clearRect(0,0,w,h);
+  ctx.save();
+  applyViewport(ctx,w,h,VP);
+  ctx.translate(V.ox, V.oy);
+  ctx.scale(V.s, V.s);
+
+  const a = S.alpha * Math.PI / 180;
+  const k = knotPos(), m = massPos();
+
+  /* 参照状态(另一状态虚线轮廓) */
+  if (S.show.ghost){
+    const ag = ghostAngle() * Math.PI / 180;
+    const kg = { x: L1 * Math.sin(ag), y: -L1 * Math.cos(ag) };
+    const mg2 = { x: kg.x, y: kg.y - L2 };
+    dashLine(ctx, X(0), Y(0), X(kg.x), Y(kg.y), {color:GHOST, lw:0.013*V.s, dash:[0.07*V.s,0.06*V.s], scale:V.s});
+    dashLine(ctx, X(kg.x), Y(kg.y), X(mg2.x), Y(mg2.y), {color:GHOST, lw:0.013*V.s, dash:[0.07*V.s,0.06*V.s], scale:V.s});
+    dashRect(ctx, X(mg2.x), Y(mg2.y), HB*2, HB*2, {color:GHOST, lw:0.013*V.s, dash:[0.07*V.s,0.06*V.s], scale:V.s});
+  }
+
+  /* 竖直参照线 + 角度弧(α = 上段绳与竖直夹角) */
+  dashLine(ctx, X(0), Y(0.15), X(0), Y(-2.68), {color:'#000000', lw:0.013*V.s, dash:[0.06*V.s,0.05*V.s], scale:V.s});
+  angleArc(ctx, X(0), Y(0), 0.34, Math.PI/2, Math.PI/2 - a, {ccw:true, color:'#000000', lw:0.013*V.s, dash:[0.06*V.s,0.05*V.s], scale:V.s});
+  /* 'α' 为简单单段标签, 保留原 fillText(angleArc 内置标签为 bold, 与原版不一致) */
+  ctx.font='0.12px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillStyle = C.dimTxt;
+  ctx.fillText('α', X(0.42*Math.sin(a/2)), Y(-0.42*Math.cos(a/2)));
+
+  /* 粗糙水平杆 MN(环固定处) — rod() 为圆端帽而原版平端, 保留手写 */
+  ctx.lineWidth = 0.025; ctx.strokeStyle = ROD;
+  ctx.beginPath(); ctx.moveTo(X(-0.9),Y(0)); ctx.lineTo(X(2.9),Y(0)); ctx.stroke();
+  ctx.font='0.12px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle = C.txt;
+  ctx.fillText('M', X(-0.98), Y(0.14));
+  ctx.fillText('N', X(3.0), Y(0.14));
+
+  /* 绳: 环→结点→重物(两段独立路径, 与原版圆端帽一致) */
+  rope(ctx, [{x:X(0), y:Y(0)}, {x:X(k.x), y:Y(k.y)}], {color:ROPE, lw:0.015*V.s, scale:V.s});
+  rope(ctx, [{x:X(k.x), y:Y(k.y)}, {x:X(m.x), y:Y(m.y+HB)}], {color:ROPE, lw:0.015*V.s, scale:V.s});
+
+  /* 结点(纯填充圆, 原版无描边; joint() 自带描边, 保留手写) */
+  ctx.fillStyle = '#1a1e2e'; ctx.beginPath(); ctx.arc(X(k.x),Y(k.y),0.028,0,7); ctx.fill();
+
+  /* 环 */
+  roller(ctx, X(0), Y(0), 0.09, {color:RING, lw:0.022*V.s, scale:V.s});
+
+  /* 受力分析 */
+  const fo = forces();
+  if (S.show.forces){
+    forceArrows(ctx, X(k.x), Y(k.y), [
+      {x:X(k.x+fo.F), y:Y(k.y), color:C.red, label:'F'},
+      {x:X(k.x-fo.T1*Math.sin(a)), y:Y(k.y+fo.T1*Math.cos(a)), color:C.blue, label:'T₁'},
+      {x:X(k.x), y:Y(k.y-fo.mg), color:C.green, label:'mg'}
+    ], {scale:V.s});
+  }
+  if (S.show.ring){
+    forceArrows(ctx, X(0), Y(0), [
+      {x:X(-fo.f), y:Y(0), color:C.purple, label:'f'},
+      {x:X(0), y:Y(fo.N), color:C.orange, label:'N'},
+      {x:X(fo.T1*Math.sin(a)), y:Y(-fo.T1*Math.cos(a)), color:C.blue, label:'T₁'}
+    ], {scale:V.s});
+  }
+
+  /* 力三角形(三力首尾相接, 闭合 = 平衡) — 三支实线箭头为页面特有
+     (forceTriangle 只画 n-1 支箭头且闭合边为虚线, 与原三箭头不符), 保留手写 */
+  if (S.show.tri){
+    const p0x=2.05, p0y=-0.18, fl=MG_LEN*Math.tan(a), mgl=MG_LEN;
+    const p1x=p0x+fl, p1y=p0y, p2x=p1x, p2y=p1y-mgl;
+    drawArrow(ctx, X(p0x),Y(p0y), X(p1x),Y(p1y), C.red, 'F', V.s);
+    drawArrow(ctx, X(p1x),Y(p1y), X(p2x),Y(p2y), C.green, 'mg', V.s);
+    drawArrow(ctx, X(p2x),Y(p2y), X(p0x),Y(p0y), C.blue, 'T₁', V.s);
+    ctx.strokeStyle = '#000000'; ctx.lineWidth = 0.013;
+    ctx.beginPath(); ctx.moveTo(X(p1x-0.07),Y(p1y)); ctx.lineTo(X(p1x-0.07),Y(p1y-0.07)); ctx.lineTo(X(p1x),Y(p1y-0.07)); ctx.stroke();
+    ctx.font='0.1px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='top';
+    ctx.fillStyle = C.dimTxt;
+    ctx.fillText('力三角形 · 闭合=平衡', X((p0x+p2x)/2), Y(p0y-mgl-0.1));
+  }
+
+  /* 重物 m(方块物块); 'm' 为简单单段标签, 保留原 fillText
+     (block 内置标签走 multiLabel alphabetic 基线+bold, 与原版 middle 基线不符) */
+  block(ctx, X(m.x), Y(m.y), HB, HB, {hi:C.ballHi, lo:C.ballLo, st:C.ballSt, lw:0.022*V.s, scale:V.s});
+  ctx.fillStyle = C.ballTxt; ctx.font='0.12px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText('m', X(m.x), Y(m.y));
+
+  ctx.restore();
+}
+
+/* ---------- 主循环: lib startLoop (mode 门控 'anim' 已内置) ---------- */
+
+/* ---------- 渲染 ---------- */
+function render(){
+  drawScene();
+  const a = S.alpha * Math.PI / 180, t = Math.tan(a), c = Math.cos(a);
+  $('aV').innerHTML = S.alpha.toFixed(1)+'<small>°</small>';
+  $('FV').innerHTML = t.toFixed(2)+'<small>mg</small>';
+  $('ffV').innerHTML = t.toFixed(2)+'<small>mg</small>';
+  $('nV').innerHTML = '1.00<small>mg</small>';
+  $('t1V').innerHTML = (1/c).toFixed(2)+'<small>mg</small>';
+  $('verdict').innerHTML =
+    '<b>结点</b>: F=mg·tanα='+t.toFixed(2)+'mg · T₁=mg/cosα='+(1/c).toFixed(2)+'mg<br>'+
+    '<b>环</b>: F<sub>f</sub>=F='+t.toFixed(2)+'mg(水平向左) · F<sub>N</sub>=mg=1.00mg(竖直向上, 恒量)<br>'+
+    '<b>下降</b>: α 减小 → F、F<sub>f</sub> 逐渐减小, F<sub>N</sub> 保持不变';
+  if (S.mode==='solid') $('phase').textContent = '● 实线位置 · 物体偏高, α='+S.alpha.toFixed(1)+'° (F 大)';
+  else if (S.mode==='dash') $('phase').textContent = '● 虚线位置 · 物体已下降, α='+S.alpha.toFixed(1)+'° (F 小)';
+  else if (S.running) $('phase').textContent = '● 缓慢下降中 · α='+S.alpha.toFixed(1)+'°';
+  else $('phase').textContent = '● 已到达虚线位置 · 再按 ▶ 从实线重新下降';
+  SC.syncRun();
+}
+
+/* ---------- 控件绑定 ---------- */
+bindRangeNumber('aR','aN',parseFloat, function(v){
+  S.alpha = v; S.running = false;
+  S.mode = (v >= (A_SOLID+A_DASH)/2) ? 'solid' : 'dash';
+  syncSeg();
+});
+
+function syncSeg(){
+  document.querySelectorAll('#stateSeg button').forEach(function(b){
+    b.classList.toggle('on', b.dataset.m === S.mode);
+  });
+}
+document.querySelectorAll('#stateSeg button').forEach(function(b){
+  b.addEventListener('click', function(){
+    S.running = false; S.last = null;
+    S.mode = b.dataset.m;
+    if (S.mode==='solid') S.alpha = A_SOLID;
+    else if (S.mode==='dash') S.alpha = A_DASH;
+    else { if (S.alpha <= A_DASH+0.01) S.alpha = A_SOLID; S.running = true; }
+    $('aR').value = S.alpha; $('aN').value = S.alpha;
+    syncSeg(); render();
+  });
+});
+
+/* ---------- 重置 / 重启钩子 ---------- */
+function resetFn(){
+  S.running = false; S.mode = 'solid'; S.alpha = A_SOLID;
+  $('aR').value = S.alpha; $('aN').value = S.alpha;
+  syncSeg(); render();
+}
+function onBeforeRun(){
+  if (S.mode !== 'anim'){ S.mode = 'anim'; syncSeg(); }
+  if (S.alpha <= A_DASH+0.01) S.alpha = A_SOLID;
+  $('aR').value = S.alpha; $('aN').value = S.alpha;
+}
+
+/* ---------- 场景标准件 (按钮/图例/视口/键盘 由 setupScene 注入并绑定) ---------- */
+const SC = setupScene({
+  canvas: sceneC, vp: VP, state: S, render: render,
+  resetFn: resetFn,
+  runLabel: '▶ 下降',
+  panDrag: true,
+  legend: [
+    {k:'forces', label:'结点受力 F/T₁/mg', color:'#2f6fd0'},
+    {k:'ring',   label:'环受力 f/N/T₁',   color:'#7c3aed'},
+    {k:'tri',    label:'力三角形',        color:'#8893ad'},
+    {k:'ghost',  label:'另一状态参照',    color:'#000000'}
+  ],
+  onBeforeRun: onBeforeRun
+});
+
+/* ---------- 答案表(固定值) ---------- */
+(function fillAns(){
+  const s = A_SOLID * Math.PI / 180, d = A_DASH * Math.PI / 180;
+  $('tF1').textContent = Math.tan(s).toFixed(2)+' mg';
+  $('tF2').textContent = Math.tan(d).toFixed(2)+' mg';
+  $('tf1').textContent = Math.tan(s).toFixed(2)+' mg';
+  $('tf2').textContent = Math.tan(d).toFixed(2)+' mg';
+  $('tN1').textContent = '1.00 mg';
+  $('tN2').textContent = '1.00 mg';
+})();
+
+render();
+startLoop(S, {
+  sub: 0,                                       /* 解析单步 */
+  mode: 'anim',                                 /* 仅 anim 模式推进 */
+  step: function(dt){
+    S.alpha -= DESC_RATE * dt;
+    if (S.alpha <= A_DASH){ S.alpha = A_DASH; S.running = false; }
+  },
+  render: render
+});
+</script>
+</body>
+</html>

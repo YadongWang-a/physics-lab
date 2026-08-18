@@ -1,0 +1,307 @@
+/* ============================================================
+   common.css — 物理实验演示公用样式
+   包含: 主题变量(浅色) / 基础重置 / 布局 / 按钮 / 控件 /
+         图例条 / 读数面板 / 阶段标签 / 分割按钮组 / 演示模式 reflow
+   各页面在自身 <style> 中补充画布专用变量和页面特有组件
+   ============================================================ */
+
+/* ---- 主题变量(浅色,所有页面共用) ----
+   浅色唯一(见 ADR 0006),无深色覆盖、无 [data-theme]。 ---- */
+:root {
+  --bg: #f0f2f7; --panel: #ffffff; --panel2: #eef0f5; --line: #c8cdd8;
+  --txt: #1a1e2e; --dim: #6b7280; --cyan: #0e8fa0; --orange: #c47d10;
+  --green: #1a8a4a; --red: #c94040; --blue: #2f6fd0; --purple: #7c3aed;
+  --input-bg: #ffffff; --code-bg: #e8eaf0;
+  --grad-start: #dce0ec; --grad-end: var(--bg);
+}
+
+/* ---- 基础重置 ---- */
+* { box-sizing: border-box }
+html, body { margin: 0; height: 100% }
+body {
+  background: radial-gradient(1200px 700px at 70% -10%, var(--grad-start) 0%, var(--grad-end) 60%);
+  color: var(--txt);
+  font-family: "Segoe UI", system-ui, "Microsoft YaHei", sans-serif;
+  padding: clamp(10px, 1.5vw, 24px);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---- 排版 ---- */
+h1 { font-size: clamp(15px, 1.4vw, 20px); margin: 0 0 4px; font-weight: 600; letter-spacing: .5px }
+.sub { color: var(--dim); font-size: clamp(11px, 0.95vw, 13px); margin-bottom: 14px; line-height: 1.6 }
+.head-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.head-row .sub { margin-bottom: 14px; }
+.wrap { max-width: 1500px; margin: 0 auto; width: 96%; }
+code { background: var(--code-bg); padding: 1px 6px; border-radius: 4px; color: var(--cyan) }
+
+/* ---- 顶栏 ---- */
+.topbar {
+  display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: 12px; padding: 12px 14px; margin-bottom: 14px;
+}
+
+/* ---- 按钮 ---- */
+.btns { display: flex; gap: 8px }
+.btn {
+  background: var(--panel2); border: 1px solid var(--line); color: var(--txt);
+  padding: 8px 14px; border-radius: 8px; font-size: 13px;
+  cursor: pointer; transition: .15s; user-select: none;
+}
+.btn:hover { border-color: var(--blue); color: var(--txt) }
+.btn.primary {
+  background: linear-gradient(180deg, #2f6fd0, #2456b0);
+  border-color: #3a7be0; color: #fff;
+}
+.btn:active { transform: translateY(1px) }
+.btn.dot { padding: 8px 12px; line-height: 0 }
+.btn.dot span {
+  display: inline-block; width: 12px; height: 12px; border-radius: 50%;
+  background: var(--dc, #888); box-shadow: 0 0 6px var(--dc, #888);
+}
+.btn.dot:hover { border-color: var(--dc, #888) }
+.spacer { flex: 1 }
+
+/* ---- 控件(范围滑块 + 数字输入) ---- */
+.ctl {
+  display: flex; align-items: center; gap: 8px; background: var(--panel2);
+  border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px;
+}
+.ctl label { font-size: 12px; color: var(--dim); white-space: nowrap }
+.ctl input[type=range] { width: 100px; accent-color: var(--blue); cursor: pointer }
+.ctl input[type=number] {
+  width: 54px; background: var(--input-bg); color: var(--txt);
+  border: 1px solid var(--line); border-radius: 6px;
+  padding: 4px 6px; font-size: 12px; text-align: center;
+}
+.ctl .unit { font-size: 11px; color: var(--dim) }
+
+/* ---- 分割按钮组(等时圆 / 斜面挡板) ---- */
+.seg {
+  display: flex; gap: 2px; background: var(--panel2);
+  border: 1px solid var(--line); border-radius: 8px; padding: 3px;
+}
+.seg button {
+  background: transparent; border: none; color: var(--dim);
+  padding: 6px 12px; border-radius: 6px; font-size: 12px;
+  cursor: pointer; transition: .15s;
+}
+.seg button.on { background: var(--blue); color: #fff }
+/* ---- 瞬时动作按钮组 (缩放/平移, 无 on/off 态, 读起来须可点) ---- */
+.seg.seg-act button {
+  color: var(--txt); background: var(--input-bg); border: 1px solid var(--line);
+}
+.seg.seg-act button:hover { border-color: var(--blue); color: var(--txt) }
+.seg.seg-act button:active { transform: translateY(1px) }
+
+/* ---- 卡片布局 ---- */
+.card {
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: 12px; padding: 12px;
+}
+.card h2 {
+  font-size: 13px; color: var(--dim); margin: 0 0 8px;
+  font-weight: 500; letter-spacing: .5px; text-transform: uppercase;
+}
+canvas { display: block; width: 100%; border-radius: 8px; min-height: 45vh; }
+
+/* ---- 场景卡片内操作栏(小按钮) ---- */
+.scene-actions {
+  display: flex; gap: 5px; align-items: center; margin-bottom: 8px;
+}
+.btn.sm {
+  padding: 4px 10px; font-size: 11px; border-radius: 6px;
+  background: var(--panel2); border: 1px solid var(--line); color: var(--txt);
+  cursor: pointer; transition: .15s; user-select: none;
+}
+.btn.sm:hover { border-color: var(--blue); }
+.btn.sm.primary {
+  background: linear-gradient(180deg, #2f6fd0, #2456b0);
+  border-color: #3a7be0; color: #fff;
+}
+.btn.sm:active { transform: translateY(1px); }
+.scene-actions .spacer { flex: 1; }
+/* ---- 动画倍速滑块 ---- */
+.scene-actions .spd {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11px; color: var(--dim); white-space: nowrap;
+}
+.scene-actions .spd input[type=range] { width: 64px; margin: 0; accent-color: var(--blue); cursor: pointer; }
+/* ---- 画笔标注层 (setupScene 注入的覆盖画布, 屏幕空间笔迹) ----
+   关闭时 pointer-events:none 不拦截画布交互; 开启时接管鼠标画线。 */
+.pen-layer {
+  position: absolute; z-index: 40;          /* 侧栏标签(50)/解析弹层(100)之下 */
+  border-radius: 8px; pointer-events: none; touch-action: none;
+}
+.pen-layer.active { pointer-events: auto; cursor: crosshair; }
+
+/* ---- 右侧卡片内的控件容器 ---- */
+.controls { display: flex; flex-direction: column; gap: 5px; }
+.controls .ctl input[type=range] { flex: 1; min-width: 50px; width: auto; }
+.controls .hint { font-size: 11px; color: var(--dim); padding: 2px 4px; }
+
+/* ---- 图例切换条 ---- */
+.legendbar {
+  margin-top: 8px; display: flex; flex-wrap: wrap; gap: 8px;
+  padding: 8px 10px; background: var(--panel2);
+  border: 1px solid var(--line); border-radius: 8px;
+}
+.lg-item {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; color: var(--dim); padding: 4px 10px;
+  border-radius: 6px; border: 1px solid var(--line);
+  cursor: pointer; user-select: none; transition: .15s; white-space: nowrap;
+}
+.lg-item:hover { color: var(--txt); border-color: var(--c) }
+.lg-item .lg-sw {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--c); box-shadow: 0 0 5px var(--c); transition: .15s;
+}
+.lg-item.on { color: var(--txt); border-color: var(--c) }
+.lg-item.on .lg-sw { opacity: 1 }
+.lg-item:not(.on) .lg-sw { opacity: .25; box-shadow: none }
+.lg-item:not(.on) { opacity: .5 }
+
+/* ---- 阶段标签 ---- */
+.phase {
+  margin-top: 10px; text-align: center; font-size: 14px; font-weight: 600;
+  padding: 8px; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--panel2);
+}
+
+/* ---- 读数面板 ---- */
+.readouts { display: grid; grid-template-columns: 1fr; gap: 6px; margin-top: 10px }
+.ro {
+  background: var(--panel2); border: 1px solid var(--line); border-radius: 8px;
+  padding: 7px 12px; display: flex; align-items: center;
+  justify-content: space-between; gap: 10px;
+}
+.ro .k { font-size: 12px; color: var(--dim) }
+.ro .v {
+  font-size: 15px; font-weight: 600;
+  font-variant-numeric: tabular-nums; text-align: right;
+}
+.ro .v small { font-size: 11px; color: var(--dim); font-weight: 400; margin-left: 3px }
+
+/* ---- 页脚 ---- */
+.foot {
+  color: var(--dim); font-size: 11px; margin-top: 14px;
+  text-align: center; line-height: 1.6;
+}
+
+/* ---- 解析弹层 (.mpop, 覆盖式) + 小节(问题/推导/答案, 各自可折叠) ----
+   弹层由模板 @slot:verdict-answer 注入 .mpop > .mpop-back + .mpop-panel;
+   小节为 .sec > .vhead + .sec-body, 点 .vhead 折叠/展开
+   (common.js 事件委托, 切 .sec.closed)。 */
+.mpop { position: fixed; inset: 0; z-index: 100; display: none; }
+.mpop.open { display: block; }
+.mpop-back { position: absolute; inset: 0; background: rgba(15,20,35,.45); }
+.mpop-panel {
+  position: relative; margin: 6vh auto 0; width: min(860px, 92vw);
+  max-height: 82vh; overflow: auto;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+  padding: 16px 18px; box-shadow: 0 12px 40px rgba(0,0,0,.25);
+}
+/* 弹层头部: 标题 + 关闭按钮, 也是拖动抓手(pointer 拖动由 common.js 绑定) */
+.mpop-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding-bottom: 10px; margin-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+  cursor: grab; user-select: none; touch-action: none;
+}
+.mpop-head:active { cursor: grabbing; }
+.mpop-title { font-size: 13px; font-weight: 600; color: var(--dim); letter-spacing: .5px; }
+.mpop-close {
+  border: none; background: transparent; color: var(--dim);
+  font-size: 14px; line-height: 1; cursor: pointer;
+  padding: 3px 7px; border-radius: 6px;
+}
+.mpop-close:hover { background: var(--panel2); color: var(--txt); }
+.sec { margin-top: 10px; }
+.sec:first-child { margin-top: 0; }
+.vhead {
+  display: flex; align-items: center; justify-content: space-between;
+  width: 100%; box-sizing: border-box;
+  background: var(--panel2); border: 1px solid var(--line); color: var(--txt);
+  padding: 7px 12px; border-radius: 8px; font-size: 12.5px; font-weight: 600;
+  cursor: pointer; user-select: none; text-align: left; transition: .15s;
+}
+.vhead:hover { border-color: var(--blue); }
+.vhead .vcaret { color: var(--dim); font-size: 11px; transition: transform .15s; }
+.sec.closed .vhead .vcaret { transform: rotate(-90deg); }
+.sec.closed .sec-body { display: none; }
+.sec-body { margin-top: 8px; }
+.prob { font-size: 13px; line-height: 1.8; color: var(--txt); }
+.verdict {
+  padding: 9px 11px; border-radius: 8px;
+  font-size: 13.5px; line-height: 1.8;
+  background: var(--panel2); border: 1px solid var(--line); color: var(--txt);
+}
+.verdict b { color: var(--txt); }
+.ans {
+  padding: 10px 12px;
+  background: var(--panel2); border: 1px solid var(--line); border-radius: 8px;
+  font-size: 13px; color: var(--dim); line-height: 1.9;
+}
+.ans b { color: var(--txt); }
+
+/* ---- 侧边栏折叠 (默认收起; 开关由 setupScene 注入 .side-toggle) ---- */
+.grid.side-collapsed { grid-template-columns: 1fr; }
+.grid.side-collapsed > .card:last-child { display: none; }
+/* 画布右缘双标签组(锚定场景卡, 见 DevTools 面板边界手柄):
+   收起态贴在画布右缘, 展开态卡在画布与侧栏的缝隙(14px)里;
+   齿轮=参数侧栏, 书=解析弹层; 激活时实心高亮。 */
+.grid > .card:first-child { position: relative; }   /* 标签组锚点 */
+.side-tabs {
+  position: absolute; right: -14px; z-index: 50;    /* top 由 JS 锚到画布垂直中心 */
+  display: flex; flex-direction: column; gap: 6px;
+}
+.side-tab {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 10px 5px; width: 28px;
+  background: var(--panel2); border: 1px solid var(--line);
+  border-radius: 10px; color: var(--txt); font-size: 11px;
+  cursor: pointer; user-select: none; transition: .15s;
+  box-shadow: 0 2px 8px rgba(0,0,0,.12);
+}
+.side-tab:hover { border-color: var(--blue); color: var(--txt); }
+.side-tab.primary {
+  background: linear-gradient(180deg, #2f6fd0, #2456b0);
+  border-color: #3a7be0; color: #fff;
+}
+.side-tab .side-txt { writing-mode: vertical-rl; font-weight: 600; }
+.side-tab svg { flex: none; }
+
+/* ---- 演示模式 (.present) — 布局 reflow ----
+   由应用经 postMessage {cmd:"present",value} 给 <body> 加 .present 触发。
+   顶栏(.topbar/.seg 临界状态)保留在顶部; 场景卡撑满;
+   侧边栏(.grid > .card:last-child)自动隐藏(与正常模式折叠同一机制;
+   原 ADR 0007 底部抽屉已废弃); 判定卡在场景卡内, 演示时仍常驻可见。 */
+body.present { padding: 8px; }
+body.present .wrap { max-width: 100%; width: 100%; }
+body.present .head-row .sub { display: none; }          /* 长描述让位 */
+body.present .grid {
+  display: flex; flex-direction: column; gap: 8px;
+}
+body.present .grid > .card:first-child {               /* 场景卡 */
+  flex: 1 1 auto; min-height: 70vh;
+}
+body.present .grid > .card:last-child { display: none; }  /* 侧边栏隐藏 */
+body.present canvas { min-height: 68vh; }
+body.present .side-tabs { display: none; }                 /* 右缘标签演示时无用 */
+
+/* ---- 守恒律监测面板 (运行时物理自检) ---- */
+.consv{
+  margin-top:8px; display:flex; flex-wrap:wrap; gap:8px;
+  padding:7px 10px; background:var(--panel2);
+  border:1px solid var(--line); border-radius:8px; font-size:11px;
+}
+.consv::before{ content:'守恒监测'; color:var(--dim); font-size:10px; margin-right:2px; }
+.consv .cv{ display:inline-flex; align-items:center; gap:4px; padding:3px 8px;
+  border:1px solid var(--line); border-radius:6px; background:var(--panel);
+  font-variant-numeric:tabular-nums; }
+.consv .cv b{ color:var(--dim); font-weight:600; }
+.consv .cv .cvv{ color:var(--txt); }
+.consv .cv .cvd{ color:var(--green); font-size:10px; }
+.consv .cv.bad{ border-color:var(--red); background:rgba(201,64,64,.08); }
+.consv .cv.bad .cvd{ color:var(--red); font-weight:600; }

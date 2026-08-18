@@ -1,0 +1,444 @@
+<!-- physics-lab-skill: 传送带直管 · 最短时间到达 -->
+<!--
+  使用: 复制本文件为 <英文-kebab>.html, 替换所有 @slot 标记处。
+  骨架(非 @slot 部分)已可运行, 勿改: fitCanvas/resize/view()/坐标变换(X/Y)/
+  drawScene 外壳(ctx.save+applyViewport+translate+scale+restore)/render(SC.syncRun)/startLoop/setupScene 调用。
+  标准件(按钮/图例/视口/键盘/倍速/侧栏/解析弹层)由 lib/common.js 的 setupScene 注入并绑定。
+  .mpop 弹层(问题/推导/答案)无内容时整段删除(「解析」标签自动隐藏)。
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>传送带直管 · 最短时间到达</title>
+<meta name="demo-mode" content="dynamic">
+<script>
+  window.addEventListener("message", function(e){
+    var d=e.data; if(!d||d.cmd!=="present")return;
+    document.body.classList.toggle("present", !!d.value);
+  });
+</script>
+<script>
+  window.MathJax = {
+    tex: { inlineMath: [['\\(','\\)']], displayMath: [['$$','$$'],['\\[','\\]']] },
+    svg: { fontURL: 'lib/fonts' },
+    startup: { typeset: true },
+    options: { enableMenu: false, a11y: { speech: false } }
+  };
+</script>
+<script src="lib/mathjax.js" async></script>
+<link rel="stylesheet" href="lib/common.css">
+<style>
+  /* @slot:css-vars —— 页面专用 CSS 变量(画布颜色等, 浅色) */
+  :root{
+    --canvas-grid:rgba(0,0,0,.04);
+    --canvas-dim-txt:#6b7280;
+    --canvas-txt:#1a1e2e;
+    --canvas-ball-hi:#a0c4ff; --canvas-ball-lo:#2f6fd0; --canvas-ball-stroke:#27599f; --canvas-ball-txt:#ffffff;
+  }
+  .grid{display:grid;grid-template-columns:2.8fr 0.8fr;gap:14px}.grid>.card:last-child{min-width:0}
+  @media(max-width:1100px){.grid{grid-template-columns:1fr}}
+  /* @slot:page-css —— 页面特有组件样式 */
+  .ctl input[type=range]:disabled{opacity:.45; cursor:default}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ====== 标题行 ====== -->
+  <div class="head-row">
+    <div>
+      <h1>传送带直管 · 最短时间到达</h1>
+    </div>
+  </div>
+
+  <!-- ====== 顶栏(模式切换) ====== -->
+  <div class="topbar" style="gap:8px">
+    <div class="seg" id="stateSeg">
+      <button class="on" data-m="opt">最优管道 (α=θ/2)</button>
+      <button data-m="custom">自定义 α</button>
+    </div>
+  </div>
+
+  <!-- ====== 双列布局 ====== -->
+  <div class="grid">
+
+    <!-- ====== 场景卡片 ====== -->
+    <div class="card">
+      <!-- 操作按钮 + 图例栏由 setupScene 注入到 canvas 前/后 -->
+      <canvas id="scene" height="480"></canvas>
+      <!-- 阶段标签 -->
+      <div class="phase" id="phase">● 准备就绪</div>
+    </div>
+
+    <!-- ====== 右侧卡片 · 参数 + 读数(判定/答案在 .mpop 弹层) ====== -->
+    <div class="card">
+      <h2>参数调整</h2>
+      <div class="controls">
+        <div class="ctl"><label>传送带倾角 θ</label>
+          <input type="range" id="thR" min="10" max="75" step="0.5" value="37">
+          <input type="number" id="thN" min="10" max="75" step="0.5" value="37"><span class="unit">°</span></div>
+        <div class="ctl"><label>垂距 l (P→带面)</label>
+          <input type="range" id="lR" min="0.4" max="1.6" step="0.05" value="1.2">
+          <input type="number" id="lN" min="0.4" max="1.6" step="0.05" value="1.2"><span class="unit">m</span></div>
+        <div class="ctl"><label>管道角 α (自定义)</label>
+          <input type="range" id="alphaR" min="0" max="37" step="0.5" value="18.5" disabled>
+          <input type="number" id="alphaN" min="0" max="37" step="0.5" value="18.5" disabled><span class="unit">°</span></div>
+        <div class="hint" id="alphaHint" style="display:none">自定义 α ∈ [0, θ]: 橙色「对比等时圆」=当前管道对应的等时圆(实时), 紫色「最优等时圆」=临界最短圆; 同圆两交点 Q、Q′ 用时相等 t(α), 圆越大越慢。最短在 α=θ/2。</div>
+      </div>
+      <h2 style="margin-top:12px">实时读数</h2>
+      <div class="readouts">
+        <div class="ro"><div class="k">管与竖直夹角 α</div><div class="v" id="alphaV">18.5<small>°</small></div></div>
+        <div class="ro"><div class="k">沿管加速度 a</div><div class="v" id="aV">0.00<small>m/s²</small></div></div>
+        <div class="ro"><div class="k">管长 s</div><div class="v" id="sV">0.00<small>m</small></div></div>
+        <div class="ro"><div class="k">等时圆半径 R</div><div class="v" id="RV">0.000<small>m</small></div></div>
+        <div class="ro"><div class="k">当前管道等时圆 R′</div><div class="v" id="RcurV">0.000<small>m</small></div></div>
+        <div class="ro"><div class="k">已用时间 t</div><div class="v" id="tV">0.000<small>s</small></div></div>
+        <div class="ro"><div class="k">本管理论用时 t(α)</div><div class="v" id="tAV">0.000<small>s</small></div></div>
+        <div class="ro"><div class="k">最短时间 t<sub>min</sub></div><div class="v" id="tminV">0.000<small>s</small></div></div>
+        <div class="ro"><div class="k">与最短的差 Δt</div><div class="v" id="dtV">0.00<small>%</small></div></div>
+        <div class="ro"><div class="k">当前速率 v</div><div class="v" id="vV">0.00<small>m/s</small></div></div>
+        <div class="ro"><div class="k">落带速率 v<sub>Q</sub></div><div class="v" id="vQV">0.00<small>m/s</small></div></div>
+      </div>
+      <!-- 判定卡/答案卡在下方 .mpop 弹层(问题/推导/答案三节) -->
+    </div>
+  </div>
+
+  <!-- ====== 问题/推导/答案 弹层(画布右缘「解析」标签打开) ====== -->
+  <div class="mpop" id="mpop">
+    <div class="mpop-back"></div>
+    <div class="mpop-panel" role="dialog" aria-modal="true">
+      <div class="sec"><button type="button" class="vhead" aria-expanded="true">问题 <span class="vcaret">▾</span></button>
+        <div class="sec-body"><div class="prob">
+          <p>传送带 AB 的倾角为 θ。带面上方距离 l 处为原料输入口 P。为防粉尘飞扬, 在 P 与传送带之间建立一条直线光滑管道, 使原料无初速度地从 P 处以最短时间到达传送带。最理想管道做好后, 原料从 P 处到达传送带的时间为:</p>
+          <p>A. \(\sqrt{\dfrac{2l}{g\cos\theta}}\)&emsp;B. \(\dfrac{1}{\cos\theta}\sqrt{\dfrac{2l}{g}}\)<br>
+          C. \(\sqrt{\dfrac{2l}{g\cos\frac{\theta}{2}}}\)&emsp;D. \(\dfrac{1}{\cos\frac{\theta}{2}}\sqrt{\dfrac{2l}{g}}\)</p>
+        </div></div></div>
+      <div class="sec"><button type="button" class="vhead" aria-expanded="true">推导 <span class="vcaret">▾</span></button>
+        <div class="sec-body"><div class="verdict" id="verdict">
+          <p><b>① 过程阶段划分</b> — 单一阶段: 原料在光滑直管内从静止做匀加速直线运动(管壁光滑, 法向力不做功, 沿管加速度恒定)。</p>
+          <p><b>② 受力分析</b> — 质点受重力 \(mg\)(竖直向下)与管壁法向力 \(N\)(⊥管壁)。设管与竖直方向夹角为 \(\alpha\), 沿管方向:
+          \[ mg\cos\alpha = ma \;\Rightarrow\; a = g\cos\alpha \]</p>
+          <p><b>③ 等时圆构造(几何法)</b> — 以 P 为最高点作等时圆(圆心在过 P 的竖直线上): 从 P 沿圆上任意弦滑下, 时间恒为
+          \[ t=2\sqrt{\frac{R}{g}} \]
+          半径增大至圆与带面<b>相切</b>时, 切点即最短落点 Q。辅助线推半径(见图): 过 P 的竖直线交带面于 V, 圆心 C 在 PV 上,
+          \[ PV=\frac{l}{\cos\theta},\qquad PC=R,\qquad \text{直径}\,2R \]
+          相切 ⟹ \(CQ\perp\) 带面 且 \(CQ=R\); 直角△\(C\text{-}V\text{-}Q\) 中 \(\angle C=\theta\)(竖直与带面法向的夹角), 故
+          \[ CV\cdot\cos\theta=CQ \;\Rightarrow\; \Big(\frac{l}{\cos\theta}-R\Big)\cos\theta=R \;\Rightarrow\; R=\frac{l}{1+\cos\theta}=\frac{l}{2\cos^2(\theta/2)} \]</p>
+          <p><b>④ 结论</b> —
+          \[ t_{\min}=2\sqrt{\frac{R}{g}}=2\sqrt{\frac{l}{2g\cos^2(\theta/2)}}=\frac{1}{\cos(\theta/2)}\sqrt{\frac{2l}{g}} \]
+          一般管道(夹角 α)对应等时圆半径 \(R(\alpha)=l/[2\cos\alpha\cos(\theta-\alpha)]\), 用时 \(t(\alpha)=2\sqrt{R(\alpha)/g}\): 圆越大越慢, \(R(\alpha)\ge R^*\) 等号仅当 \(\alpha=\theta/2\)——与代数极值一致, 管道方向为竖直方向与带面法向的<b>角平分线</b>。</p>
+        </div></div></div>
+      <div class="sec"><button type="button" class="vhead" aria-expanded="true">答案 <span class="vcaret">▾</span></button>
+        <div class="sec-body"><div class="ans" id="ans">
+          <b>答案: D</b> — \(t=\dfrac{1}{\cos(\theta/2)}\sqrt{\dfrac{2l}{g}}\)
+          <p style="margin-top:6px">等时圆法: \(t_{\min}=2\sqrt{R/g}\), 临界相切圆 \(R=l/(1+\cos\theta)\), 直径 \(2R=\dfrac{2l}{1+\cos\theta}=\dfrac{l}{\cos^2(\theta/2)}\); 切点弦为竖直与带面法向的角平分线。<br>
+          选项核对:<br>
+          A. \(\sqrt{2l/(g\cos\theta)}\) = 沿带面法向直下(\(\alpha=\theta\))的用时, 非最短;<br>
+          B. \((1/\cos\theta)\sqrt{2l/g}\): 管长与加速度均按 \(\theta\) 错配;<br>
+          C. \(\sqrt{2l/(g\cos(\theta/2))}\): 管长按 \(\cos(\theta/2)\) 但加速度误按 \(g\), 漏掉 \(\cos(\theta/2)\) 因子;<br>
+          D. ✓ 角平分线方向, 用时最短。</p>
+        </div></div></div>
+    </div>
+  </div>
+
+  <div class="foot">模型假设: 光滑直管(无摩擦) · 原料质点化 · l 为 P 到带面垂距 · 带面足够长(落点在其上) · 空格暂停 / R 重置 · 双击此 HTML 即可离线运行</div>
+</div>
+
+<script src="lib/common.js"></script>
+<script>
+"use strict";
+/* ---------- 物理常量 / 状态 ---------- */
+const S = { g:9.81, speed:0.6, t:0, running:false, last:null,
+            th:37, l:1.2, alpha:18.5, mode:'opt', u:0, v:0, done:false };
+const VP = { zoom:1, panX:0, panY:0 };
+
+/* ---------- 几何与物理(每次取当前参数) ---------- */
+/* 世界系: x 右正, y 上正。F=带面上 P 的垂足(取原点); d̂=(cosθ,sinθ) 沿带面上行,
+   n̂=(-sinθ,cosθ) 指向 P 侧, m̂=-n̂ 指向带面; 管道方向 û=(sinα,-cosα)(α 为与竖直夹角)。 */
+function geom(){
+  const th = S.th*Math.PI/180, al = S.alpha*Math.PI/180;
+  const cth = Math.cos(th), sth = Math.sin(th);
+  const cal = Math.cos(al), sal = Math.sin(al);
+  const Ldown = S.l*Math.tan(th) + 1.0, Lup = 1.2;         /* 带面两端(足够长) */
+  const A = {x:-cth*Ldown, y:-sth*Ldown}, B = {x:cth*Lup, y:sth*Lup};
+  const P = {x:-sth*S.l, y:cth*S.l};                        /* P = F + l·n̂ */
+  const s = S.l/Math.cos(th-al);                            /* 管长 */
+  const Q = {x:P.x+sal*s, y:P.y-cal*s};                     /* 落点 */
+  const a = S.g*cal;                                        /* 沿管加速度 */
+  const vQ = Math.sqrt(2*S.g*S.l);                          /* 落带速率 √(2gl), 与 θ 无关 */
+  const tCur = Math.sqrt(2*s/a);                            /* 当前管的理论用时 */
+  const tOpt = Math.sqrt(2*S.l/S.g)/Math.cos(th/2);         /* 最优用时 (答案 D) */
+  const V = {x:-sth*S.l, y:-S.l*Math.tan(th)*sth};          /* 竖直向下与带面交点 */
+  /* 等时圆(以 P 为最高点, 与带面相切于 Q 的临界圆): 相切 |l−R·cosθ|=R ⟹ R=l/(1+cosθ) */
+  const R = S.l/(1+cth);
+  const C = {x:P.x, y:P.y-R};                               /* 圆心: P 正下方 */
+  const B0 = {x:P.x, y:P.y-2*R};                            /* 圆最低点 */
+  const Rcur = s/(2*cal);
+  const Ccur = {x:P.x, y:P.y-Rcur};
+  const rc = solveQuad(1, -2*(Ccur.x*cth + Ccur.y*sth), Ccur.x*Ccur.x + Ccur.y*Ccur.y - Rcur*Rcur);
+  let Qp = null;                                            /* 当前圆与带面的另一交点(等时) */
+  if (rc){
+    const tQ = Q.x*cth + Q.y*sth;
+    Qp = Math.abs(rc[0]-tQ) < Math.abs(rc[1]-tQ) ? {x:rc[1]*cth, y:rc[1]*sth} : {x:rc[0]*cth, y:rc[0]*sth};
+  }
+  return {th,al,cth,sth,cal,sal,A,B,P,Q,s,a,vQ,tCur,tOpt,V,R,C,B0,Rcur,Ccur,Qp};
+}
+
+/* ---------- 物理推进(解析闭式: u=½at²/s) ---------- */
+function step(h){
+  const g = geom();
+  S.t += h;
+  S.u = Math.min(1, 0.5*g.a*S.t*S.t/g.s);
+  S.v = Math.sqrt(S.u)*g.vQ;
+  if (S.u >= 1){ S.u = 1; S.running = false; S.done = true; }
+}
+
+/* ---------- 重置 / 参数联动 ---------- */
+function resetAnim(){
+  S.t = 0; S.u = 0; S.v = 0; S.done = false; S.running = false;
+  render();
+}
+function onParamChange(){
+  if (S.mode === 'opt') S.alpha = S.th/2;
+  if (S.alpha > S.th) S.alpha = S.th;
+  const aR = $('alphaR'), aN = $('alphaN');
+  aR.max = S.th; aN.max = S.th;
+  aR.value = S.alpha; aN.value = S.alpha;
+  resetAnim();
+}
+function syncModeUI(){
+  document.querySelectorAll('#stateSeg button').forEach(function(b){
+    b.classList.toggle('on', b.getAttribute('data-m') === S.mode);
+  });
+  const custom = S.mode === 'custom';
+  $('alphaR').disabled = !custom;
+  $('alphaN').disabled = !custom;
+  $('alphaHint').style.display = custom ? '' : 'none';
+  if (!custom){ S.alpha = S.th/2; $('alphaR').value = S.alpha; $('alphaN').value = S.alpha; }
+}
+document.querySelectorAll('#stateSeg button').forEach(function(b){
+  b.onclick = function(){ S.mode = b.getAttribute('data-m'); syncModeUI(); resetAnim(); };
+});
+
+/* ---------- 画布 ---------- */
+const sceneC = $('scene');
+let scene = fitCanvas(sceneC);
+window.addEventListener('resize', function(){ scene = fitCanvas(sceneC); });
+
+/* ---------- 坐标变换 (2D) ---------- */
+/* 相机固定于地面系: 包围盒只取固定几何(A/B/P/Q/V/原点)并统一外扩,
+   粒子滑动、受力/速度箭头全程落在 PQ 段 ±1.2 内 → 动画中镜头不动。 */
+function view(){
+  const {w,h}=scene;
+  const g = geom();
+  const xs = [g.A.x, g.B.x, g.P.x, g.Q.x, g.V.x, 0, g.C.x-g.R, g.C.x+g.R];
+  const ys = [g.A.y, g.B.y, g.P.y, g.Q.y, g.V.y, 0, g.B0.y];
+  if (S.show.circleCur && S.mode === 'custom'){ xs.push(g.Ccur.x-g.Rcur, g.Ccur.x+g.Rcur); ys.push(g.Ccur.y-g.Rcur); }
+  const xMin=Math.min.apply(null,xs)-1.2, xMax=Math.max.apply(null,xs)+1.2;
+  const yMin=Math.min.apply(null,ys)-1.2, yMax=Math.max.apply(null,ys)+1.2;
+  const f = fitView(w, h, xMin, xMax, yMin, yMax, {l:40, r:20, t:20, b:30});
+  const s = Math.max(55, Math.min(160, f.s));    /* 缩放钳制: 机构过大时保证球体可辨识 */
+  return {s, ox:f.ox, oy:f.oy, w, h};
+}
+const X = function(x){ return x; };
+const Y = function(y){ return -y; };
+
+/* ---------- 颜色(一次缓存) ---------- */
+const C = palette();
+
+/* ---------- 场景绘制 ---------- */
+function drawScene(){
+  const {ctx,w,h}=scene;
+  const V=view();
+  ctx.clearRect(0,0,w,h);
+  ctx.save();
+  applyViewport(ctx,w,h,VP);
+  ctx.translate(V.ox, V.oy);
+  ctx.scale(V.s, V.s);
+
+  const g = geom();
+  const p = {x:g.P.x + g.sal*g.s*S.u, y:g.P.y - g.cal*g.s*S.u};
+  const R = 0.09;                                   /* 滚筒半径/带厚一半 */
+  const mx = g.sth, my = -g.cth;                    /* m̂=(sinθ,-cosθ), 指向带面下方 */
+  const aX = g.A.x + mx*R, aY = g.A.y + my*R;       /* 带面中心轴端点 */
+  const bX = g.B.x + mx*R, bY = g.B.y + my*R;
+
+  /* ---- 传送带: 双线 + 两端滚筒 + 上表面线 (可隐藏做几何分析) ---- */
+  if (S.show.belt){
+    track(ctx, X(aX),Y(aY), X(bX),Y(bY), {width:2*R, lw:0.02*V.s, color:'#8a8fa0', scale:V.s});
+    roller(ctx, X(aX),Y(aY), R, {spokes:3, lw:0.02*V.s, scale:V.s});
+    roller(ctx, X(bX),Y(bY), R, {spokes:3, lw:0.02*V.s, scale:V.s});
+    ctx.strokeStyle='#6b7280'; ctx.lineWidth=0.024;
+    ctx.beginPath(); ctx.moveTo(X(g.A.x),Y(g.A.y)); ctx.lineTo(X(g.B.x),Y(g.B.y)); ctx.stroke();
+  }
+
+  /* 垂距 l(P→带面, 题面已知量, 常显不随辅助线开关) */
+  dimLine(ctx, X(0),Y(0), X(g.P.x),Y(g.P.y), 'l', {lw:1.2, tick:4, labelOffset:10, scale:V.s});
+
+  /* ---- 等时圆(图例可关): 临界相切圆 + 对比圆 ---- */
+  if (S.show.circle){
+    dashCircle(ctx, X(g.C.x),Y(g.C.y), g.R, {color:'rgba(124,58,237,.55)', lw:1.6, dash:[7,5], scale:V.s});   /* 过 P、切带面于 Q */
+    dashLine(ctx, X(g.P.x),Y(g.P.y), X(g.V.x),Y(g.V.y), {color:'rgba(124,58,237,.55)', lw:1.4, dash:[6,5], scale:V.s}); /* 过 P 竖直线(含直径)交带面于 V: PV=l/cosθ */
+    dashLine(ctx, X(g.C.x),Y(g.C.y), X(g.Q.x),Y(g.Q.y), {color:'rgba(124,58,237,.55)', lw:1.4, dash:[4,4], scale:V.s});  /* 切点半径 CQ ⊥带面 */
+    /* 直角标记 @ Q (浅色, 与等时圆同色系) */
+    ctx.strokeStyle='rgba(124,58,237,.55)'; ctx.lineWidth=0.016;
+    ctx.beginPath();
+    ctx.moveTo(X(g.Q.x+g.cth*0.07), Y(g.Q.y+g.sth*0.07));
+    ctx.lineTo(X(g.Q.x), Y(g.Q.y));
+    ctx.lineTo(X(g.Q.x+(g.Q.x-g.C.x)/g.R*0.07), Y(g.Q.y+(g.Q.y-g.C.y)/g.R*0.07));
+    ctx.stroke();
+    /* 直角△C‑V‑Q: ∠C=θ(竖直↔带面法向) ⟹ CV·cosθ=CQ ⟹ R=l/(1+cosθ) */
+    angleArc(ctx, X(g.C.x),Y(g.C.y), 0.13, Math.PI/2, Math.PI/2-g.th, {ccw:true, color:'rgba(124,58,237,.55)', label:'θ', font:10, lw:1.4, scale:V.s});
+    dot(ctx, X(g.C.x),Y(g.C.y), {color:'#7c3aed', r:2.5, scale:V.s});
+    ctx.fillStyle='#7c3aed'; ctx.font='0.11px sans-serif'; ctx.textBaseline='middle';
+    ctx.textAlign='right';  ctx.fillText('R', X(g.P.x-0.10), Y((g.P.y+g.C.y)/2));
+    ctx.fillText('l/cosθ', X(g.P.x-0.10), Y((g.P.y+g.V.y)/2));
+    ctx.textAlign='center'; ctx.fillText('2R', X(g.B0.x+0.16), Y(g.B0.y+0.05));
+    ctx.fillText('R', X((g.C.x+g.Q.x)/2+0.13), Y((g.C.y+g.Q.y)/2-0.03));
+  }
+  if (S.show.circleCur && S.mode === 'custom' && g.Qp){
+    /* 对比等时圆(当前管道, 实时): 过 P 与当前落点 Q, 与带面另一交点 Q′ 等时 */
+    dashCircle(ctx, X(g.Ccur.x),Y(g.Ccur.y), g.Rcur, {color:'rgba(217,72,15,.55)', lw:1.6, dash:[7,5], scale:V.s});
+    dashLine(ctx, X(g.P.x),Y(g.P.y), X(g.P.x),Y(g.P.y-2*g.Rcur), {color:'rgba(217,72,15,.55)', lw:1.4, dash:[6,5], scale:V.s}); /* 竖直直径 2R′ */
+    dashLine(ctx, X(g.Ccur.x),Y(g.Ccur.y), X(g.Q.x),Y(g.Q.y), {color:'rgba(217,72,15,.55)', lw:1.2, dash:[4,4], scale:V.s});  /* 半径 R′ */
+    dashLine(ctx, X(g.P.x),Y(g.P.y), X(g.Qp.x),Y(g.Qp.y), {color:'rgba(217,72,15,.55)', lw:1.4, dash:[4,4], scale:V.s});      /* 等时弦 P→Q′ */
+    dot(ctx, X(g.Qp.x),Y(g.Qp.y), {color:'#d9480f', r:2.2, scale:V.s});
+    dot(ctx, X(g.Ccur.x),Y(g.Ccur.y), {color:'#d9480f', r:2.5, scale:V.s});
+    ctx.fillStyle='#d9480f'; ctx.font='0.1px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('R\u2032', X((g.Ccur.x+g.Q.x)/2+0.13), Y((g.Ccur.y+g.Q.y)/2-0.03));
+    ctx.fillText('2R\u2032', X(g.P.x+0.18), Y(g.P.y-2*g.Rcur-0.02));
+    ctx.fillText('Q\u2032', X(g.Qp.x-0.16), Y(g.Qp.y+0.12));
+  }
+
+  /* ---- 辅助线(图例可关): 参照虚线 + 角度弧 + 尺寸线 + 标注 ---- */
+  if (S.show.guides){
+    dashLine(ctx, X(g.P.x),Y(g.P.y), X(g.P.x),Y(g.P.y+0.26), {color:'rgba(0,0,0,.4)', lw:1.6, dash:[6,5], scale:V.s}); /* 过 P 竖直参照(上段) */
+    if (!S.show.circle){
+      dashLine(ctx, X(g.P.x),Y(g.P.y), X(g.P.x),Y(g.P.y-0.40), {color:'rgba(0,0,0,.4)', lw:1.6, dash:[6,5], scale:V.s}); /* 竖直参照下段(最优圆隐藏时补全) */
+    }
+    dashLine(ctx, X(-1.15),Y(0), X(1.15),Y(0), {color:'rgba(0,0,0,.4)', lw:1.6, dash:[6,5], scale:V.s});           /* 过 F 水平虚线 */
+    angleArc(ctx, X(g.P.x),Y(g.P.y), 0.32, Math.PI/2, Math.PI/2-g.th, {ccw:true, color:C.dimTxt, label:'θ', font:11, rFactor:1.45, lw:1.5, scale:V.s});
+    angleArc(ctx, X(g.P.x),Y(g.P.y), 0.17, Math.PI/2, Math.PI/2-g.al, {ccw:true, color:'rgba(47,111,208,.55)', label:(S.mode==='opt'?'θ/2':'α'), font:11, rFactor:1.5, lw:1.5, scale:V.s});
+    angleArc(ctx, X(g.P.x),Y(g.P.y), 0.24, Math.PI/2-g.al, Math.PI/2-g.th, {ccw:true, color:'rgba(196,125,16,.55)', label:'θ−α', font:11, rFactor:1.4, lw:1.5, scale:V.s});
+    angleArc(ctx, X(0),Y(0), 0.24, 0, -g.th, {ccw:true, color:C.dimTxt, label:'θ', font:11, lw:1.5, scale:V.s});
+    dashCircle(ctx, X(g.Q.x),Y(g.Q.y), 0.075, {color:'#8893ad', lw:1.6, dash:[6,5], scale:V.s}); /* 落点 Q */
+    dot(ctx, X(0),Y(0), {color:'#6b7280', r:2.5, scale:V.s});
+    dot(ctx, X(g.P.x),Y(g.P.y), {color:'#4b5563', r:2, scale:V.s});
+    ctx.fillStyle=C.dimTxt; ctx.font='0.11px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('F', X(0.02), Y(0.22));
+    ctx.fillText('P', X(g.P.x-0.20), Y(g.P.y+0.10));
+    ctx.fillText('Q', X(g.Q.x-0.16), Y(g.Q.y+0.12));
+    if (S.show.belt){
+      ctx.fillText('A', X(g.A.x+mx*0.34), Y(g.A.y+my*0.34));
+      ctx.fillText('B', X(g.B.x+mx*0.34), Y(g.B.y+my*0.34));
+    }
+  }
+
+  /* ---- 管道(可隐藏; 隐藏时保留最优弦为虚线, 便于几何分析) ---- */
+  const nx2 = g.cal, ny2 = g.sal;                   /* 管法向 (cosα, sinα) */
+  if (S.show.pipe){
+    ctx.strokeStyle='rgba(107,114,128,0.28)'; ctx.lineWidth=0.09; ctx.lineCap='round';
+    ctx.beginPath(); ctx.moveTo(X(g.P.x),Y(g.P.y)); ctx.lineTo(X(g.Q.x),Y(g.Q.y)); ctx.stroke();
+    ctx.strokeStyle='#4b5563'; ctx.lineWidth=0.018;
+    ctx.beginPath(); ctx.moveTo(X(g.P.x+nx2*0.045),Y(g.P.y+ny2*0.045)); ctx.lineTo(X(g.Q.x+nx2*0.045),Y(g.Q.y+ny2*0.045)); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(X(g.P.x-nx2*0.045),Y(g.P.y-ny2*0.045)); ctx.lineTo(X(g.Q.x-nx2*0.045),Y(g.Q.y-ny2*0.045)); ctx.stroke();
+
+    /* ---- 进料口漏斗 ---- */
+    ctx.strokeStyle='#4b5563'; ctx.lineWidth=0.02;
+    ctx.beginPath(); ctx.moveTo(X(g.P.x-0.05),Y(g.P.y)); ctx.lineTo(X(g.P.x-0.13),Y(g.P.y+0.13)); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(X(g.P.x+0.05),Y(g.P.y)); ctx.lineTo(X(g.P.x+0.13),Y(g.P.y+0.13)); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(X(g.P.x-0.13),Y(g.P.y+0.13)); ctx.lineTo(X(g.P.x+0.13),Y(g.P.y+0.13)); ctx.stroke();
+  } else {
+    dashLine(ctx, X(g.P.x),Y(g.P.y), X(g.Q.x),Y(g.Q.y), {color:'#6b7280', lw:1.4, dash:[6,5], scale:V.s}); /* 最优弦 P→Q */
+  }
+
+  /* ---- 原料(球) ---- */
+  ball(ctx, X(p.x),Y(p.y), 0.05, {hi:C.ballHi, lo:C.ballLo, st:C.ballSt, lw:2.2, label:'m', scale:V.s});
+
+  /* ---- 速度矢量(运动时) ---- */
+  if (S.show.velocity && S.v > 0.01){
+    const vl = Math.sqrt(S.u) * 1.0;
+    drawArrow(ctx, X(p.x),Y(p.y), X(p.x+g.sal*vl), Y(p.y-g.cal*vl), C.green, 'v', V.s);
+  }
+
+  ctx.restore();
+  drawChart();
+}
+
+/* ---------- t(α) 曲线(屏幕空间, 右下) ---------- */
+function drawChart(){
+  const {ctx,w,h}=scene;
+  if (!S.show.chart) return;
+  const g = geom();
+  const tF = function(d){ const r=d*Math.PI/180; return Math.sqrt(2*S.l/(S.g*Math.cos(r)*Math.cos(g.th-r))); };
+  const tMax = tF(0), tMin = g.tOpt;
+  const m = chartPanel(ctx, w-262, h-140, 250, 128,
+    {title:'管道用时 t(α) (s)', xMin:0, xMax:S.th, yMin:Math.max(0.01, tMin*0.72), yMax:tMax*1.10, xTicks:4, yTicks:3});
+  plotLine(ctx, m, tF, 0, S.th, 80, {color:'#2f6fd0', lw:1.6});
+  /* 最优标记 */
+  const ox=m.x(S.th/2), oy=m.y(tMin);
+  ctx.fillStyle='#16a34a'; ctx.beginPath(); ctx.arc(ox, oy, 3.5, 0, 7); ctx.fill();
+  ctx.font='bold 10px sans-serif'; ctx.textAlign='left'; ctx.fillStyle='#16a34a';
+  ctx.fillText('t_min', ox+5, oy-4);
+  /* 当前 α 标记 */
+  const cx=m.x(S.alpha), cy=m.y(g.tCur);
+  ctx.fillStyle='#d9480f'; ctx.beginPath(); ctx.arc(cx, cy, 3.5, 0, 7); ctx.fill();
+  ctx.font='10px sans-serif'; ctx.fillStyle='#d9480f';
+  if (cx > m.x1-72){ ctx.textAlign='right'; ctx.fillText('当前 α='+S.alpha.toFixed(1)+'°', cx-5, cy+10); }
+  else { ctx.textAlign='left'; ctx.fillText('当前 α='+S.alpha.toFixed(1)+'°', cx+5, cy+10); }
+  /* 轴注 */
+  ctx.fillStyle='#9aa2b1'; ctx.font='10px sans-serif'; ctx.textAlign='left';
+  ctx.fillText('α/°', m.x1+4, m.y0+4);
+  ctx.textAlign='right'; ctx.fillText('t/s', m.x1-4, m.y1-3);
+  ctx.textAlign='left';
+}
+
+/* ---------- 渲染 ---------- */
+function render(){
+  drawScene();
+  const g = geom();
+  $('alphaV').innerHTML = (S.mode==='opt' ? 'θ/2 = ' : '') + S.alpha.toFixed(1)+'<small>°</small>';
+  $('aV').innerHTML = g.a.toFixed(2)+'<small>m/s²</small>';
+  $('sV').innerHTML = g.s.toFixed(2)+'<small>m</small>';
+  $('RV').innerHTML = g.R.toFixed(3)+'<small>m</small>';
+  $('RcurV').innerHTML = g.Rcur.toFixed(3)+'<small>m</small>';
+  $('tV').innerHTML = S.t.toFixed(3)+'<small>s</small>';
+  $('tAV').innerHTML = g.tCur.toFixed(3)+'<small>s</small>';
+  $('tminV').innerHTML = g.tOpt.toFixed(3)+'<small>s</small>';
+  $('dtV').innerHTML = ((g.tCur-g.tOpt)/g.tOpt*100).toFixed(2)+'<small>%</small>';
+  $('vV').innerHTML = S.v.toFixed(2)+'<small>m/s</small>';
+  $('vQV').innerHTML = g.vQ.toFixed(2)+'<small>m/s</small>';
+  $('phase').textContent = S.u <= 0 ? '● 准备就绪' : (S.u < 1 ? '● 滑行中' : '● 已到达传送带');
+  SC.syncRun();
+}
+
+/* ---------- 控件绑定 ---------- */
+bindRangeNumber('thR','thN',parseFloat, function(v){ S.th=v; onParamChange(); });
+bindRangeNumber('lR','lN',parseFloat, function(v){ S.l=v; onParamChange(); });
+bindRangeNumber('alphaR','alphaN',parseFloat, function(v){ S.alpha=v; onParamChange(); });
+
+/* ---------- 场景标准件 ---------- */
+const SC = setupScene({
+  canvas: sceneC, vp: VP, state: S, render: render,
+  resetFn: function(){ resetAnim(); },
+  runLabel: '▶ 运行',
+  panDrag: true,
+  legend: [
+    {k:'velocity',label:'速度',  color:'#16a34a'},
+    {k:'belt',    label:'传送带', color:'#8a8fa0'},
+    {k:'pipe',    label:'管道',  color:'#4b5563'},
+    {k:'guides',  label:'辅助线', color:'#6b7280'},
+    {k:'circle',  label:'最优等时圆', color:'#7c3aed'},
+    {k:'circleCur', label:'对比等时圆', color:'#d9480f'},
+    {k:'chart',   label:'t(α) 曲线', color:'#7c3aed'}
+  ],
+  onBeforeRun: function(){ if (S.done) resetAnim(); }
+});
+
+render();
+startLoop(S, { sub: 0.002, step: step, render: render });
+</script>
+</body>
+</html>

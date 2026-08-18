@@ -1,0 +1,212 @@
+<!-- physics-lab-skill: <标题> -->
+<!--
+  使用: 复制本文件为 <英文-kebab>.html, 替换所有 @slot 标记处。
+  骨架(非 @slot 部分)已可运行, 勿改: fitCanvas/resize/view()/坐标变换(X/Y)/
+  drawScene 外壳(ctx.save+applyViewport+translate+scale+restore)/render(SC.syncRun)/startLoop/setupScene 调用。
+  标准件(按钮/图例/视口/键盘/倍速/侧栏/解析弹层)由 lib/common.js 的 setupScene 注入并绑定。
+  .mpop 弹层(问题/推导/答案)无内容时整段删除(「解析」标签自动隐藏)。
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>标题</title>
+<meta name="demo-mode" content="dynamic">
+<script>
+  window.addEventListener("message", function(e){
+    var d=e.data; if(!d||d.cmd!=="present")return;
+    document.body.classList.toggle("present", !!d.value);
+  });
+</script>
+<!-- 若含 LaTeX 公式, 取消注释以下 MathJax 块:
+<script>
+  window.MathJax = {
+    tex: { inlineMath: [['\\(','\\)']], displayMath: [['$$','$$'],['\\[','\\]']] },
+    svg: { fontURL: 'lib/fonts' },
+    startup: { typeset: true },
+    options: { enableMenu: false, a11y: { speech: false } }
+  };
+</script>
+<script src="lib/mathjax.js" async></script>
+-->
+<link rel="stylesheet" href="lib/common.css">
+<style>
+  /* @slot:css-vars —— 页面专用 CSS 变量(画布颜色等, 浅色) */
+  :root{
+    --canvas-grid:rgba(0,0,0,.04);
+    --canvas-dim-txt:#6b7280;
+    --canvas-txt:#1a1e2e;
+    --canvas-ball-hi:#a0c4ff; --canvas-ball-lo:#2f6fd0; --canvas-ball-stroke:#27599f; --canvas-ball-txt:#ffffff;
+    /* 例: --canvas-ground:#8a8fa0; ... 按题加 */
+  }
+  .grid{display:grid;grid-template-columns:2.8fr 1fr;gap:14px}
+  @media(max-width:1100px){.grid{grid-template-columns:1fr}}
+  /* @slot:page-css —— 页面特有组件样式(能量条/状态面板/判定卡等), 无则留空 */
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ====== 标题行 ====== -->
+  <div class="head-row">
+    <div>
+      <h1>标题</h1>
+    </div>
+  </div>
+
+  <!-- ====== 顶栏(临界状态/模式切换; 无则整段删) ====== -->
+  <!-- @slot:topbar —— 例(状态/模式切换 seg, 无则整段删):
+  <div class="topbar" style="gap:8px">
+    <div class="seg" id="stateSeg">
+      <button class="on" data-m="a">状态A</button>
+      <button data-m="b">状态B</button>
+    </div>
+  </div>
+  -->
+
+  <!-- ====== 双列布局 ====== -->
+  <div class="grid">
+
+    <!-- ====== 场景卡片 ====== -->
+    <div class="card">
+      <!-- 操作按钮 + 图例栏由 setupScene 注入到 canvas 前/后 -->
+      <canvas id="scene" height="480"></canvas>
+      <!-- 阶段标签 -->
+      <div class="phase" id="phase">● 准备就绪</div>
+      <!-- @slot:scene-extras —— 场景卡内额外件(能量条/状态面板/hint等), 无则删 -->
+    </div>
+
+    <!-- ====== 右侧卡片 · 参数 + 读数(判定/答案在 .mpop 弹层) ====== -->
+    <div class="card">
+      <h2>参数调整</h2>
+      <div class="controls">
+        <!-- @slot:controls —— 滑块控件, 例:
+        <div class="ctl"><label>参数名</label>
+          <input type="range" id="xR" min="0" max="10" step="0.1" value="1">
+          <input type="number" id="xN" min="0" max="10" step="0.1" value="1"><span class="unit">m</span></div>
+        -->
+      </div>
+      <h2 style="margin-top:12px">实时读数</h2>
+      <div class="readouts">
+        <!-- @slot:readouts —— 读数项, 例:
+        <div class="ro"><div class="k">量名</div><div class="v" id="xV">0.00<small>单位</small></div></div>
+        -->
+      </div>
+      <!-- 判定卡/答案卡在下方 .mpop 弹层(问题/推导/答案三节) -->
+    </div>
+  </div>
+
+  <!-- ====== 问题/推导/答案 弹层(画布右缘「解析」标签打开; 无内容则整段删) ====== -->
+  <div class="mpop" id="mpop">
+    <div class="mpop-back"></div>
+    <div class="mpop-panel" role="dialog" aria-modal="true">
+      <div class="sec"><button type="button" class="vhead" aria-expanded="true">问题 <span class="vcaret">▾</span></button>
+        <div class="sec-body"><div class="prob"><!-- @slot:prob -- 题面转述 --></div></div></div>
+      <div class="sec"><button type="button" class="vhead" aria-expanded="true">推导 <span class="vcaret">▾</span></button>
+        <div class="sec-body"><div class="verdict" id="verdict"></div></div></div>
+      <div class="sec"><button type="button" class="vhead" aria-expanded="true">答案 <span class="vcaret">▾</span></button>
+        <div class="sec-body"><div class="ans" id="ans"><!-- @slot:ans -- 参考答案/选项核对 --></div></div></div>
+    </div>
+  </div>
+
+  <div class="foot"><!-- @slot:footer -- 模型假设(按题写) · --> 空格暂停 / R 重置 · 双击此 HTML 即可离线运行</div>
+</div>
+
+<script src="lib/common.js"></script>
+<script>
+"use strict";
+/* ---------- 物理常量 / 状态 ---------- */
+const S = { g:9.81, speed:1, t:0, running:false, last:null };
+/* @slot:state —— 按题增删字段(位置/速度/参数等), 例: x:0, y:0, vx:0, vy:0, phase:'go' */
+const VP = { zoom:1, panX:0, panY:0 };
+
+/* ---------- 物理函数 ---------- */
+/* @slot:physics —— 受力分析/运动学函数(保守力系用 Velocity Verlet 半步), 例:
+function accel(){ return -k*(S.x-S.x0)/m; }        // 合力/质量
+*/
+function step(h){
+  /* @slot:step-body —— 物理推进(h 秒), 例:
+  const a=accel(); S.vx+=a*h/2; S.x+=S.vx*h; S.vx+=accel()*h/2; S.t+=h; */
+}
+
+/* ---------- 画布 ---------- */
+const sceneC = $('scene');
+let scene = fitCanvas(sceneC);
+window.addEventListener('resize', function(){ scene = fitCanvas(sceneC); });
+
+/* ---------- 坐标变换 (2D) ---------- */
+function view(){
+  const {w,h}=scene;
+  /* @slot:view-bounds —— 物理世界范围, 按题算(边距可随题调) */
+  const xMin=-0.5, xMax=5, yMin=-3, yMax=3;
+  const {s, ox, oy} = fitView(w, h, xMin, xMax, yMin, yMax, {l:40, r:20, t:20, b:30});
+  return {s, ox, oy, w, h};
+}
+/* 世界坐标 → 画布坐标(仅在 drawScene 的 translate+scale 变换内使用):
+   X 原样(x 右正), Y 翻转(y 上正 → 画布 y 下正)。
+   变换外的屏幕坐标(如 HUD 叠加)用 v.ox + x*v.s / v.oy - y*v.s 手工换算。 */
+const X = function(x){ return x; };
+const Y = function(y){ return -y; };
+
+/* ---------- 颜色(一次缓存, 用法见 drawing.md) ---------- */
+const C = palette();
+
+/* ---------- 场景绘制 ---------- */
+function drawScene(){
+  const {ctx,w,h}=scene;
+  const V=view();
+  ctx.clearRect(0,0,w,h);
+  ctx.save();
+  applyViewport(ctx,w,h,VP);          /* 屏幕空间: 缩放/平移(以画布中心为锚) */
+  ctx.translate(V.ox, V.oy);
+  ctx.scale(V.s, V.s);                /* 世界空间: 1 世界单位 = V.s px —— 此后尺寸一律世界单位 */
+  /* @slot:drawScene —— 世界坐标 + 世界单位(规则见 SKILL.md 绘制 + drawing.md):
+       助手一律传 scale=V.s; lw/dash 为屏幕像素(规则表世界单位 × V.s 换算);
+       几何尺寸(r/半宽/绳长) 是世界单位, 不换算。例(行注释用 //):
+       if (S.show.forces) forceArrows(ctx, X(0),Y(0), [{x:X(0.8),y:Y(0),color:C.red,label:'F'}], {scale:V.s});
+       if (S.show.ghost)  dashRect(ctx, X(3),Y(0), 0.24, 0.24, {color:'#000000', lw:1.6, dash:[7,6], scale:V.s});
+       ball(ctx, X(0),Y(0), 0.05, {hi:C.ballHi, lo:C.ballLo, st:C.ballSt, lw:2.2, scale:V.s});
+       rope(ctx, [{x:X(0),y:Y(0)},{x:X(1.2),y:Y(-0.8)}], {color:'#000000', lw:1.5, scale:V.s});
+       dashLine(ctx, X(0),Y(-0.5), X(0),Y(1.5), {lw:1.6, dash:[6,5], scale:V.s});
+       ctx.font='0.11px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+       ctx.fillStyle=C.txt; ctx.fillText('m', X(0), Y(0));   // 单段细体标签手写 fillText
+       */
+  ctx.restore();
+}
+
+/* ---------- 主循环: lib startLoop(dt≤0.05 限幅 ×S.speed + 子步积分内置, 各页不手写 frame) ----------
+   见文件尾 startLoop(S,{sub,step,render}) 调用; sub=0/省略 = 每帧单步(解析); mode:'xxx' 时仅 S.mode===mode 推进。 */
+
+/* ---------- 渲染 ---------- */
+function render(){
+  drawScene();
+  /* @slot:readouts-update —— 更新读数 DOM, 例: $('xV').innerHTML=S.x.toFixed(2)+'<small>m</small>'; */
+  /* @slot:phase —— 阶段标签, 例: $('phase').textContent='● 运行中'; */
+  SC.syncRun();                       /* 每帧同步运行按钮文案 */
+}
+
+/* ---------- 控件绑定 ---------- */
+/* @slot:bind —— bindRangeNumber('xR','xN',parseFloat, function(v){S.x=v;}); ... */
+
+/* ---------- 临界状态(有则填, 无则删) ---------- */
+/* @slot:criticals —— criticals()/setState()/按钮 onclick */
+
+/* ---------- 场景标准件 (按钮/图例/视口/键盘 由 setupScene 注入并绑定) ---------- */
+const SC = setupScene({
+  canvas: sceneC, vp: VP, state: S, render: render,
+  resetFn: function(){ /* @slot:reset —— 重置状态, 例: S.x=0; S.t=0; render(); */ },
+  runLabel: '▶ 运行',            /* 或 '▶ 同时释放' 等 */
+  panDrag: true,                 /* 2D 拖拽平移; 3D 用 false */
+  legend: [                      /* @slot:legend — 无可切换量传 null; 键对应 S.show.xxx 与 drawScene 门控 */
+    {k:'forces', label:'受力',  color:'#2f6fd0'},
+    {k:'ghost',  label:'另一状态参照', color:'#8893ad'}
+  ],
+  onBeforeRun: function(){ /* @slot:beforeRun — 从结束态重启, 例: if(S.phase==='done') reset(); */ }
+});
+
+render();
+startLoop(S, { sub: 0.002, step: step, render: render });   /* @slot:loop —— sub 按刚度调(ω·dt<0.1, 静态题用 sub:0 或省略); mode:'xxx' 时仅 S.mode===mode 推进 */
+</script>
+</body>
+</html>

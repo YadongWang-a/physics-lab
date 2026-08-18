@@ -1,0 +1,376 @@
+<!-- physics-lab-skill: 双钉绳圈平衡 · 钩码质量比 -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>双钉绳圈平衡 · 钩码质量比</title>
+<meta name="demo-mode" content="dynamic">
+<script>
+  window.addEventListener("message", function(e){
+    var d=e.data; if(!d||d.cmd!=="present")return;
+    document.body.classList.toggle("present", !!d.value);
+  });
+</script>
+<script>
+  window.MathJax = {
+    tex: { inlineMath: [['\\(','\\)']], displayMath: [['$$','$$'],['\\[','\\]']] },
+    svg: { fontURL: 'lib/fonts' },
+    startup: { typeset: true },
+    options: { enableMenu: false, a11y: { speech: false } }
+  };
+</script>
+<script src="lib/mathjax.js" async></script>
+<link rel="stylesheet" href="lib/common.css">
+<style>
+  :root{
+    --canvas-grid:rgba(0,0,0,.04);
+    --canvas-dim-txt:#6b7280;
+    --canvas-txt:#1a1e2e;
+    --canvas-ball-hi:#a5c8f2;   /* m₁ 重物方块 */
+    --canvas-ball-lo:#2f6fd0;
+    --canvas-ball-stroke:#1f4e99;
+    --canvas-ball-txt:#ffffff;
+    --canvas-ball2-hi:#ffd9a0;  /* m₂ 钩码方块 */
+    --canvas-ball2-lo:#c47d10;
+    --canvas-ball2-stroke:#a86a0a;
+    --canvas-ball2-txt:#ffffff;
+  }
+  .grid{display:grid;grid-template-columns:2.8fr 0.8fr;gap:14px}.grid>.card:last-child{min-width:0}
+  @media(max-width:1100px){.grid{grid-template-columns:1fr}}
+  .hint{font-size:11px;color:var(--dim);padding:2px 4px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ====== 标题行 ====== -->
+  <div class="head-row">
+    <div>
+      <h1>双钉绳圈平衡 · 钩码质量比</h1>
+    </div>
+  </div>
+
+  <!-- ====== 双列布局 ====== -->
+  <div class="grid">
+
+    <!-- ====== 场景卡片 ====== -->
+    <div class="card">
+      <canvas id="scene" height="480"></canvas>
+      <div class="phase" id="phase">● 准备就绪</div>
+    </div>
+
+    <!-- ====== 右侧卡片 · 参数 + 读数 + 判定 + 答案 ====== -->
+    <div class="card">
+      <h2>参数调整</h2>
+      <div class="controls">
+        <div class="ctl"><label>质量比 m₁/m₂</label>
+          <input type="range" id="rR" min="0.5" max="2" step="0.001" value="1.118">
+          <input type="number" id="rN" min="0.5" max="2" step="0.001" value="1.118"></div>
+        <div class="hint">目标: m₁/m₂ = √5/2 ≈ 1.118 时 ac 段恰为水平。按 ▶ 释放钩码, 观看系统沉降到平衡。</div>
+      </div>
+      <h2 style="margin-top:12px">实时读数</h2>
+      <div class="readouts">
+        <div class="ro"><div class="k">质量比 m₁/m₂</div><div class="v" id="rV">0<small></small></div></div>
+        <div class="ro"><div class="k">ac 与水平夹角 α</div><div class="v" id="aV">0<small>°</small></div></div>
+        <div class="ro"><div class="k">平衡夹角 α*</div><div class="v" id="asV">0<small>°</small></div></div>
+        <div class="ro"><div class="k">cb 与水平夹角 β</div><div class="v" id="bV">0<small>°</small></div></div>
+        <div class="ro"><div class="k">张力比 T<sub>ac</sub> : m₂g</div><div class="v" id="tacV">0<small>: 1</small></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 问题/推导/答案 弹层(右缘「解析」标签打开) -->
+  <div class="mpop" id="mpop">
+    <div class="mpop-back"></div>
+    <div class="mpop-panel" role="dialog" aria-modal="true">
+      <div class="sec"><button type="button" class="vhead" aria-expanded="true">问题 <span class="vcaret">▾</span></button>
+        <div class="sec-body"><div class="prob">轻绳一端固定于钉 a、跨过光滑钉 b 挂重物 m₁; 绳上距 a 端 l/2 处有固定绳圈 c, 挂钩码 m₂。ab 连线与水平成 45°、高差 l; 平衡后 ac 段水平, 求 m₁/m₂。</div></div></div>
+      <div class="sec"><button type="button" class="vhead" aria-expanded="true">推导 <span class="vcaret">▾</span></button>
+        <div class="sec-body"><div class="verdict" id="verdict"></div></div></div>
+      <div class="sec"><button type="button" class="vhead" aria-expanded="true">答案 <span class="vcaret">▾</span></button>
+        <div class="sec-body"><div class="ans" id="ans"><b>参考答案</b>: \(m_1/m_2=\sqrt5/2\approx1.118\)。光滑钉子 b ⇒ cb 段与竖直段张力相等 \(T=m_1g\); 平衡时 ac 水平 ⇒ c 在 a 正右 l/2 处, \(\tan\beta=l/(l/2)=2\); c 点竖直: \(m_2g=T\sin\beta\), 水平: \(T_{ac}=T\cos\beta\) ⇒ \(m_1g=m_2g\sqrt5/2\) ⇒ \(m_1/m_2=\sqrt5/2\)。分量比 \(T_{ac}:m_2g=\cos\beta:\sin\beta=1:2\)。</div></div></div>
+    </div>
+  </div>
+
+  <div class="foot">c 点三力平衡 T<sub>ac</sub>+T<sub>cb</sub>+m₂g=0 · 光滑钉子张力连续 · 空格暂停 / R 重置 · 双击此 HTML 即可离线运行</div>
+</div>
+
+<script src="lib/common.js"></script>
+<script>
+"use strict";
+/* ---------- 物理常量 / 状态 ---------- */
+const L = 1.0;                                // ab 高差 l(世界单位); ab 水平距离亦为 l
+const LAC = 0.5;                              // 绳圈 c 距 a 的绳长 = l/2
+const LFREE = Math.sqrt(5)/2 + 1.8;           // c→b→m₁ 自由绳长(守恒) = D(0)+1.8
+const HB = 0.12;                              // 物块半边长(边长 0.24, 恒定)
+const G = 9.81;                               // 重力加速度(m₁ 取单位质量)
+const DAMP = 2.0;                             // 沉降阻尼(1/s)
+const INIT_A = Math.PI/4;                     // 初始: 绳沿 ab 拉直(α=45°)
+const TARGET = Math.sqrt(5)/2;                // 答案 m₁/m₂
+const FMAX = 0.85;                            // 最大力箭头长度(世界单位)
+const S = { r: TARGET, alpha: 0, aDot: 0, alphaStar: 0, running: false, last: null, speed: 1 };
+const VP = { zoom: 1, panX: 0, panY: 0 };
+
+/* ---------- 几何 / 受力 ---------- */
+function cPos(a){ return { x: LAC*Math.cos(a), y: LAC*Math.sin(a) }; }
+function distCB(a){ return Math.hypot(L - LAC*Math.cos(a), L - LAC*Math.sin(a)); }
+function dPrime(a){ return LAC*(Math.sin(a)-Math.cos(a))/distCB(a); }   // D'(α)
+function beta(a){ return Math.atan2(L - LAC*Math.sin(a), L - LAC*Math.cos(a)); }
+function m1Pos(a){ const D = distCB(a); return { x: L, y: L - LFREE + D - HB }; }
+function m2Pos(a){ const c = cPos(a); return { x: c.x, y: c.y - 0.14 - HB }; }
+
+/* 平衡角 α*: 静力解 k(α)=m₂/m₁=(cosα−sinα)/(D·cosα), 扫描找变号 + 二分 */
+function kOf(a){ return (Math.cos(a)-Math.sin(a))/(distCB(a)*Math.cos(a)); }
+function eqAlpha(k){
+  const a0 = -1.47, a1 = 0.79, N = 400;
+  let prev = a0, fprev = kOf(a0) - k;
+  if (fprev <= 0) return a0;
+  for (let i = 1; i <= N; i++){
+    const cur = a0 + (a1-a0)*i/N, fcur = kOf(cur) - k;
+    if (fcur <= 0 || i === N){
+      const lo = prev, hi = cur;
+      const r = bisect(function(a){ return kOf(a) - k; }, lo, hi, 1e-12);
+      return r !== null ? r : (lo + hi) / 2;   /* 无变号时与原实现一致回中值 */
+    }
+    prev = cur; fprev = fcur;
+  }
+  return a1;
+}
+
+/* 动力学: 单自由度 α。绳跨光滑钉 b 自由滑动, 绳长 c→b→m₁ 守恒;
+   拉格朗日: M(α)α̈ + ½M'α̇² = −∂V/∂α, M = m₂(l/2)² + m₁D'² */
+function accel(a, ad){
+  const k = 1/S.r, m1 = 1, m2 = k;
+  const D = distCB(a), Dp = dPrime(a);
+  const Dpp = 0.5*((Math.cos(a)+Math.sin(a))*D - (Math.sin(a)-Math.cos(a))*Dp)/(D*D);
+  const M = m2*LAC*LAC + m1*Dp*Dp, Mp = 2*m1*Dp*Dpp;
+  const dV = m2*G*LAC*Math.cos(a) + m1*G*Dp;
+  return -(dV + 0.5*Mp*ad*ad)/M;
+}
+function step(h){
+  const a1 = accel(S.alpha, S.aDot);
+  S.alpha += S.aDot*h + 0.5*a1*h*h;
+  if (S.alpha < -1.48){ S.alpha = -1.48; S.aDot = 0; }
+  if (S.alpha > 0.79){ S.alpha = 0.79; S.aDot = 0; }
+  const a2 = accel(S.alpha, S.aDot);
+  S.aDot += 0.5*(a1+a2)*h;
+  S.aDot *= (1 - DAMP*h);                       // 阻尼沉降
+  if (Math.abs(S.aDot) > 6) S.aDot = Math.sign(S.aDot)*6;
+}
+
+/* ---------- 画布 ---------- */
+const sceneC = $('scene');
+let scene = fitCanvas(sceneC);
+window.addEventListener('resize', function(){ scene = fitCanvas(sceneC); });
+
+/* ---------- 坐标变换 (2D) ---------- */
+function view(){
+  const {w,h}=scene;
+  const xMin=-1.0, xMax=2.0, yMin=-1.95, yMax=1.65;
+  const {s, ox, oy} = fitView(w, h, xMin, xMax, yMin, yMax, {l:40, r:20, t:20, b:30});
+  return {s, ox, oy, w, h};
+}
+const X = function(x){ return x; };
+const Y = function(y){ return -y; };
+
+/* ---------- 颜色 ---------- */
+const C = palette();
+const C2 = (function(){
+  const cs = getComputedStyle(document.documentElement);
+  return { hi: cs.getPropertyValue('--canvas-ball2-hi').trim(), lo: cs.getPropertyValue('--canvas-ball2-lo').trim(),
+           st: cs.getPropertyValue('--canvas-ball2-stroke').trim(), txt: cs.getPropertyValue('--canvas-ball2-txt').trim() };
+})();
+const ROPE = '#000000', WALL = '#8a8fa0', AUX = 'rgba(0,0,0,.4)';  /* 辅助线浅色虚线(见 drawing.md 视觉规则表) */
+
+/* 多段下标标签 → lib multiLabel; 虚线箭头 → lib drawArrow(dash 参数) */
+
+/* ---------- 场景绘制 ---------- */
+function drawScene(){
+  const {ctx,w,h}=scene;
+  const V=view();
+  ctx.clearRect(0,0,w,h);
+  ctx.save();
+  applyViewport(ctx,w,h,VP);
+  ctx.translate(V.ox, V.oy);
+  ctx.scale(V.s, V.s);
+
+  const a = S.alpha;
+  const c = cPos(a), m1 = m1Pos(a), m2 = m2Pos(a);
+  const D = distCB(a), ux = (L-LAC*Math.cos(a))/D, uy = (L-LAC*Math.sin(a))/D;
+  const k = 1/S.r, rAC = ux/Math.cos(a);
+  const scale = FMAX/Math.max(1, k, rAC);
+  const lenCB = scale, lenM2 = k*scale, lenAC = rAC*scale;
+
+  /* --- 墙 + 钉子 a/b(支撑结构只画到活动范围附近) --- */
+  ctx.lineCap = 'butt';
+  wall(ctx, X(-0.5), Y(-0.7), Y(1.55), {hatch:false, color:WALL, lw:0.025*V.s, scale:V.s});
+  ctx.strokeStyle = ROPE; ctx.lineWidth = 0.015;                       // 钉身(墙→钉头)
+  ctx.beginPath(); ctx.moveTo(X(-0.5),Y(0)); ctx.lineTo(X(0),Y(0)); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(X(-0.5),Y(1)); ctx.lineTo(X(1),Y(1)); ctx.stroke();
+  joint(ctx, X(0), Y(0), 0.05, {fill:'#1a1e2e', color:WALL, lw:0.018*V.s, scale:V.s});  // 钉 a
+  joint(ctx, X(1), Y(1), 0.05, {fill:'#1a1e2e', color:WALL, lw:0.018*V.s, scale:V.s});  // 钉 b
+  ctx.font='0.12px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle = C.txt;
+  ctx.fillText('a', X(0), Y(-0.17));
+  ctx.fillText('b', X(1), Y(1.14));
+
+  /* --- 辅助线: 水平参照 / ab 45° / α 弧 / β 弧 / 尺寸 l / 绳长 l/2 --- */
+  if (S.show.geom){
+    dashLine(ctx, X(-0.05), Y(0), X(1.78), Y(0), {color:AUX, lw:0.013*V.s, dash:[0.06*V.s, 0.05*V.s], scale:V.s});  // 水平参照
+    dashLine(ctx, X(0), Y(0), X(1), Y(1), {color:AUX, lw:0.013*V.s, dash:[0.06*V.s, 0.05*V.s], scale:V.s});        // ab 连线
+    angleArc(ctx, X(0), Y(0), 0.32, 0, -Math.PI/4, {ccw:true, color:AUX, lw:0.014*V.s, scale:V.s});                // 45° 弧
+    ctx.font='0.11px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle = C.dimTxt;
+    ctx.fillText('45°', X(0.40*Math.cos(Math.PI/8)), Y(0.40*Math.sin(Math.PI/8)));
+    angleArc(ctx, X(0), Y(0), 0.20, 0, -a, {ccw: a>0, color:AUX, lw:0.014*V.s, scale:V.s});                        // α 弧
+    ctx.fillText('α', X(0.27*Math.cos(a/2)), Y(0.27*Math.sin(a/2)));
+    angleArc(ctx, X(c.x), Y(c.y), 0.15, 0, -beta(a), {ccw:true, color:AUX, lw:0.014*V.s, scale:V.s});              // β 弧
+    ctx.fillText('β', X(c.x+0.21*Math.cos(beta(a)/2)), Y(c.y+0.21*Math.sin(beta(a)/2)));
+    dimLine(ctx, X(1.30), Y(0), X(1.30), Y(1), null, {color:AUX, lw:0.013*V.s, tick:0.06*V.s, scale:V.s});         // 竖直尺寸 l(线+端刻线)
+    ctx.fillText('l', X(1.42), Y(0.5));
+    ctx.fillText('l/2', X(c.x/2 + 0.07*Math.sin(a)), Y(c.y/2 - 0.09*Math.cos(a)));      // ac 绳长
+  }
+
+  /* --- 绳: a→c, c→b, b→m₁, c→m₂ --- */
+  ctx.strokeStyle = ROPE; ctx.lineWidth = 0.015; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(X(0),Y(0)); ctx.lineTo(X(c.x),Y(c.y)); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(X(c.x),Y(c.y)); ctx.lineTo(X(1),Y(1)); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(X(1),Y(1)); ctx.lineTo(X(m1.x),Y(m1.y+HB)); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(X(c.x),Y(c.y)); ctx.lineTo(X(m2.x),Y(m2.y+HB)); ctx.stroke();
+
+  /* --- 绳圈 c --- */
+  ctx.strokeStyle = ROPE; ctx.lineWidth = 0.015;
+  ctx.beginPath(); ctx.arc(X(c.x),Y(c.y),0.035,0,7); ctx.stroke();
+  ctx.font='0.11px sans-serif'; ctx.textAlign='left'; ctx.textBaseline='middle'; ctx.fillStyle = C.txt;
+  ctx.fillText('c', X(c.x+0.09), Y(c.y+0.05));
+
+  /* --- c 点三力(受力点 c; T_cb 的正交分解见下方 comp 块) --- */
+  if (S.show.forces){
+    const t1x = c.x + lenAC*(-Math.cos(a)), t1y = c.y + lenAC*(-Math.sin(a));
+    const t2x = c.x + lenCB*ux, t2y = c.y + lenCB*uy;
+    const wx = c.x, wy = c.y - lenM2;
+    drawArrow(ctx, X(c.x),Y(c.y), X(t1x),Y(t1y), C.blue, null, V.s);
+    drawArrow(ctx, X(c.x),Y(c.y), X(t2x),Y(t2y), C.green, null, V.s);
+    drawArrow(ctx, X(c.x),Y(c.y), X(wx),Y(wy), C.red, null, V.s);
+    ctx.fillStyle = C.blue;
+    multiLabel(ctx, X(t1x - 0.06*Math.cos(a)), Y(t1y - 0.06*Math.sin(a) + 0.015), [{t:'T'},{t:'ac',sub:true}], {size:0.11*V.s, scale:V.s});
+    ctx.fillStyle = C.green;
+    multiLabel(ctx, X(t2x + 0.05*ux), Y(t2y + 0.05*uy + 0.015), [{t:'T'},{t:'cb',sub:true}], {size:0.11*V.s, scale:V.s});
+    ctx.fillStyle = C.red;
+    multiLabel(ctx, X(wx + 0.05), Y(wy - 0.02), [{t:'m'},{t:'2',sub:true},{t:'g'}], {size:0.11*V.s, scale:V.s});
+  }
+
+  /* --- T_cb 正交分解(力平行四边形): 水平分量 T_cb·cosβ, 竖直分量 T_cb·sinβ --- */
+  if (S.show.comp){
+    const cbx = c.x + lenCB*ux, cby = c.y + lenCB*uy;      // T_cb 箭头端点
+    const hx = c.x + lenCB*Math.cos(beta(a)), hy = c.y;    // 水平分量端点(→ 与 T_ac 平衡)
+    const vx = c.x, vy = c.y + lenCB*Math.sin(beta(a));    // 竖直分量端点(↑ 与 m₂g 平衡)
+    dashLine(ctx, X(cbx),Y(cby), X(hx),Y(hy), {color:AUX, lw:0.014*V.s, dash:[0.05*V.s, 0.04*V.s], scale:V.s});  // 平行四边形补边(横)
+    dashLine(ctx, X(cbx),Y(cby), X(vx),Y(vy), {color:AUX, lw:0.014*V.s, dash:[0.05*V.s, 0.04*V.s], scale:V.s});  // 平行四边形补边(竖)
+    drawArrow(ctx, X(c.x),Y(c.y), X(hx),Y(hy), C.green, null, V.s, [0.06*V.s, 0.05*V.s]);   // 水平分量(虚线箭头)
+    drawArrow(ctx, X(c.x),Y(c.y), X(vx),Y(vy), C.green, null, V.s, [0.06*V.s, 0.05*V.s]);   // 竖直分量(虚线箭头)
+    ctx.fillStyle = C.green;
+    multiLabel(ctx, X(hx + 0.07), Y(hy - 0.03), [{t:'T'},{t:'cb',sub:true},{t:'·cosβ'}], {size:0.11*V.s, scale:V.s});
+    multiLabel(ctx, X(vx + 0.07), Y(vy + 0.03), [{t:'T'},{t:'cb',sub:true},{t:'·sinβ'}], {size:0.11*V.s, scale:V.s});
+  }
+
+  /* --- 速度矢量(沉降过程中, 画在质心) --- */
+  if (S.show.vel && Math.abs(S.aDot) > 0.02){
+    const lc = Math.min(0.40, Math.abs(0.5*S.aDot)*0.8);
+    drawArrow(ctx, X(c.x),Y(c.y),
+      X(c.x + Math.sign(S.aDot)*lc*(-Math.sin(a))), Y(c.y + Math.sign(S.aDot)*lc*Math.cos(a)), C.cyan, null, V.s);
+    const vm = dPrime(a)*S.aDot;
+    if (Math.abs(vm) > 0.02){
+      const lm = Math.min(0.40, Math.abs(vm)*0.8);
+      drawArrow(ctx, X(m1.x),Y(m1.y), X(m1.x), Y(m1.y + Math.sign(vm)*lm), C.cyan, null, V.s);
+    }
+  }
+
+  /* --- 物块 m₂(钩码) / m₁(重物): 边长 0.24 恒定; 原渐变上暗下亮, 故 hi/lo 对调; 标签用 multiLabel(alphabetic 基线, 同原 labelSub) --- */
+  block(ctx, X(m2.x), Y(m2.y), HB, HB, {hi:C2.lo, lo:C2.hi, st:C2.st, lw:0.022*V.s, scale:V.s});
+  ctx.fillStyle = C2.txt;
+  multiLabel(ctx, X(m2.x), Y(m2.y)+0.03, [{t:'m'},{t:'2',sub:true}], {size:0.12*V.s, scale:V.s});
+  block(ctx, X(m1.x), Y(m1.y), HB, HB, {hi:C.ballLo, lo:C.ballHi, st:C.ballSt, lw:0.022*V.s, scale:V.s});
+  ctx.fillStyle = C.ballTxt;
+  multiLabel(ctx, X(m1.x), Y(m1.y)+0.03, [{t:'m'},{t:'1',sub:true}], {size:0.12*V.s, scale:V.s});
+
+  ctx.restore();
+}
+
+/* ---------- 主循环: lib startLoop (子步积分/收敛停止判据已内置) ---------- */
+
+/* ---------- 渲染 ---------- */
+function render(){
+  drawScene();
+  const a = S.alpha, D = distCB(a), ux = (L-LAC*Math.cos(a))/D, rAC = ux/Math.cos(a), k = 1/S.r;
+  $('rV').innerHTML = S.r.toFixed(3);
+  $('aV').innerHTML = (a*180/Math.PI).toFixed(1)+'<small>°</small>';
+  $('asV').innerHTML = (S.alphaStar*180/Math.PI).toFixed(1)+'<small>°</small>';
+  $('bV').innerHTML = (beta(a)*180/Math.PI).toFixed(1)+'<small>°</small>';
+  $('tacV').innerHTML = (rAC/k).toFixed(3)+'<small>: 1</small>';
+  const settled = Math.abs(a - S.alphaStar) < 0.008;
+  if (settled && Math.abs(a) < 0.008){
+    $('verdict').innerHTML =
+      '<b style="color:var(--green)">✓ ac 段水平</b> — 平衡时 T=m₁g=m₂g·√5/2, 即 m₁/m₂=√5/2≈1.118。<br>'+
+      '<b>核对</b>: 分解 T_cb — 水平 T<sub>ac</sub>=T_cb·cosβ、竖直 m₂g=T_cb·sinβ; tanβ=l/(l/2)=2 ⇒ '+
+      'T<sub>ac</sub>:m₂g=1:2 ✓';
+  } else {
+    $('verdict').innerHTML =
+      '<b>当前</b>: m₁/m₂='+S.r.toFixed(3)+' → 平衡角 α*≈'+(S.alphaStar*180/Math.PI).toFixed(1)+
+      '°(当前 α≈'+(a*180/Math.PI).toFixed(1)+'°)。<br>把比值调至 √5/2≈1.118, ac 段即水平: '+
+      '竖直 m₂g=T·sinβ、水平 T<sub>ac</sub>=T·cosβ, tanβ=2 ⇒ m₁/m₂=√5/2。';
+  }
+  if (settled && Math.abs(a) < 0.008) $('phase').textContent = '● ✓ ac 段水平! m₁/m₂ = √5/2';
+  else if (S.running) $('phase').textContent = '● 释放钩码 · 系统振荡沉降中(α='+(a*180/Math.PI).toFixed(1)+'°)';
+  else if (!settled) $('phase').textContent = '● 已暂停(α='+(a*180/Math.PI).toFixed(1)+'°)';
+  else $('phase').textContent = '● 平衡态 · α='+(a*180/Math.PI).toFixed(1)+'° — 拖滑块改比值 / ▶ 重放沉降';
+  SC.syncRun();
+}
+
+/* ---------- 控件绑定 ---------- */
+bindRangeNumber('rR','rN',parseFloat, function(v){
+  S.r = v;
+  S.alphaStar = eqAlpha(1/v);
+  if (!S.running){ S.alpha = S.alphaStar; S.aDot = 0; }
+  render();
+});
+
+/* ---------- 重置 / 重启钩子 ---------- */
+function resetFn(){
+  S.running = false; S.last = null;
+  S.alpha = INIT_A; S.aDot = 0;
+  render();
+}
+function onBeforeRun(){
+  if (Math.abs(S.alpha - S.alphaStar) < 0.02 && Math.abs(S.aDot) < 0.05){ S.alpha = INIT_A; S.aDot = 0; }
+}
+
+/* ---------- 场景标准件 (按钮/图例/视口/键盘 由 setupScene 注入并绑定) ---------- */
+const SC = setupScene({
+  canvas: sceneC, vp: VP, state: S, render: render,
+  resetFn: resetFn,
+  runLabel: '▶ 释放钩码',
+  panDrag: true,
+  legend: [
+    {k:'forces', label:'c 点三力 T_ac/T_cb/m₂g', color:'#2f6fd0'},
+    {k:'comp',   label:'T_cb 正交分解',           color:'#7c3aed'},
+    {k:'geom',   label:'几何辅助 45°/α/β/l',     color:'#6b7280'},
+    {k:'vel',    label:'速度矢量(沉降)',          color:'#36d6e7'}
+  ],
+  onBeforeRun: onBeforeRun
+});
+
+/* 初始即展示目标平衡态(ac 水平) */
+S.alphaStar = eqAlpha(1/S.r);
+S.alpha = S.alphaStar;
+render();
+startLoop(S, {
+  sub: 0.001,
+  step: step,
+  render: render,
+  stopCheck: function(){          /* 收敛判据: 平衡角附近且角速度≈0 → 停 */
+    return Math.abs(S.alpha - S.alphaStar) < 0.008 && Math.abs(S.aDot) < 0.05;
+  }
+});
+</script>
+</body>
+</html>

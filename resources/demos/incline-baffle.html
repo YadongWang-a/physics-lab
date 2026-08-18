@@ -1,0 +1,684 @@
+<!-- physics-lab-skill: 斜面挡板 · 甲乙弹性碰撞(多视角) -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>斜面挡板 · 甲乙弹性碰撞多视角</title>
+<meta name="demo-mode" content="dynamic">
+<script>
+  window.addEventListener("message", function(e){
+    var d=e.data; if(!d||d.cmd!=="present")return;
+    document.body.classList.toggle("present", !!d.value);
+  });
+</script>
+<script>
+  window.MathJax = {
+    tex: { inlineMath: [['\\(','\\)']] },
+    svg: { fontURL: 'lib/fonts' },
+    startup: { typeset: true },
+    options: { enableMenu: false }
+  };
+</script>
+<script src="lib/mathjax.js" async></script>
+<link rel="stylesheet" href="lib/common.css">
+<style>
+  /* ---- 页面专用 CSS 变量(3D面颜色等, 浅色) ---- */
+  :root{
+    --canvas-grid:rgba(0,0,0,.04); --canvas-dim-txt:#6b7280;
+    --canvas-ruler:#6b7280; --canvas-txt:#1a1e2e; --canvas-ball-txt:#1a1e2e;
+    --canvas-trajA:rgba(14,143,160,.5); --canvas-trajB:rgba(124,58,237,.5);
+    --face-top-fill:rgba(47,111,208,.08); --face-top-stroke:rgba(47,111,208,.3);
+    --face-bot-fill:rgba(0,0,0,.06); --face-bot-stroke:rgba(0,0,0,.12);
+    --face-hi-fill:rgba(0,0,0,.08); --face-hi-stroke:rgba(0,0,0,.2);
+    --face-front-fill:rgba(0,0,0,.06); --face-front-stroke:rgba(0,0,0,.15);
+    --face-back-fill:rgba(0,0,0,.04); --face-back-stroke:rgba(0,0,0,.1);
+  }
+  /* ---- 页面专用布局 ---- */
+  .grid{display:grid;grid-template-columns:2.8fr 0.8fr;gap:14px}.grid>.card:last-child{min-width:0}
+  @media(max-width:1100px){.grid{grid-template-columns:1fr}}
+  /* ---- 按钮选中态 ---- */
+  .btn.on{background:var(--blue);color:#fff;border-color:var(--blue)}
+  /* ---- 读数面板(双列) ---- */
+  .readouts{grid-template-columns:1fr 1fr}
+  /* ---- 判定卡 ok/no 着色(基础样式在 lib/common.css) + 答案卡内件 ---- */
+  .verdict.ok{background:rgba(91,217,138,.1);border:1px solid var(--green);color:var(--green)}
+  .verdict.no{background:rgba(239,111,111,.1);border:1px solid var(--red);color:var(--red)}
+  .ans .h{color:var(--green);font-weight:600}
+  .hint{font-size:11px;color:var(--dim);margin-top:6px;text-align:center}
+  /* ---- 阶段标签(覆盖 common.css 默认) ---- */
+  .phase{margin-top:8px;font-size:13px;padding:7px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ====== 标题行 ====== -->
+  <div class="head-row">
+    <div>
+      <h1>斜面挡板 · 小球甲乙弹性碰撞(多视角)</h1>
+    </div>
+  </div>
+
+  <!-- ====== 顶栏 · 临界状态快捷跳转 ====== -->
+  <div class="topbar" style="gap:8px">
+    <div style="font-size:12px;color:var(--dim);margin-right:4px">临界状态 ▶</div>
+    <button class="btn" id="cA">a 起点</button>
+    <button class="btn dot" id="cMidAB" title="ab中点"><span style="--dc:#6db8d8"></span></button>
+    <button class="btn" id="cB">b 弧入口</button>
+    <button class="btn dot" id="cMidArc" title="弧中点(α=-45°)"><span style="--dc:#d9b86a"></span></button>
+    <button class="btn" id="cC">c 碰撞点</button>
+    <button class="btn dot" id="cMidFly" title="平抛中点"><span style="--dc:#c98fb5"></span></button>
+    <button class="btn" id="cE">e 到达</button>
+    <div class="spacer"></div>
+    <button class="btn" id="cClear" style="border-color:var(--line)">回到起点</button>
+  </div>
+
+  <!-- ====== 双列布局 ====== -->
+  <div class="grid">
+
+    <!-- ====== 场景卡片 ====== -->
+    <div class="card">
+      <!-- 操作按钮 + 图例栏 + 三视图 由 setupScene 注入 -->
+      <!-- 画布 -->
+      <canvas id="scene" height="520"></canvas>
+      <!-- 阶段标签 -->
+      <div class="phase" id="phase">● 准备就绪</div>
+      <!-- 3D 提示 -->
+      <div class="hint" id="hint">3D 三视图:主视(立体斜视,默认)/ 俯视(看 u-v 布局)/ 侧视(看等高线+高度)。ab 沿坡向,半圆 bcd 凸向坡上,de∥ab。</div>
+    </div>
+
+    <!-- ====== 右侧卡片 · 参数 + 读数 + 判定 ====== -->
+    <div class="card">
+      <h2>参数调整</h2>
+      <div class="controls">
+        <div class="ctl"><label>半径 R</label>
+          <input type="range" id="rR" min="0.5" max="2" step="0.1" value="1">
+          <input type="number" id="rN" min="0.5" max="2" step="0.1" value="1"><span class="unit">m</span></div>
+        <div class="ctl"><label>倾角 θ</label>
+          <input type="range" id="tR" min="15" max="60" step="1" value="30">
+          <input type="number" id="tN" min="15" max="60" step="1" value="30"><span class="unit">°</span></div>
+        <div class="ctl"><label>m₂/m₁</label>
+          <input type="range" id="ratR" min="1" max="15" step="0.5" value="7">
+          <input type="number" id="ratN" min="1" max="15" step="0.5" value="7"></div>
+        <div class="ctl"><label>初速度 v₀</label>
+          <input type="range" id="v0R" min="0" max="20" step="0.1" value="9.13">
+          <input type="number" id="v0N" min="0" max="20" step="0.1" value="9.13"><span class="unit">m/s</span></div>
+        <div class="hint">恰能到c: v₀=√(17gRsinθ)=<span id="v0min">9.13</span></div>
+      </div>
+      <h2 style="margin-top:12px">实时读数</h2>
+      <div class="readouts">
+        <div class="ro"><div class="k">有效重力 g'</div><div class="v" id="geV">0<small>m/s²</small></div></div>
+        <div class="ro"><div class="k">甲位置 u</div><div class="v" id="auV">0<small>m</small></div></div>
+        <div class="ro"><div class="k">甲速度 v<sub>A</sub></div><div class="v" id="avV">0<small>m/s</small></div></div>
+        <div class="ro"><div class="k">乙速度 v<sub>B</sub></div><div class="v" id="bvV">0<small>m/s</small></div></div>
+        <div class="ro"><div class="k">初动能 E<sub>k0</sub></div><div class="v" id="keV">0<small>J</small></div></div>
+        <div class="ro"><div class="k">时间 t</div><div class="v" id="tV">0<small>s</small></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 问题/推导/答案 弹层(右缘「解析」标签打开) -->
+  <div class="mpop" id="mpop">
+    <div class="mpop-back"></div>
+    <div class="mpop-panel" role="dialog" aria-modal="true">
+      <div class="sec"><button type="button" class="vhead" aria-expanded="true">问题 <span class="vcaret">▾</span></button>
+        <div class="sec-body"><div class="prob">装置在斜面平面内:直挡板 ab(7R)沿坡向,半圆挡板(半径 R)凸向坡上,bd 沿等高线,de∥ab。有效重力 \(g' = g\sin\theta\) 指向坡下。甲 a&rarr;b&rarr;c 与乙弹性碰撞,乙做"平抛"(斜面平面内)。</div></div></div>
+      <div class="sec"><button type="button" class="vhead" aria-expanded="true">推导 <span class="vcaret">▾</span></button>
+        <div class="sec-body"><div class="verdict" id="verdict"></div></div></div>
+      <div class="sec"><button type="button" class="vhead" aria-expanded="true">答案 <span class="vcaret">▾</span></button>
+        <div class="sec-body"><div class="ans" id="ans">
+          <b>参考答案</b>(有效重力 \(g'=g\sin\theta\)):<br>
+          (1) \(a = g\sin\theta\)<br>
+          (2) \(m_2/m_1 = 7\)<br>
+          (3) \(\tfrac{17}{2}m_1 gR\sin\theta \le E_{k0} \le 12\,m_1 gR\sin\theta\)
+        </div></div></div>
+    </div>
+  </div>
+
+  <div class="foot">斜面平面内·有效重力 g'=g sinθ · 半圆为"小山"·恰能到c指 v_c=√(g'R) 维持接触的临界 · 空格暂停/R重置 · 3D模式下拖拽旋转</div>
+</div>
+
+<script src="lib/common.js"></script>
+<script>
+"use strict";
+/* ---------- 状态 ---------- */
+const S = { R:1, theta:30, g:9.81, ratio:7, v0:0,
+            view:'front', camAz:-0.55, camEl:0.5,
+            t:0, running:false, last:null, phase:'slide',
+            A:{u:0,v:0,vu:0,vv:0,alpha:-Math.PI/2,omega:0,lost:false},
+            B:{u:0,v:0,vu:0,vv:0,active:false,traj:[],crossU:null},
+            collideFlash:0, Atraj:[],
+            show:{vA:true,aA:true,vB:true,aB:true,geff:true,traj:true} };
+const VP = { zoom:1, panX:0, panY:0 };
+const gEff=function(){return S.g*Math.sin(S.theta*Math.PI/180);};
+const Pt={
+  a:function(){return {u:0,v:0};}, b:function(){return {u:7*S.R,v:0};},
+  O:function(){return {u:7*S.R,v:S.R};}, c:function(){return {u:8*S.R,v:S.R};},
+  d:function(){return {u:7*S.R,v:2*S.R};}, e:function(){return {u:0,v:2*S.R};}
+};
+const arcPt=function(a){const O=Pt.O();return {u:O.u+S.R*Math.cos(a),v:O.v+S.R*Math.sin(a)};};
+function v0min(){ return Math.sqrt(17*gEff()*S.R); }
+function KE0(){ return 0.5*S.v0*S.v0; }
+function vAtC(){
+  const ge=gEff();
+  const vA2=S.v0*S.v0 - 2*ge*8*S.R;
+  return Math.sqrt(Math.max(0,vA2));
+}
+function vBafter2(vA){ return 2/(1+S.ratio)*vA; }
+function vAafter2(vA){ return (1-S.ratio)/(1+S.ratio)*vA; }
+
+/* ---------- 画布 ---------- */
+const sceneC = $('scene');
+let scene = fitCanvas(sceneC);
+window.addEventListener('resize', function(){ scene = fitCanvas(sceneC); VLock = null; });
+
+/* 3D 三视图 */
+function curCam(){ return {az:S.camAz, el:S.camEl}; }
+function viewDefaults(v){
+  if (v==='top') return {az:0, el:1.45};
+  if (v==='side') return {az:0, el:0.15};
+  return {az:-0.55, el:0.5};
+}
+function viewParams(){const {w,h}=scene;const R=S.R;
+  const th=S.theta*Math.PI/180;
+  const uA=-0.5*R, uB=9*R, vA=-1*R, vB=3*R;
+  const pts=[[uA,vA,uA*Math.sin(th)],[uB,vA,uB*Math.sin(th)],[uB,vB,uB*Math.sin(th)],[uA,vB,uA*Math.sin(th)],
+             [uA,vA,0],[uB,vA,0],[uB,vB,0],[uA,vB,0],
+             [8*R,R,8*R*Math.sin(th)],[0,2*R,0],[0,0,0],[7*R,0,0]];
+  let minX=1e9,maxX=-1e9,minY=1e9,maxY=-1e9;
+  pts.forEach(function(p){const X=p[0]*Math.cos(th),Y=p[1],Z=p[2];
+    const pr=project3(X,Y,Z);minX=Math.min(minX,pr.x);maxX=Math.max(maxX,pr.x);minY=Math.min(minY,pr.y);maxY=Math.max(maxY,pr.y);});
+  const bw=maxX-minX||1, bh=maxY-minY||1;
+  const pad3=54;
+  const sx=(w-2*pad3)/bw, sy=(h-2*pad3)/bh;
+  const s=Math.min(sx,sy)*0.92;
+  const pcx=(minX+maxX)/2, pcy=(minY+maxY)/2;
+  return {s,cx:w/2,cy:h/2,pcx,pcy,w,h};
+}
+/* 拖拽期间锁定视口 fit(VLock): 旋转中 s/pcx/pcy 不变 → 旋转轴不漂移、松手不跳变。
+   三视图切换与窗口 resize 时置 null 重新 fit。 */
+let VLock = null;
+function w2s(u,v){const V=VLock || viewParams();
+  const th=S.theta*Math.PI/180;
+  const X=u*Math.cos(th), Y=v, Z=u*Math.sin(th);
+  const p=project3(X,Y,Z);
+  return {x:V.cx+(p.x-V.pcx)*V.s, y:V.cy-(p.y-V.pcy)*V.s};
+}
+function project3(x,y,z){
+  const c=curCam(), az=c.az, el=c.el;
+  const th=S.theta*Math.PI/180, R=S.R;
+  const Cx=4.5*R*Math.cos(th), Cy=R, Cz=4.5*R*Math.sin(th);
+  let x0=x-Cx, y0=y-Cy, z0=z-Cz;
+  const ca=Math.cos(az),sa=Math.sin(az);
+  let X=x0*ca+y0*sa, Y=-x0*sa+y0*ca;
+  const ce=Math.cos(el),se=Math.sin(el);
+  let Z=Y*se+z0*ce, D=Y*ce-z0*se;
+  const persp=1/(1+D*0.04);
+  return {x:X*persp, y:Z*persp, d:D};
+}
+
+/* ---------- 物理 ---------- */
+function initSim(){
+  S.t=0; S.phase='slide'; S.collideFlash=0; S.Atraj=[];
+  S.collideVA=null; S.collideVB=null;
+  S.A={u:0,v:0,vu:S.v0,vv:0,alpha:-Math.PI/2,omega:0,lost:false};
+  S.B={u:Pt.c().u,v:Pt.c().v,vu:0,vv:0,active:false,traj:[],crossU:null};
+}
+function canReachC(){ return S.v0 >= v0min()-1e-6; }
+function step(dt){
+  const ge=gEff();
+  if (S.phase==='slide'){
+    S.A.vu-=ge*dt; S.A.u+=S.A.vu*dt; S.A.v=0;
+    S.Atraj.push({u:S.A.u,v:0});
+    if (S.A.u>=7*S.R){ S.A.u=7*S.R; S.A.omega=S.A.vu/S.R; S.phase='arc'; }
+  } else if (S.phase==='arc'){
+    const a=S.A.alpha;
+    S.A.omega += ge*Math.sin(a)/S.R * dt;
+    S.A.alpha += S.A.omega*dt;
+    const p=arcPt(S.A.alpha); S.A.u=p.u; S.A.v=p.v;
+    S.A.vu=S.R*S.A.omega*(-Math.sin(a)); S.A.vv=S.R*S.A.omega*Math.cos(a);
+    S.Atraj.push({u:p.u,v:p.v});
+    if (!canReachC() && S.A.omega<=0){ S.A.lost=true; S.phase='done'; S.running=false; }
+    if (S.A.alpha>=0){
+      S.A.alpha=0; const c=Pt.c(); S.A.u=c.u; S.A.v=c.v;
+      const vA=S.R*S.A.omega;
+      S.B.vv=vBafter2(vA); S.B.vu=0; S.B.active=true; S.B.traj=[{u:c.u,v:c.v}];
+      S.A.vv=vAafter2(vA); S.A.vu=0; S.A.omega=0;
+      S.collideVA={u:S.A.vu, v:S.A.vv};
+      S.collideVB={u:S.B.vu, v:S.B.vv};
+      S.phase='projectile'; S.collideFlash=1;
+    }
+  } else if (S.phase==='projectile'){
+    S.B.vu-=ge*dt; S.B.u+=S.B.vu*dt; S.B.v+=S.B.vv*dt;
+    S.B.traj.push({u:S.B.u,v:S.B.v});
+    if (S.B.crossU===null && S.B.v>=2*S.R){
+      const pr=S.B.traj[S.B.traj.length-2]||{u:S.B.u,v:S.B.v};
+      const f=(2*S.R-pr.v)/(S.B.v-pr.v);
+      S.B.crossU=pr.u+(S.B.u-pr.u)*f;
+    }
+    if (S.B.u<-S.R || S.B.v>4*S.R || S.B.traj.length>4000){ S.phase='done'; S.running=false; }
+  }
+  S.t+=dt;
+  if (S.collideFlash>0) S.collideFlash=Math.max(0,S.collideFlash-dt*3);
+}
+
+/* ---------- 主循环: lib startLoop (无 speed 字段 → 倍速按 1, 子步积分已内置) ---------- */
+
+/* ---------- 渲染 ---------- */
+function drawArrow(ctx,x1,y1,x2,y2,color,label){
+  const dx=x2-x1, dy=y2-y1;
+  const len=Math.hypot(dx,dy);
+  if (len<3) return;
+  ctx.strokeStyle=color; ctx.fillStyle=color; ctx.lineWidth=2.5;
+  ctx.lineCap='round'; ctx.lineJoin='round';
+  const ang=Math.atan2(dy,dx);
+  const ah=10;
+  const bodyEnd_x=x2-ah*0.6*Math.cos(ang), bodyEnd_y=y2-ah*0.6*Math.sin(ang);
+  ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(bodyEnd_x,bodyEnd_y);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(x2,y2);
+  ctx.lineTo(x2-ah*Math.cos(ang-0.35),y2-ah*Math.sin(ang-0.35));
+  ctx.lineTo(x2-ah*Math.cos(ang+0.35),y2-ah*Math.sin(ang+0.35));
+  ctx.closePath();ctx.fill();
+  if (label){
+    ctx.font='bold 10px sans-serif';
+    const nx=Math.cos(ang), ny=Math.sin(ang);
+    const off=6;
+    const lx=x2+nx*off, ly=y2+ny*off;
+    ctx.textAlign=Math.abs(nx)>0.5?(nx>0?'left':'right'):'center';
+    ctx.textBaseline=Math.abs(ny)>0.3?(ny>0?'top':'bottom'):'bottom';
+    ctx.fillText(label, lx, ly);
+    ctx.textBaseline='alphabetic';
+  }
+}
+
+function line(ctx,p1,p2){const s1=w2s(p1.u,p1.v),s2=w2s(p2.u,p2.v);ctx.beginPath();ctx.moveTo(s1.x,s1.y);ctx.lineTo(s2.x,s2.y);ctx.stroke();}
+/* 球: 本地 3D 版已删, 改用 lib ball (渐变 addColorStop(0,'#ffffff')/描边色/线宽/标签色经 opts 原样传入) */
+function drawIncline3D(ctx){
+  const th=S.theta*Math.PI/180;
+  const R=S.R;
+  const u0=0, u1=9*R, v0=-1*R, v1=3*R;
+  const surf=function(u,v,toGround){
+    const X=u*Math.cos(th), Y=v, Z=toGround?0:u*Math.sin(th);
+    const p=project3(X,Y,Z); const V=VLock || viewParams();
+    return {x:V.cx+(p.x-V.pcx)*V.s, y:V.cy-(p.y-V.pcy)*V.s, d:p.d};
+  };
+  const faces=[];
+  const cs3=getComputedStyle(document.documentElement);
+  const fTopF=cs3.getPropertyValue('--face-top-fill').trim(), fTopS=cs3.getPropertyValue('--face-top-stroke').trim();
+  const fBotF=cs3.getPropertyValue('--face-bot-fill').trim(), fBotS=cs3.getPropertyValue('--face-bot-stroke').trim();
+  const fHiF=cs3.getPropertyValue('--face-hi-fill').trim(), fHiS=cs3.getPropertyValue('--face-hi-stroke').trim();
+  const fFrF=cs3.getPropertyValue('--face-front-fill').trim(), fFrS=cs3.getPropertyValue('--face-front-stroke').trim();
+  const fBkF=cs3.getPropertyValue('--face-back-fill').trim(), fBkS=cs3.getPropertyValue('--face-back-stroke').trim();
+  faces.push({d:(surf(u0,v0,0).d+surf(u1,v1,0).d)/2, pts:[surf(u0,v0,0),surf(u1,v0,0),surf(u1,v1,0),surf(u0,v1,0)],
+    fill:fTopF, stroke:fTopS, lw:1.2, name:'top'});
+  faces.push({d:(surf(u0,v0,1).d+surf(u1,v1,1).d)/2+0.01, pts:[surf(u0,v0,1),surf(u1,v0,1),surf(u1,v1,1),surf(u0,v1,1)],
+    fill:fBotF, stroke:fBotS, lw:1, dash:[5,5], name:'bot'});
+  faces.push({d:surf(u1,v0,0).d, pts:[surf(u1,v0,0),surf(u1,v1,0),surf(u1,v1,1),surf(u1,v0,1)],
+    fill:fHiF, stroke:fHiS, lw:1.3, name:'hi'});
+  faces.push({d:surf(u0,v0,0).d-0.02, pts:[surf(u0,v0,0),surf(u1,v0,0),surf(u1,v0,1),surf(u0,v0,1)],
+    fill:fFrF, stroke:fFrS, lw:1.4, name:'front'});
+  faces.push({d:surf(u0,v1,0).d+0.02, pts:[surf(u0,v1,0),surf(u1,v1,0),surf(u1,v1,1),surf(u0,v1,1)],
+    fill:fBkF, stroke:fBkS, lw:1, name:'back'});
+  faces.sort(function(a,b){return a.d-b.d;});
+  faces.forEach(function(f){
+    ctx.fillStyle=f.fill; ctx.strokeStyle=f.stroke; ctx.lineWidth=f.lw;
+    if (f.dash) ctx.setLineDash(f.dash);
+    ctx.beginPath(); f.pts.forEach(function(p,i){if (i===0) ctx.moveTo(p.x,p.y); else ctx.lineTo(p.x,p.y);}); ctx.closePath();
+    ctx.fill(); ctx.stroke(); if (f.dash) ctx.setLineDash([]);
+  });
+  const corner=surf(u0,v0,0);
+  const cBlue=cs3.getPropertyValue('--blue').trim();
+  ctx.fillStyle=cBlue; ctx.font='bold 12px sans-serif'; ctx.textAlign='left';
+  ctx.fillText('θ', corner.x+18, corner.y-6);
+  const g0=surf(8.4*R,2.6*R,0);
+  const cRed=cs3.getPropertyValue('--red').trim();
+  ctx.strokeStyle=cRed; ctx.fillStyle=cRed; ctx.lineWidth=2;
+  ctx.beginPath();ctx.moveTo(g0.x,g0.y);ctx.lineTo(g0.x,g0.y+26);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(g0.x,g0.y+26);ctx.lineTo(g0.x-4,g0.y+20);ctx.lineTo(g0.x+4,g0.y+20);ctx.closePath();ctx.fill();
+  ctx.font='11px sans-serif'; ctx.textAlign='left'; ctx.fillText('g',g0.x+6,g0.y+22);
+  const grd=surf(4.5*R,v0,1);
+  const cRuler=cs3.getPropertyValue('--canvas-ruler').trim();
+  ctx.fillStyle=cRuler; ctx.font='10px sans-serif'; ctx.textAlign='center';
+  ctx.fillText('水平地面', grd.x, grd.y+14);
+}
+
+function drawTrack(ctx){
+  drawIncline3D(ctx);
+  ctx.strokeStyle='#5a9bf0';ctx.lineWidth=3;ctx.lineCap='round';
+  line(ctx,Pt.a(),Pt.b());
+  ctx.strokeStyle='#f5a623';ctx.lineWidth=3;
+  ctx.beginPath();
+  for (let i=0;i<=60;i++){const a=-Math.PI/2 + (Math.PI)*i/60;const p=arcPt(a);const s=w2s(p.u,p.v);if (i===0)ctx.moveTo(s.x,s.y);else ctx.lineTo(s.x,s.y);}
+  ctx.stroke();
+  ctx.strokeStyle='#ffd24a';ctx.lineWidth=2;ctx.setLineDash([4,3]);
+  ctx.beginPath();
+  for (let i=0;i<=30;i++){const a=-Math.PI/2 + (Math.PI/2)*i/30;const p=arcPt(a);const s=w2s(p.u,p.v);if (i===0)ctx.moveTo(s.x,s.y);else ctx.lineTo(s.x,s.y);}
+  ctx.stroke();ctx.setLineDash([]);
+  // 虚线辅助 (lib dashLine; 原 b→d / d→e 折线)
+  const sbPt=w2s(Pt.b().u,Pt.b().v), sdPt=w2s(Pt.d().u,Pt.d().v), sePt=w2s(Pt.e().u,Pt.e().v);
+  dashLine(ctx,sbPt.x,sbPt.y,sdPt.x,sdPt.y,{color:'rgba(245,166,35,.4)',lw:1,dash:[3,4],scale:1});
+  dashLine(ctx,sdPt.x,sdPt.y,sePt.x,sePt.y,{color:'#5bd98a',lw:2.5,dash:[6,4],scale:1});
+  const pts=[['a',Pt.a(),'#5a9bf0'],['b',Pt.b(),'#f5a623'],['c',Pt.c(),'#ef6f6f'],['d',Pt.d(),'#5bd98a'],['e',Pt.e(),'#5bd98a']];
+  ctx.font='bold 12px sans-serif';
+  const csTxt=getComputedStyle(document.documentElement).getPropertyValue('--canvas-txt').trim();
+  pts.forEach(function(x){const n=x[0],p=x[1],c=x[2];const s=w2s(p.u,p.v);
+    dot(ctx,s.x,s.y,{color:c,r:4});
+    ctx.fillStyle=csTxt;ctx.textAlign='center';ctx.fillText(n,s.x,s.y-9);});
+  const cs5=getComputedStyle(document.documentElement);
+  ctx.fillStyle=cs5.getPropertyValue('--canvas-dim-txt').trim();ctx.font='10px sans-serif';
+  const m=w2s(7*S.R,S.R*0.5); ctx.fillText('R',m.x+8,m.y);
+  const m2=w2s(3.5*S.R,0); ctx.textAlign='left'; ctx.fillText('7R (ab)',m2.x+8,m2.y);
+  const m3=w2s(3.5*S.R,2*S.R); ctx.textAlign='right'; ctx.fillText('7R (de)',m3.x-8,m3.y);
+  ctx.textAlign='center';
+}
+
+function drawOverview(ctx){
+  drawTrack(ctx);
+  const cs=getComputedStyle(document.documentElement);
+  const cTrajA=cs.getPropertyValue('--canvas-trajA').trim();
+  const cTrajB=cs.getPropertyValue('--canvas-trajB').trim();
+  const cGreen=cs.getPropertyValue('--green').trim();
+  const cRed=cs.getPropertyValue('--red').trim();
+  const ge=gEff();
+  const VPLEN=60;
+
+  function physVec(u,v,du,dv,pxLen,color,label){
+    const mag=Math.hypot(du,dv);
+    if (mag<1e-6) return;
+    const s0=w2s(u,v);
+    const s1=w2s(u+du/mag, v+dv/mag);
+    let sdx=s1.x-s0.x, sdy=s1.y-s0.y;
+    const smag=Math.hypot(sdx,sdy);
+    if (smag<0.1) return;
+    sdx/=smag; sdy/=smag;
+    const ex=s0.x+sdx*pxLen, ey=s0.y+sdy*pxLen;
+    drawArrow(ctx,s0.x,s0.y,ex,ey,color,label);
+  }
+
+  // 轨迹
+  if (S.show.traj){
+    ctx.strokeStyle=cTrajA;ctx.lineWidth=1.8;ctx.beginPath();
+    S.Atraj.forEach(function(p,i){const s=w2s(p.u,p.v);if (i===0)ctx.moveTo(s.x,s.y);else ctx.lineTo(s.x,s.y);});ctx.stroke();
+    ctx.strokeStyle=cTrajB;ctx.lineWidth=1.8;ctx.beginPath();
+    S.B.traj.forEach(function(p,i){const s=w2s(p.u,p.v);if (i===0)ctx.moveTo(s.x,s.y);else ctx.lineTo(s.x,s.y);});ctx.stroke();
+  }
+
+  // 甲的矢量
+  const showA = S.phase==='slide'||S.phase==='arc';
+  if (showA){
+    if (S.show.vA){
+      const vMag=Math.hypot(S.A.vu,S.A.vv);
+      if (vMag>0.05){
+        const len=clamp(vMag*6,20,VPLEN);
+        physVec(S.A.u,S.A.v, S.A.vu,S.A.vv, len, '#36d6e7', 'v甲='+vMag.toFixed(1));
+      }
+    }
+    if (S.show.aA){
+      let au=0, av=0, aLabel='a甲';
+      if (S.phase==='slide'){
+        au=-ge;
+        aLabel='a='+ge.toFixed(1);
+      } else if (S.phase==='arc'){
+        const alpha=S.A.alpha;
+        const a_t=ge*Math.sin(alpha);
+        au = a_t*(-Math.sin(alpha));
+        av = a_t*(Math.cos(alpha));
+        aLabel='aₜ='+Math.abs(a_t).toFixed(1);
+      }
+      const aMag=Math.hypot(au,av);
+      if (aMag>0.05){
+        const len=clamp(aMag*8,20,VPLEN);
+        physVec(S.A.u,S.A.v, au,av, len, '#ffd24a', aLabel);
+      }
+    }
+    if (S.show.geff){
+      physVec(S.A.u,S.A.v, -ge,0, VPLEN*0.7, '#ef6f6f', "g'="+ge.toFixed(1));
+    }
+  }
+
+  // 乙的矢量
+  const showB = S.phase==='projectile' && S.B.traj.length;
+  if (showB){
+    if (S.show.vB){
+      const vMag=Math.hypot(S.B.vu,S.B.vv);
+      if (vMag>0.05){
+        const len=clamp(vMag*6,20,VPLEN);
+        physVec(S.B.u,S.B.v, S.B.vu,S.B.vv, len, '#b48cf5', 'v乙='+vMag.toFixed(1));
+      }
+    }
+    if (S.show.aB){
+      physVec(S.B.u,S.B.v, -ge,0, VPLEN*0.7, '#9adb5a', "a="+ge.toFixed(1));
+    }
+    if (S.show.geff){
+      physVec(S.B.u,S.B.v, -ge,0, VPLEN*0.7, '#ef6f6f', "g'="+ge.toFixed(1));
+    }
+  }
+
+  // 球 (lib ball; 原渐变固定偏移 3px/内半径1 → gx:3,gy:3,r0:1; 标签=简单单段, 按规则保留原 fillText——lib multiLabel middle 基线带 +0.36em 补偿会下移)
+  const ballTxt=cs.getPropertyValue('--canvas-ball-txt').trim();
+  if (S.phase==='slide'||S.phase==='arc'){ const sA=w2s(S.A.u,S.A.v); ball(ctx,sA.x,sA.y,10,{hi:'#ffffff',lo:'#36d6e7',st:'#36d6e7',lw:1.5,gx:3,gy:3,r0:1,scale:1}); ctx.fillStyle=ballTxt;ctx.font='bold 10px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('甲',sA.x,sA.y);ctx.textBaseline='alphabetic'; }
+  else if (S.A.lost){ const sA=w2s(S.A.u,S.A.v); ball(ctx,sA.x,sA.y,10,{hi:'#ffffff',lo:'#888',st:'#888',lw:1.5,gx:3,gy:3,r0:1,scale:1}); ctx.fillStyle=ballTxt;ctx.font='bold 10px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('甲',sA.x,sA.y);ctx.textBaseline='alphabetic'; }
+  if (S.B.active||S.phase==='projectile'||S.phase==='done'||S.phase==='slide'||S.phase==='arc'){ const sB=w2s(S.B.u,S.B.v); ball(ctx,sB.x,sB.y,10,{hi:'#ffffff',lo:'#b48cf5',st:'#b48cf5',lw:1.5,gx:3,gy:3,r0:1,scale:1}); ctx.fillStyle=ballTxt;ctx.font='bold 10px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('乙',sB.x,sB.y);ctx.textBaseline='alphabetic'; }
+
+  // 碰撞效果 (lib glow; 原 stops/环色随 f 变 → 显式传 opts; 环线宽1.8=glow 默认)
+  if (S.collideFlash>0){
+    const s=w2s(Pt.c().u,Pt.c().v);
+    const f=S.collideFlash;
+    const glowR=14+f*12;
+    glow(ctx,s.x,s.y,glowR,f,{scale:1,stops:['rgba(255,255,255,'+(f*0.5)+')','rgba(255,220,150,0)'],ring:'rgba(255,255,255,'+(f*0.6)+')',spread:6});
+    if (S.collideVA && S.collideVB){
+      const cu=Pt.c().u, cv=Pt.c().v;
+      const alpha=f*0.7;
+      const vAmag=Math.hypot(S.collideVA.u,S.collideVA.v);
+      if (vAmag>0.05){ ctx.globalAlpha=alpha;
+        physVec(cu,cv, S.collideVA.u,S.collideVA.v, clamp(vAmag*6,20,VPLEN), '#36d6e7', "v'甲="+vAmag.toFixed(1));
+        ctx.globalAlpha=1; }
+      const vBmag=Math.hypot(S.collideVB.u,S.collideVB.v);
+      if (vBmag>0.05){ ctx.globalAlpha=alpha;
+        physVec(cu,cv, S.collideVB.u,S.collideVB.v, clamp(vBmag*6,20,VPLEN), '#b48cf5', "v'乙="+vBmag.toFixed(1));
+        ctx.globalAlpha=1; }
+    }
+  }
+  // 穿过de标记 (lib dot)
+  if (S.B.crossU!==null){const s=w2s(S.B.crossU,2*S.R);const hit=(S.B.crossU>=0&&S.B.crossU<=7*S.R);dot(ctx,s.x,s.y,{color:hit?cGreen:cRed,r:5});}
+  // 视图提示
+  const vnames={front:'主视图(立体斜视:看坡向+高度+左右)',top:'俯视图(从正上方看:u-v布局)',side:'侧视图(沿坡向看:等高线+高度)'};
+  const cs2=getComputedStyle(document.documentElement);
+  const cRuler2=cs2.getPropertyValue('--canvas-ruler').trim();
+  ctx.fillStyle=cRuler2;ctx.font='10px sans-serif';ctx.textAlign='left';ctx.fillText(vnames[S.view]||'',12,16);
+}
+
+function render(){
+  const {ctx,w,h}=scene; ctx.clearRect(0,0,w,h);
+  ctx.save();
+  applyViewport(ctx,w,h,VP);
+  const cs=getComputedStyle(document.documentElement);
+  ctx.strokeStyle=cs.getPropertyValue('--canvas-grid').trim();ctx.lineWidth=1;
+  for (let gx=0;gx<w;gx+=40){ctx.beginPath();ctx.moveTo(gx,0);ctx.lineTo(gx,h);ctx.stroke();}
+  for (let gy=0;gy<h;gy+=40){ctx.beginPath();ctx.moveTo(0,gy);ctx.lineTo(w,gy);ctx.stroke();}
+  drawOverview(ctx);
+  ctx.restore();
+  updateReadouts();
+}
+
+/* ---------- 读数 ---------- */
+function updateReadouts(){
+  const ge=gEff();
+  $('geV').innerHTML=ge.toFixed(2)+'<small>m/s²</small>';
+  $('auV').innerHTML=(S.phase==='projectile'||S.phase==='done'?8*S.R:S.A.u).toFixed(2)+'<small>m</small>';
+  const vA=(S.phase==='slide')?S.A.vu:(S.phase==='arc'?Math.hypot(S.A.vu,S.A.vv):vAtC());
+  $('avV').innerHTML=vA.toFixed(2)+'<small>m/s</small>';
+  $('bvV').innerHTML=(S.B.active?S.B.vv:0).toFixed(2)+'<small>m/s</small>';
+  $('keV').innerHTML=KE0().toFixed(2)+'<small>J</small>';
+  $('tV').innerHTML=S.t.toFixed(2)+'<small>s</small>';
+  const phases={slide:'● 甲沿直挡板滑动 a→b',arc:'● 甲沿半圆运动 b→c',projectile:'● 碰撞后乙平抛中',done:'● 结束'};
+  $('phase').textContent=S.A.lost?'● 甲速度不足,脱离半圆!':(phases[S.phase]||'● 准备就绪');
+  const v=$('verdict');
+  const ge_=gEff(); const unit=S.g*S.R*Math.sin(S.theta*Math.PI/180);
+  const keMul=KE0()/unit;
+  const vC=Math.sqrt(ge_*S.R);
+  const vAc=vAtC();
+  const reachC = S.v0 >= v0min()-1e-6;
+  const vB = reachC ? vAc*2/(1+S.ratio) : 0;
+  const vBtoE = 0.25*Math.sqrt(ge_*S.R);
+  const vBmax = Math.sqrt(ge_*S.R/2);
+  const reachE = reachC && vB >= vBtoE - 1e-6;
+  const crossDe = reachC && vB >= vBtoE-1e-6 && vB <= vBmax+1e-6 && Math.abs(S.ratio-7)<0.01;
+  let txt='<b>初速度</b> v₀='+S.v0.toFixed(2)+' m/s (恰能到c临界 '+v0min().toFixed(2)+'), E_k0='+keMul.toFixed(2)+'×m₁gRsinθ<br>';
+  txt+='<b>甲到c</b>: v_A='+vAc.toFixed(2)+' (需≥'+vC.toFixed(2)+') -> '+(reachC?'<b style="color:#5bd98a">能到c ✓</b>':'<b style="color:#ef6f6f">速度不足,到不了c ✗</b>')+'<br>';
+  txt+='<b>(2)</b> m₂/m₁='+S.ratio+' -> '+(Math.abs(S.ratio-7)<0.01&&reachC?'<b style="color:#5bd98a">=7, 乙能到e ✓</b>':'<b style="color:#ef6f6f">乙不能到e ✗</b>')+'<br>';
+  txt+='<b>(3)</b> 穿de需 E_k0∈[8.5,12] 且 ratio=7 -> '+(crossDe?'<b style="color:#5bd98a">穿过de ✓</b>':'<b style="color:#ef6f6f">不满足 ✗</b>');
+  v.innerHTML=txt; v.className='verdict '+(reachE||crossDe?'ok':'no');
+  SC.syncRun();
+}
+
+/* ---------- 控件绑定 ---------- */
+bindRangeNumber('rR','rN',parseFloat,function(v){S.R=v;initSim();render();});
+bindRangeNumber('tR','tN',parseFloat,function(v){S.theta=v;initSim();render();});
+bindRangeNumber('ratR','ratN',parseFloat,function(v){S.ratio=v;initSim();render();});
+bindRangeNumber('v0R','v0N',parseFloat,function(v){S.v0=v;initSim();render();});
+
+function updV0min(){ S.v0=v0min(); $('v0R').value=S.v0; $('v0N').value=S.v0; $('v0min').textContent=v0min().toFixed(2); initSim(); render(); }
+$('rR').addEventListener('input',updV0min); $('rN').addEventListener('input',updV0min);
+$('tR').addEventListener('input',updV0min); $('tN').addEventListener('input',updV0min);
+
+/* ---------- 临界状态 ---------- */
+function vAtU(u){ return Math.sqrt(Math.max(0, S.v0*S.v0 - 2*gEff()*u)); }
+function vAtArc(alpha){
+  const p=arcPt(alpha);
+  return Math.sqrt(Math.max(0, S.v0*S.v0 - 2*gEff()*p.u));
+}
+function criticals(){
+  const ge=gEff(), R=S.R;
+  const reachC = S.v0 >= v0min()-1e-6;
+  const vAc = reachC ? vAtC() : 0;
+  const vBc = reachC ? vBafter2(vAc) : 0;
+  const vAback = reachC ? vAafter2(vAc) : 0;
+  return {
+    a:     {title:'① a 起点(释放)', color:'#5a9bf0'},
+    midAB: {title:'ab 中点(3.5R)', color:'#6db8d8'},
+    b:     {title:'② b 弧入口(7R)', color:'#f5a623'},
+    midArc:{title:'弧中点(α=-45°)', color:'#d9b86a'},
+    c:     {title:'③ c 碰撞点(8R,R)', color:'#ef6f6f', reach:reachC, vAc, vBc, vAback},
+    midFly:{title:'平抛中点', color:'#c98fb5', reach:reachC, vBc},
+    e:     {title:'④ e 到达(0,2R)', color:'#5bd98a', reach:reachC && vBc>=0.25*Math.sqrt(ge*R)-1e-6, vBc},
+  };
+}
+function setState(key){
+  const cs=criticals();
+  S.running=false;
+  S.collideFlash=0;
+  S.Atraj=[];
+  S.B.traj=[];
+  S.B.crossU=null;
+  S.B.active=false;
+  const ge=gEff(), R=S.R;
+  if (key==='a'){
+    S.phase='slide';
+    S.A={u:0,v:0,vu:S.v0,vv:0,alpha:-Math.PI/2,omega:0,lost:false};
+    S.B={u:Pt.c().u,v:Pt.c().v,vu:0,vv:0,active:false,traj:[],crossU:null};
+  } else if (key==='midAB'){
+    S.phase='slide';
+    const u=3.5*R, v=vAtU(u);
+    S.A={u,v:0,vu:v,vv:0,alpha:-Math.PI/2,omega:0,lost:false};
+    S.B={u:Pt.c().u,v:Pt.c().v,vu:0,vv:0,active:false,traj:[],crossU:null};
+  } else if (key==='b'){
+    S.phase='arc';
+    const u=7*R, v=vAtU(u);
+    S.A={u,v:0,vu:v,vv:0,alpha:-Math.PI/2,omega:v/R,lost:false};
+    S.B={u:Pt.c().u,v:Pt.c().v,vu:0,vv:0,active:false,traj:[],crossU:null};
+  } else if (key==='midArc'){
+    S.phase='arc';
+    const alpha=-Math.PI/4;
+    const p=arcPt(alpha), v=vAtArc(alpha);
+    const omega=v/R;
+    S.A={u:p.u,v:p.v,vu:R*omega*(-Math.sin(alpha)),vv:R*omega*Math.cos(alpha),alpha,omega,lost:false};
+    S.B={u:Pt.c().u,v:Pt.c().v,vu:0,vv:0,active:false,traj:[],crossU:null};
+  } else if (key==='c'){
+    const c=cs.c;
+    if (!c.reach){
+      S.phase='done'; S.A.lost=true;
+      const alpha=-Math.PI/4; const p=arcPt(alpha);
+      S.A={u:p.u,v:p.v,vu:0,vv:0,alpha,omega:0,lost:true};
+    } else {
+      S.phase='projectile';
+      S.A={u:Pt.c().u,v:Pt.c().v,vu:0,vv:c.vAback,alpha:0,omega:0,lost:false};
+      S.B={u:Pt.c().u,v:Pt.c().v,vu:0,vv:c.vBc,active:true,traj:[{u:Pt.c().u,v:Pt.c().v}],crossU:null};
+      S.collideFlash=0.6;
+    }
+  } else if (key==='midFly'){
+    if (!cs.midFly.reach){ initSim(); render(); return; }
+    S.phase='projectile';
+    const vB=cs.e.vBc;
+    const ge_=gEff();
+    const tEnd = vB>0 ? R/vB : 0;
+    const t = tEnd/2;
+    const uB = 8*R - 0.5*ge_*t*t;
+    S.A={u:Pt.c().u,v:Pt.c().v,vu:0,vv:cs.c.vAback,alpha:0,omega:0,lost:false};
+    S.B={u:uB,v:R+vB*t,vu:-ge_*t,vv:vB,active:true,traj:[{u:Pt.c().u,v:Pt.c().v},{u:uB,v:R+vB*t}],crossU:null};
+  } else if (key==='e'){
+    if (!cs.e.reach){ initSim(); render(); return; }
+    S.phase='done';
+    S.A={u:Pt.c().u,v:Pt.c().v,vu:0,vv:0,alpha:0,omega:0,lost:false};
+    S.B={u:0,v:2*R,vu:0,vv:cs.e.vBc,active:true,traj:[{u:Pt.c().u,v:Pt.c().v},{u:0,v:2*R}],crossU:0};
+  }
+  render();
+}
+$('cA').onclick     =function(){setState('a');};
+$('cMidAB').onclick =function(){setState('midAB');};
+$('cB').onclick     =function(){setState('b');};
+$('cMidArc').onclick=function(){setState('midArc');};
+$('cC').onclick     =function(){setState('c');};
+$('cMidFly').onclick=function(){setState('midFly');};
+$('cE').onclick     =function(){setState('e');};
+$('cClear').onclick =function(){initSim();render();};
+
+/* ---------- 场景标准件 (按钮/图例/视口/键盘 由 setupScene 注入并绑定; 三视图经 extraActions 注入) ---------- */
+const SC = setupScene({
+  canvas: sceneC, vp: VP, state: S, render: render,
+  resetFn: function(){ S.running=false; initSim(); render(); },
+  runLabel: '▶ 运行', panDrag: false,
+  legend: [
+    {k:'vA',  label:'甲速度 v',  color:'#36d6e7'},
+    {k:'aA',  label:'甲加速度 a', color:'#ffd24a'},
+    {k:'vB',  label:'乙速度 v',  color:'#b48cf5'},
+    {k:'aB',  label:'乙加速度 a', color:'#9adb5a'},
+    {k:'geff', label:"有效重力 g'", color:'#ef6f6f'},
+    {k:'traj', label:'轨迹',     color:'#8893ad'}
+  ],
+  onBeforeRun: function(){ if(S.phase==='done') initSim(); },
+  extraActions: '<div class="seg" id="viewSeg"><button class="on" data-v="front">主视图</button><button data-v="top">俯视图</button><button data-v="side">侧视图</button></div>'
+});
+
+// 三视图切换 (viewSeg 由 setupScene 注入, 故绑定须在其后)
+document.querySelectorAll('#viewSeg button').forEach(function(b){b.addEventListener('click',function(){
+  document.querySelectorAll('#viewSeg button').forEach(function(x){x.classList.remove('on');});b.classList.add('on');
+  S.view=b.dataset.v; const d=viewDefaults(S.view); S.camAz=d.az; S.camEl=d.el;
+  VLock = null;                       /* 视角切换 → 重新 fit */
+  render();});});
+
+// 3D 拖拽旋转 (轨道: 左右=水平环绕 az, 上下=俯仰 el; 拖拽期间锁定 VLock, 光标 grab/grabbing)
+let drag=false,lx=0,ly=0;
+sceneC.addEventListener('mousedown',function(e){e.preventDefault();drag=true;lx=e.clientX;ly=e.clientY;VLock=viewParams();sceneC.style.cursor='grabbing';});
+window.addEventListener('mouseup',function(){drag=false;sceneC.style.cursor='grab';});
+sceneC.addEventListener('mouseleave',function(){if(!drag)sceneC.style.cursor='';});
+window.addEventListener('mousemove',function(e){if(!drag)return;
+  S.camAz-=(e.clientX-lx)*0.008;
+  S.camEl=clamp(S.camEl+(e.clientY-ly)*0.008,-0.2,1.5);
+  lx=e.clientX; ly=e.clientY; render();
+});
+// 滚轮缩放由 setupViewport 统一处理 (bindViewportButtons)
+
+// 初始化
+function setV0ToMin(){
+  S.v0=v0min();
+  $('v0R').value=S.v0; $('v0N').value=S.v0;
+  $('v0min').textContent=v0min().toFixed(2);
+}
+setV0ToMin();
+initSim();
+startLoop(S, { sub: 0.001, step: step, render: render });
+</script>
+</body>
+</html>

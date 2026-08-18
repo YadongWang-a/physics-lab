@@ -1,0 +1,693 @@
+<!-- physics-lab-skill: 轻杆小球 · 转动脱离 · 抛体 · 触地反弹 · 弹射分裂 -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>轻杆小球 · 脱离·抛体·反弹·弹射分裂</title>
+<meta name="demo-mode" content="dynamic">
+<script>
+  window.addEventListener("message", function(e){
+    var d=e.data; if(!d||d.cmd!=="present")return;
+    document.body.classList.toggle("present", !!d.value);
+  });
+</script>
+<script>
+  window.MathJax = {
+    tex: { inlineMath: [['\\(','\\)']], displayMath: [['$$','$$'],['\\[','\\]']] },
+    svg: { fontURL: 'lib/fonts' },
+    startup: { typeset: true },
+    options: { enableMenu: false, a11y: { speech: false } }
+  };
+</script>
+<script src="lib/mathjax.js" async></script>
+<link rel="stylesheet" href="lib/common.css">
+<style>
+  :root{
+    --canvas-grid: rgba(0,0,0,.04);
+    --canvas-dim-txt:#6b7280;
+    --canvas-txt:#1a1e2e;
+    --canvas-ball-hi:#ffd9a0;
+    --canvas-ball-lo:#c47d10;
+    --canvas-ball-stroke:#a86a0a;
+    --canvas-ball-txt:#ffffff;
+    --canvas-ground:#8a8fa0;
+    --canvas-ground-hatch:#b6bac3;
+    --canvas-ruler:#6b7280;
+    --canvas-ruler-tick:#9aa1ad;
+    --canvas-traj:#8893ad;
+  }
+  html { scrollbar-gutter: stable; }        /* 预留滚动条空间: 加载后视口宽度不变, 画布 scene.w 不失效 */
+  .grid{display:grid;grid-template-columns:2.8fr 0.8fr;gap:14px}.grid>.card:last-child{min-width:0}
+  @media(max-width:1100px){.grid{grid-template-columns:1fr}}
+  /* ---- 答案卡内件(判定卡/答案卡基础样式在 lib/common.css) ---- */
+  .ans .st{color:var(--txt);font-weight:600}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ====== 标题行 ====== -->
+  <div class="head-row">
+    <div>
+      <h1>轻杆小球 · 脱离·抛体·反弹·弹射分裂</h1>
+    </div>
+  </div>
+
+  <!-- ====== 顶栏 · 模式切换(临界时刻定格) ====== -->
+  <div class="topbar" style="gap:8px;flex-wrap:wrap">
+    <div class="seg" id="modeSeg">
+      <button data-m="full">全程</button>
+      <button data-m="detach">脱离瞬间</button>
+      <button data-m="bounce">触地瞬间</button>
+      <button data-m="split">反弹分裂</button>
+      <button data-m="land">落地完成</button>
+      <button data-m="parts">分裂后</button>
+    </div>
+    <span style="font-size:12px;color:var(--dim)">临界状态点击即定格: 脱离瞬间 (N=0) · 触地瞬间 · 反弹分裂瞬间 · 落地完成; 全程/分裂后点击自动运行</span>
+  </div>
+
+  <!-- ====== 双列布局 ====== -->
+  <div class="grid">
+
+    <!-- ====== 场景卡片 ====== -->
+    <div class="card">
+      <!-- 操作按钮 + 图例栏由 setupScene 注入到 canvas 前/后 -->
+      <canvas id="scene" height="480"></canvas>
+      <!-- 阶段标签 -->
+      <div class="phase" id="phase">● 准备就绪 · 按 ▶ 运行</div>
+    </div>
+
+    <!-- ====== 右侧卡片 · 参数 + 读数 + 判定 + 答案 ====== -->
+    <div class="card">
+      <h2>参数调整</h2>
+      <div class="controls">
+        <div class="ctl"><label>杆长 L</label>
+          <input type="range" id="lR" min="0.5" max="2" step="0.05" value="1">
+          <input type="number" id="lN" min="0.5" max="2" step="0.05" value="1"><span class="unit">m</span></div>
+        <div class="ctl"><label>分裂角 θ</label>
+          <input type="range" id="thR" min="5" max="50" step="1" value="15">
+          <input type="number" id="thN" min="5" max="50" step="1" value="15"><span class="unit">°</span></div>
+        <div class="ctl"><label>质量比 k = m₁/m₂</label>
+          <input type="range" id="kR" min="0.2" max="5" step="0.05" value="1">
+          <input type="number" id="kN" min="0.2" max="5" step="0.05" value="1"></div>
+        <div class="hint">θ&lt;α≈67.4°; k=1 时 E 最小 (E<sub>min</sub>=mgL·tan²θ); θ 较大时 m₁ 向后抛</div>
+      </div>
+      <h2 style="margin-top:12px">实时读数</h2>
+      <div class="readouts">
+        <div class="ro"><div class="k">杆角 φ</div><div class="v" id="phiV">–<small>°</small></div></div>
+        <div class="ro"><div class="k">杆-球作用力 N</div><div class="v" id="nV">–<small>mg</small></div></div>
+        <div class="ro"><div class="k">触地速率 v</div><div class="v" id="vV">–<small>m/s</small></div></div>
+        <div class="ro"><div class="k">触地角 α</div><div class="v" id="aV">–<small>°</small></div></div>
+        <div class="ro"><div class="k">弹射能量 E</div><div class="v" id="eV">–<small>J</small></div></div>
+        <div class="ro"><div class="k">E 最小 (k=1)</div><div class="v" id="eMinV">–<small>J</small></div></div>
+        <div class="ro"><div class="k">速率 w₁ / w₂</div><div class="v" id="wV">–<small>m/s</small></div></div>
+        <div class="ro"><div class="k">落点 x₁ / x₂</div><div class="v" id="xV">–<small>m</small></div></div>
+        <div class="ro"><div class="k">落点间距 d</div><div class="v" id="dV">–<small>m</small></div></div>
+        <div class="ro"><div class="k">飞行时间 t₁ / t₂</div><div class="v" id="tV">–<small>s</small></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 问题/推导/答案 弹层(右缘「解析」标签打开) -->
+  <div class="mpop" id="mpop">
+    <div class="mpop-back"></div>
+    <div class="mpop-panel" role="dialog" aria-modal="true">
+      <div class="sec"><button type="button" class="vhead" aria-expanded="true">问题 <span class="vcaret">▾</span></button>
+        <div class="sec-body"><div class="prob">轻杆 L 竖直下端铰地 · 小球脱离瞬间 N=0 → 抛体 → 触地反弹 (v<sub>y</sub> 等大反向) → 弹射分裂两部分 (动量守恒)</div></div></div>
+      <div class="sec"><button type="button" class="vhead" aria-expanded="true">推导 <span class="vcaret">▾</span></button>
+        <div class="sec-body"><div class="verdict" id="verdict"></div></div></div>
+      <div class="sec"><button type="button" class="vhead" aria-expanded="true">答案 <span class="vcaret">▾</span></button>
+        <div class="sec-body"><div class="ans" id="ans">
+          <span class="st">① 转动阶段</span> (φ: 0→φ_d): 能量守恒 \(\frac12 mL^2\omega^2=mgL(1-\cos\varphi)\); 径向方程 \(mg\cos\varphi-N=m\omega^2L\) ⟹ \(N=mg(3\cos\varphi-2)\)。脱离判据 \(N=0\) ⟹ \(\cos\varphi_d=\frac23\) (φ_d≈48.2°), 脱离高度 \(2L/3\), 脱离速率 \(v_d=\sqrt{2gL/3}\)。脱离后轻杆以该角速度 \(\omega_d=\sqrt{2g/3L}\) 继续倒下, 至水平位置留在地面。<br>
+          <span class="st">② 抛体阶段</span> (脱离→触地): 水平匀速 \(v_x=\sqrt{8gL/27}\), 触地时 \(v_y=\sqrt{46gL/27}\)。<br>
+          <b>(1)</b> 全程能量守恒: \(v=\sqrt{v_x^2+v_y^2}=\sqrt{2gL}\)<br>
+          <b>(2)</b> \(\tan\alpha=\dfrac{v_y}{v_x}=\dfrac{\sqrt{46}}{\sqrt8}=\dfrac{\sqrt{23}}{2}\) (α≈67.4°; cosα=2/(3√3))<br>
+          <span class="st">③ 反弹+分裂</span>: 碰撞后 \(\vec u\) 与水平成 α 斜向上; 分裂瞬间动量守恒 \(m\vec u=m_1\vec w_1+m_2\vec w_2\), 方向 \(w_1\!\parallel\!(\alpha+\theta)\)、\(w_2\!\parallel\!(\alpha-\theta)\), 解得 \(w_1=\dfrac{v(1+k)}{2k\cos\theta}\), \(w_2=\dfrac{v(1+k)}{2\cos\theta}\) (w₂=kw₁, 轻者快)。<br>
+          <b>(3)(i)</b> \(E=\frac12m_1w_1^2+\frac12m_2w_2^2-\frac12mv^2=mgL\left[\dfrac{(1+k)^2}{4k\cos^2\theta}-1\right]\)<br>
+          <b>(3)(ii)</b> E 最小 ⟺ k=1 (AM-GM): \(E_{\min}=mgL\tan^2\theta\), \(w_1=w_2=\dfrac v{\cos\theta}\); 两部分各自落地, 落点间距 \(d=x_2-x_1=\dfrac{152L}{27}\tan\theta\)。※ 此时两部分落地时刻不同 (t₁≠t₂, θ&gt;0); 题面「第一次落地时刻相同」按笔误处理, 已与用户确认取 E 最小优先。
+        </div></div></div>
+    </div>
+  </div>
+
+  <div class="foot">轻杆质量不计 · 铰点 O 在地面 · 脱离判据 N=0 · 脱离后轻杆以 ω_d=√(2g/3L) 继续倒下, 至水平留在地面 · 触地 v_y 等大反向 v_x 不变 · 分裂瞬间动量守恒 · 参考系: 地面系 · 轻微扰动 φ₀≈1.1° (对结论无影响) · 空格暂停 / R 重置 · 双击此 HTML 离线运行</div>
+</div>
+
+<script src="lib/common.js"></script>
+<script>
+"use strict";
+/* ---------- 解析常量 / 状态 ---------- */
+const PHI0 = 0.02, PHI_D = Math.acos(2/3), SQ5 = Math.sqrt(5);
+const TAN_A = Math.sqrt(23)/2;                       /* 触地角 tanα */
+const S = { g:9.81, m:1, L:1, th:15, k:1, speed:1, running:false, last:null,
+  mode:'full', phase:'swing', phi:PHI0, tp:0, tp1:0, tp2:0, rodT:0,
+  done:false, flash:0, landed1:false, landed2:false, ev:{}, pp:null };
+const VP = { zoom:1, panX:0, panY:0 };
+
+/* ---------- 解析物理 (第一性原理结论; 动画直接采用精确常数, 与答案卡一致) ---------- */
+function detachState(){
+  const L=S.L, g=S.g;
+  return { x: L*SQ5/3, y: 2*L/3,
+           vx: Math.sqrt(8*g*L/27), vy: -Math.sqrt(10*g*L/27) };
+}
+function omegaPhi(phi){                      /* 转动角速度: ½mL²ω²=mgL(cosφ₀−cosφ) */
+  return Math.sqrt(Math.max(0, 2*S.g*(Math.cos(PHI0)-Math.cos(phi))/S.L));
+}
+function omegaDetach(){                      /* 脱离时刻角速度: ½mL²ω²=mgL/3 → ω=√(2g/3L) */
+  return Math.sqrt(2*S.g/(3*S.L));
+}
+function rodPhiNow(){                        /* 杆当前角: 脱离后继续倒下, 至水平时留在地面 */
+  if (S.phase === 'swing') return S.phi;
+  return Math.min(PHI_D + omegaDetach()*S.rodT, Math.PI/2);
+}
+function projPos(tp){                        /* 抛体解析位置 */
+  const d = detachState();
+  return { x: d.x + d.vx*tp, y: d.y + d.vy*tp - 0.5*S.g*tp*tp };
+}
+function bounceState(){                      /* 触地(反弹后)精确状态 */
+  const d = detachState(), g = S.g;
+  const tf = (Math.sqrt(d.vy*d.vy + 2*g*d.y) + d.vy)/g;   /* vy<0 → tf>0 */
+  const vxb = d.vx, vyb = g*tf - d.vy;                    /* 反弹后 vy>0: −(vy0−g·tf) */
+  return { x: d.x + d.vx*tf, tf: tf, vx: vxb, vy: vyb,
+           v: Math.sqrt(vxb*vxb + vyb*vyb), alpha: Math.atan2(vyb, vxb) };
+}
+function splitParts(){                       /* 分裂瞬间两部分状态 */
+  const b = bounceState(), th = deg2rad(S.th), k = S.k;
+  const w1 = b.v*(1+k)/(2*k*Math.cos(th)), w2 = b.v*(1+k)/(2*Math.cos(th));
+  const b1 = b.alpha + th, b2 = b.alpha - th;
+  return { p1: { m: k/(1+k), w: w1, b: b1, vx: w1*Math.cos(b1), vy: w1*Math.sin(b1) },
+           p2: { m: 1/(1+k), w: w2, b: b2, vx: w2*Math.cos(b2), vy: w2*Math.sin(b2) },
+           E: S.m*S.g*S.L*((1+k)*(1+k)/(4*k*Math.cos(th)*Math.cos(th)) - 1),
+           Emin: S.m*S.g*S.L*Math.tan(th)*Math.tan(th) };
+}
+function partLand(p, ox){                    /* 抛体落点 (自地面起) */
+  const tf = 2*p.vy/S.g;
+  return { tf: tf, x: ox + p.vx*tf };
+}
+
+/* ---------- 仿真推进 (分阶段, 全部解析精确) ---------- */
+function launchParts(){ S.pp = splitParts(); S.landed1 = false; S.landed2 = false; S.done = false; }
+function step(dt){
+  if (S.phase === 'swing'){
+    if (S.phi <= PHI0) S.phi = PHI0 + 1e-4;              /* 轻微扰动 → 起始角速度非零 */
+    S.phi += omegaPhi(S.phi)*dt;
+    if (S.phi >= PHI_D){
+      S.phi = PHI_D;
+      const d = detachState();
+      S.ev.detach = { x: d.x, y: d.y };
+      S.tp = 0;
+      S.phase = 'proj';
+      if (S.mode === 'detach'){ S.running = false; }      /* 临界定格: 脱离瞬间 */
+    }
+  } else if (S.phase === 'proj'){
+    S.tp += dt; S.rodT += dt;
+    if (projPos(S.tp).y <= 0){
+      const b = bounceState();
+      if (S.mode === 'bounce' && S.tp - dt < b.tf){      /* 触地瞬间定格 (运行经停, 跳转定格后继续放行) */
+        S.tp = b.tf; S.running = false;
+      } else {
+        S.ev.bounce = { x: b.x, v: b.v, alpha: b.alpha, tf: b.tf };
+        S.flash = 0.22;
+        launchParts();
+        S.tp1 = 0; S.tp2 = 0; S.rodT = b.tf;   /* 杆已匀速转动 tf 时长 */
+        S.phase = 'parts';
+        if (S.mode === 'split'){ S.running = false; }     /* 临界定格: 反弹+分裂瞬间 */
+      }
+    }
+  } else if (S.phase === 'parts'){
+    S.tp1 += dt; S.tp2 += dt; S.rodT += dt;
+    const sp = S.pp, bx = S.ev.bounce.x;
+    const l1 = partLand(sp.p1, bx), l2 = partLand(sp.p2, bx);
+    if (!S.landed1 && S.tp1 >= l1.tf){ S.landed1 = true; S.ev.land1 = { x: l1.x, t: l1.tf }; }
+    if (!S.landed2 && S.tp2 >= l2.tf){ S.landed2 = true; S.ev.land2 = { x: l2.x, t: l2.tf }; }
+    if (S.landed1 && S.landed2){ S.done = true; S.running = false; }
+  }
+  if (S.flash > 0) S.flash -= dt;
+}
+function resetSim(){
+  S.running = false; S.phase = 'swing'; S.phi = PHI0;
+  S.tp = 0; S.tp1 = 0; S.tp2 = 0; S.rodT = 0; S.done = false; S.flash = 0;
+  S.landed1 = false; S.landed2 = false; S.ev = {}; S.pp = null;
+  render();
+}
+function jumpToDetach(){                     /* 直达脱离瞬间定格: 球刚脱离 (tp=0, N=0) */
+  const d = detachState();
+  S.ev.detach = { x: d.x, y: d.y };
+  S.phase = 'proj'; S.tp = 0; S.rodT = 0;
+  S.flash = 0;
+  render();
+}
+function jumpToBounce(){                     /* 直达触地瞬间定格: 球刚触地、尚未反弹 (v 向下) */
+  const d = detachState(), b = bounceState();
+  S.ev.detach = { x: d.x, y: d.y };
+  S.phase = 'proj'; S.tp = b.tf; S.rodT = b.tf;
+  S.flash = 0;
+  render();
+}
+function jumpToLanded(){                     /* 直达落地完成定格: 两部分均已落地 */
+  const d = detachState(), b = bounceState();
+  S.ev.detach = { x: d.x, y: d.y };
+  S.ev.bounce = { x: b.x, v: b.v, alpha: b.alpha, tf: b.tf };
+  S.phase = 'parts';
+  launchParts();
+  const sp = S.pp, l1 = partLand(sp.p1, b.x), l2 = partLand(sp.p2, b.x);
+  S.tp1 = l1.tf; S.tp2 = l2.tf;
+  S.rodT = b.tf + Math.max(l1.tf, l2.tf);
+  S.landed1 = true; S.landed2 = true; S.done = true;
+  S.ev.land1 = { x: l1.x, t: l1.tf }; S.ev.land2 = { x: l2.x, t: l2.tf };
+  S.flash = 0;
+  render();
+}
+function jumpToSplit(){                      /* 解析直达分裂瞬间 (摆动+抛体不留中间态) */
+  const d = detachState(), b = bounceState();
+  S.ev.detach = { x: d.x, y: d.y };
+  S.ev.bounce = { x: b.x, v: b.v, alpha: b.alpha, tf: b.tf };
+  S.phase = 'parts'; S.tp1 = 0; S.tp2 = 0; S.rodT = b.tf;  /* 杆已转 tf 时长 */
+  S.flash = 0.22;
+  launchParts();
+  render();
+}
+
+/* ---------- 画布 ---------- */
+const sceneC = $('scene');
+let scene = fitCanvas(sceneC);
+window.addEventListener('resize', function(){ scene = fitCanvas(sceneC); });
+/* 布局变化(滚动条出现/字体加载)改变画布尺寸时重新适配 — window resize 事件覆盖不到 */
+if (window.ResizeObserver){
+  new ResizeObserver(function(){ scene = fitCanvas(sceneC); }).observe(sceneC);
+}
+
+/* ---------- 坐标变换 (2D, 地面系固定相机: 整体平移可见) ---------- */
+function view(){
+  const {w,h}=scene;
+  const b = bounceState(), sp = splitParts();
+  const l1 = partLand(sp.p1, b.x), l2 = partLand(sp.p2, b.x);
+  const h1 = 0.5*sp.p1.vy*sp.p1.vy/S.g, h2 = 0.5*sp.p2.vy*sp.p2.vy/S.g;
+  const xMin = Math.min(-0.85, l1.x - 0.4, l2.x - 0.4);
+  const xMax = Math.max(3.5, l1.x + 0.4, l2.x + 0.4);
+  const yMax = Math.max(1.2, h1 + 0.2, h2 + 0.2);
+  const yMin = -0.45;                                   /* 容纳落点标签与 d 尺寸线 */
+  const {s, ox, oy} = fitView(w, h, xMin, xMax, yMin, yMax, {l:40, r:20, t:20, b:30});
+  return {s, ox, oy, w, h};
+}
+const X = function(x){ return x; };
+const Y = function(y){ return -y; };
+
+/* ---------- 颜色 ---------- */
+const C = palette();
+
+/* 角度弧 (世界角 a0→a1, CCW) —— 手动折线绘制, 避免 ctx.arc 在 y 翻转变换下的
+   顺/逆时针歧义 (与 skill 内 shipped 页面保留手写的做法一致) */
+function arcSeg(ctx, x, y, r, a0, a1, opts){
+  const sc = opts.scale || 1;
+  ctx.strokeStyle = opts.color || '#000000';
+  ctx.lineWidth = (opts.lw || 1.5) / sc;
+  if (opts.dash) ctx.setLineDash(opts.dash.map(function(v){ return v / sc; }));
+  ctx.beginPath();
+  const n = 24;
+  for (let i = 0; i <= n; i++){
+    const a = a0 + (a1 - a0) * i / n;
+    const px = x + r * Math.cos(a), py = y + r * Math.sin(a);
+    if (i === 0) ctx.moveTo(X(px), Y(py)); else ctx.lineTo(X(px), Y(py));
+  }
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+/* ---------- 场景绘制 ---------- */
+function drawScene(){
+  const {ctx,w,h}=scene;
+  const V=view();
+  ctx.clearRect(0,0,w,h);
+  ctx.save();
+  applyViewport(ctx,w,h,VP);
+  ctx.translate(V.ox, V.oy);
+  ctx.scale(V.s, V.s);
+
+  const L=S.L, g=S.g;
+  const aux = 'rgba(0,0,0,.4)';  /* 辅助线浅色虚线(见 drawing.md 视觉规则表) */
+  const kLen = 0.24 / Math.sqrt(g*L);        /* 速度箭头: 世界单位 per √(gL) */
+
+  /* 地面 + 铰点 O + 竖直参照线 + L 尺寸线 */
+  ground(ctx, X(-3), X(6), Y(0), {scale:V.s});
+  joint(ctx, X(0), Y(0), 0.032, {scale:V.s});
+  ctx.font='0.11px sans-serif'; ctx.textAlign='left'; ctx.textBaseline='middle'; ctx.fillStyle = C.txt;
+  ctx.fillText('O', X(0.06), Y(-0.07));
+  if (S.show.geom){
+    dashLine(ctx, X(0), Y(0.02), X(0), Y(1.15*L), {color:aux, lw:1.2, dash:[6,5], scale:V.s});
+    dimLine(ctx, X(-0.18), Y(0), X(-0.18), Y(L), 'L', {color:C.ruler, lw:1.2, tick:5, scale:V.s});
+  }
+
+  /* 摆动圆弧轨迹 (已走过部分, 参考虚线) */
+  if (S.phase !== 'swing' && S.show.traj){
+    const pts = [];
+    for (let i = 0; i <= 40; i++){
+      const p = PHI0 + (PHI_D - PHI0)*i/40;
+      pts.push({x: X(L*Math.sin(p)), y: Y(L*Math.cos(p))});
+    }
+    traj(ctx, pts, {color:C.traj, dash:[7,6], lw:1.5, scale:V.s});
+  }
+
+  /* 抛体轨迹 (脱离点 → 当前/落点) */
+  if ((S.phase==='proj' || S.phase==='parts') && S.show.traj){
+    const d = detachState();
+    const tMax = S.phase==='proj' ? S.tp : bounceState().tf;
+    const pts = [];
+    for (let i = 0; i <= 48; i++){
+      const t = tMax*i/48;
+      pts.push({x: X(d.x + d.vx*t), y: Y(d.y + d.vy*t - 0.5*g*t*t)});
+    }
+    traj(ctx, pts, {color:C.traj, dash:[7,6], lw:1.5, scale:V.s});
+  }
+
+  /* 两部分轨迹 */
+  if (S.phase==='parts' && S.pp && S.show.traj){
+    const sp = S.pp, bx = S.ev.bounce.x;
+    [[sp.p1, S.tp1, S.landed1, C.red], [sp.p2, S.tp2, S.landed2, C.blue]].forEach(function(it){
+      const p = it[0], tp = it[1], landed = it[2], col = it[3];
+      const tf = partLand(p, bx).tf;
+      const tMax = Math.min(tp, tf);
+      const pts = [];
+      for (let i = 0; i <= 40; i++){
+        const t = tMax*i/40;
+        pts.push({x: X(bx + p.vx*t), y: Y(p.vy*t - 0.5*g*t*t)});
+      }
+      traj(ctx, pts, {color:col, dash:[5,5], lw:1.5, scale:V.s});
+    });
+  }
+
+  /* 杆 (swing 随动; 脱离后以 ω_d 匀速转动, 无质量无外力矩) */
+  const rodPhi = rodPhiNow();
+  rod(ctx, X(0), Y(0), X(L*Math.sin(rodPhi)), Y(L*Math.cos(rodPhi)),
+      {color: S.phase==='swing' ? '#1a1e2e' : 'rgba(26,30,46,.4)', lw:5, scale:V.s});
+
+  /* 脱离点标记 + 高度 2L/3 参照 */
+  if (S.phase !== 'swing' && S.show.geom){
+    const d = detachState();
+    dashLine(ctx, X(-0.05), Y(2*L/3), X(0.95*L), Y(2*L/3), {color:aux, lw:1.2, dash:[6,5], scale:V.s});
+    ctx.font='0.11px sans-serif'; ctx.textAlign='left'; ctx.textBaseline='middle'; ctx.fillStyle = C.dimTxt;
+    ctx.fillText('2L/3', X(-0.34), Y(2*L/3 + 0.05));
+    marker(ctx, X(d.x), Y(d.y), 'cross', {color:C.red, size:8, lw:2, scale:V.s});
+    ctx.fillText('脱离点', X(d.x + 0.08), Y(d.y + 0.06));
+  }
+
+  /* φ 角弧 (杆转动时跟随; 杆躺地后不再画) */
+  if (S.phase !== 'parts' && rodPhi < Math.PI/2 - 1e-4 && S.show.geom){
+    arcSeg(ctx, X(0), Y(0), 0.30, Math.PI/2 - rodPhi, Math.PI/2,
+           {color:'#000000', lw:1.5, dash:[7,6], scale:V.s});
+    ctx.font='0.12px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle = C.dimTxt;
+    ctx.fillText('φ', X(0.36*Math.sin(rodPhi/2)), Y(0.36*Math.cos(rodPhi/2)));
+  }
+
+  /* 触地点 α 角弧 + 触地点标记 (分裂后) */
+  if (S.phase === 'parts' && S.show.geom){
+    const b = bounceState();
+    arcSeg(ctx, X(b.x), Y(0), 0.55, 0, b.alpha, {color:aux, lw:1.3, dash:[6,5], scale:V.s});
+    ctx.font='0.12px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle = C.dimTxt;
+    ctx.fillText('α', X(b.x + 0.72*Math.cos(b.alpha/2)), Y(0.72*Math.sin(b.alpha/2)));
+    marker(ctx, X(b.x), Y(0), 'star', {color:'#000000', size:8, lw:2, scale:V.s});
+  }
+
+  /* θ 角弧 (分裂分析: u 与 w₁/w₂ 之间) */
+  if (S.phase === 'parts' && S.pp && S.show.geom){
+    const sp = S.pp, bx = S.ev.bounce.x, a0 = bounceState().alpha;
+    arcSeg(ctx, X(bx), Y(0), 0.78, a0, sp.p1.b,
+           {color:C.red, lw:1.3, dash:[5,5], scale:V.s});
+    arcSeg(ctx, X(bx), Y(0), 0.78, sp.p2.b, a0,
+           {color:C.blue, lw:1.3, dash:[5,5], scale:V.s});
+    ctx.font='0.11px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle = C.dimTxt;
+    ctx.fillText('θ', X(bx + 0.92*Math.cos(a0 + (sp.p1.b-a0)/2)), Y(0.92*Math.sin(a0 + (sp.p1.b-a0)/2)));
+    ctx.fillText('θ', X(bx + 0.92*Math.cos(a0 - (a0-sp.p2.b)/2)), Y(0.92*Math.sin(a0 - (a0-sp.p2.b)/2)));
+  }
+
+  /* 触地瞬间定格: α 角弧(向下) + v 分解 (v_x/v_y) */
+  if (S.phase === 'proj' && !S.running && S.tp > 0 && Math.abs(S.tp - bounceState().tf) < 1e-3){
+    const b = bounceState();
+    if (S.show.geom){
+      arcSeg(ctx, X(b.x), Y(0), 0.42, -b.alpha, 0, {color:aux, lw:1.3, dash:[6,5], scale:V.s});
+      ctx.font='0.12px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle = C.dimTxt;
+      ctx.fillText('α', X(b.x + 0.55*Math.cos(b.alpha/2)), Y(-0.55*Math.sin(b.alpha/2)));
+    }
+    if (S.show.vel){
+      const vx = b.vx, vy = -b.vy;                       /* 触地前 vy<0 向下 (反弹后为 +b.vy) */
+      drawArrow(ctx, X(b.x), Y(0), X(b.x + vx*kLen), Y(0), C.cyan, 'v_x', V.s, [6,5]);
+      drawArrow(ctx, X(b.x + vx*kLen), Y(0), X(b.x + vx*kLen), Y(vy*kLen), C.cyan, 'v_y', V.s, [6,5]);
+    }
+  }
+
+  /* 小球 / 两部分 */
+  if (S.phase === 'swing' || S.phase === 'proj'){
+    const p = S.phase==='swing' ? {x: L*Math.sin(S.phi), y: L*Math.cos(S.phi)} : projPos(S.tp);
+    ball(ctx, X(p.x), Y(p.y), 0.05, {hi:C.ballHi, lo:C.ballLo, st:C.ballSt, lw:0.022*V.s, scale:V.s});
+    ctx.font='0.12px sans-serif'; ctx.textAlign='left'; ctx.textBaseline='middle'; ctx.fillStyle = C.txt;
+    ctx.fillText('m', X(p.x + 0.08), Y(p.y));
+    /* 触地瞬间定格: 触地标记 (盖在球上) */
+    if (S.phase === 'proj' && !S.running && S.tp > 0 && Math.abs(S.tp - bounceState().tf) < 1e-3 && S.show.geom){
+      marker(ctx, X(p.x), Y(p.y), 'star', {color:'#000000', size:8, lw:2, scale:V.s});
+    }
+  } else if (S.phase === 'parts' && S.pp){
+    const sp = S.pp, bx = S.ev.bounce.x;
+    const l1 = partLand(sp.p1, bx), l2 = partLand(sp.p2, bx);
+    const pos1 = S.landed1 ? {x: l1.x, y: 0} : {x: bx + sp.p1.vx*S.tp1, y: sp.p1.vy*S.tp1 - 0.5*g*S.tp1*S.tp1};
+    const pos2 = S.landed2 ? {x: l2.x, y: 0} : {x: bx + sp.p2.vx*S.tp2, y: sp.p2.vy*S.tp2 - 0.5*g*S.tp2*S.tp2};
+    ball(ctx, X(pos1.x), Y(Math.max(0, pos1.y)), 0.05,
+         {hi:'#ffc4c4', lo:'#c94040', st:'#a83232', lw:0.022*V.s, scale:V.s});
+    ball(ctx, X(pos2.x), Y(Math.max(0, pos2.y)), 0.05,
+         {hi:'#c4d8ff', lo:'#2f6fd0', st:'#27599f', lw:0.022*V.s, scale:V.s});
+    ctx.font='0.11px sans-serif'; ctx.textAlign='left'; ctx.textBaseline='middle';
+    ctx.fillStyle = C.red;  ctx.fillText('m₁', X(pos1.x + 0.08), Y(Math.max(0, pos1.y) + 0.02));
+    ctx.fillStyle = C.blue; ctx.fillText('m₂', X(pos2.x + 0.08), Y(Math.max(0, pos2.y) + 0.02));
+    /* 落点标记 + d 尺寸线 */
+    if (S.show.geom){
+      if (S.landed1) marker(ctx, X(l1.x), Y(0), 'tri', {color:C.red, size:8, lw:2, scale:V.s});
+      if (S.landed2) marker(ctx, X(l2.x), Y(0), 'tri', {color:C.blue, size:8, lw:2, scale:V.s});
+      if (S.landed1 || S.landed2){
+        ctx.font='0.11px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='top';
+        if (S.landed1){ ctx.fillStyle = C.red;  ctx.fillText('x₁', X(l1.x), Y(-0.14)); }
+        if (S.landed2){ ctx.fillStyle = C.blue; ctx.fillText('x₂', X(l2.x), Y(-0.14)); }
+      }
+      if (S.landed1 && S.landed2){
+        dimLine(ctx, X(l1.x), Y(-0.30), X(l2.x), Y(-0.30), 'd', {color:C.ruler, lw:1.3, tick:5, scale:V.s});
+      }
+    }
+  }
+
+  /* 受力: 转动阶段 mg + N(沿杆向外); 抛体阶段仅 mg (质心受力矢量图) */
+  if (S.show.forces && (S.phase === 'swing' || S.phase === 'proj')){
+    const p = S.phase==='swing' ? {x: L*Math.sin(S.phi), y: L*Math.cos(S.phi)} : projPos(S.tp);
+    const fLen = 0.5;                                  /* mg 箭头长度(世界) */
+    drawArrow(ctx, X(p.x), Y(p.y), X(p.x), Y(p.y - fLen), C.green, 'mg', V.s);
+    if (S.phase === 'swing'){
+      const Nratio = 3*Math.cos(S.phi) - 2;
+      if (Nratio > 0){
+        const nx = Math.sin(S.phi), ny = Math.cos(S.phi);
+        /* 沿杆向外, 略垂直偏移避免与杆重叠 */
+        const ox = -ny*0.05, oy = nx*0.05;
+        drawArrow(ctx, X(p.x + ox), Y(p.y + oy),
+                  X(p.x + ox + nx*fLen*Nratio), Y(p.y + oy + ny*fLen*Nratio), C.purple, 'N', V.s);
+      }
+    }
+  }
+
+  /* 速度矢量 */
+  if (S.show.vel){
+    if (S.phase === 'swing'){
+      const p = {x: L*Math.sin(S.phi), y: L*Math.cos(S.phi)};
+      const v = Math.sqrt(2*g*L*(Math.cos(PHI0) - Math.cos(S.phi)));
+      const dx = Math.cos(S.phi), dy = -Math.sin(S.phi);      /* 切向(下摆方向) */
+      drawArrow(ctx, X(p.x), Y(p.y), X(p.x + dx*v*kLen), Y(p.y + dy*v*kLen), C.cyan, 'v', V.s);
+    } else if (S.phase === 'proj'){
+      const d = detachState(), p = projPos(S.tp);
+      const vx = d.vx, vy = d.vy - g*S.tp;
+      drawArrow(ctx, X(p.x), Y(p.y), X(p.x + vx*kLen), Y(p.y + vy*kLen), C.cyan, 'v', V.s);
+    } else if (S.phase === 'parts' && S.pp){
+      const sp = S.pp, bx = S.ev.bounce.x, b = bounceState();
+      if (S.tp1 < 0.02){
+        /* 分裂瞬间: u + 分解 v_x/v_y + w₁/w₂ */
+        drawArrow(ctx, X(bx), Y(0), X(bx + b.v*Math.cos(b.alpha)*kLen), Y(b.v*Math.sin(b.alpha)*kLen), C.cyan, 'u', V.s, [8,6]);
+        ctx.strokeStyle = C.cyan; ctx.lineWidth = 1.2 / V.s; ctx.setLineDash([6,5].map(function(v){ return v/V.s; }));
+        ctx.beginPath();
+        ctx.moveTo(X(bx), Y(0)); ctx.lineTo(X(bx + b.v*Math.cos(b.alpha)*kLen), Y(0));
+        ctx.lineTo(X(bx + b.v*Math.cos(b.alpha)*kLen), Y(b.v*Math.sin(b.alpha)*kLen));
+        ctx.stroke(); ctx.setLineDash([]);
+        ctx.font='0.1px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='bottom'; ctx.fillStyle = C.dimTxt;
+        ctx.fillText('v_x', X(bx + 0.5*b.v*Math.cos(b.alpha)*kLen), Y(-0.06));
+        ctx.fillText('v_y', X(bx + b.v*Math.cos(b.alpha)*kLen + 0.07), Y(0.5*b.v*Math.sin(b.alpha)*kLen));
+        drawArrow(ctx, X(bx), Y(0), X(bx + sp.p1.w*Math.cos(sp.p1.b)*kLen), Y(sp.p1.w*Math.sin(sp.p1.b)*kLen), C.red, 'w₁', V.s);
+        drawArrow(ctx, X(bx), Y(0), X(bx + sp.p2.w*Math.cos(sp.p2.b)*kLen), Y(sp.p2.w*Math.sin(sp.p2.b)*kLen), C.blue, 'w₂', V.s);
+      } else {
+        /* 飞行中: 各部分当前速度 */
+        const vx1 = sp.p1.vx, vy1 = sp.p1.vy - g*S.tp1;
+        const vx2 = sp.p2.vx, vy2 = sp.p2.vy - g*S.tp2;
+        const pos1 = S.landed1 ? {x: partLand(sp.p1, bx).x, y: 0} : {x: bx + vx1*S.tp1, y: 0.5*(vy1 + sp.p1.vy)*S.tp1};
+        const pos2 = S.landed2 ? {x: partLand(sp.p2, bx).x, y: 0} : {x: bx + vx2*S.tp2, y: 0.5*(vy2 + sp.p2.vy)*S.tp2};
+        if (!S.landed1) drawArrow(ctx, X(pos1.x), Y(pos1.y), X(pos1.x + vx1*kLen), Y(pos1.y + vy1*kLen), C.red, 'v₁', V.s);
+        if (!S.landed2) drawArrow(ctx, X(pos2.x), Y(pos2.y), X(pos2.x + vx2*kLen), Y(pos2.y + vy2*kLen), C.blue, 'v₂', V.s);
+      }
+    }
+  }
+
+  /* 碰撞闪光 */
+  if (S.flash > 0 && S.phase === 'parts'){
+    glow(ctx, X(S.ev.bounce.x), Y(0), 0.10, Math.max(0, S.flash/0.22), {scale:V.s});
+  }
+
+  ctx.restore();
+
+  /* 屏幕空间: 分裂瞬间动量平行四边形 (m₁w₁ + m₂w₂ = mu) */
+  if (S.phase === 'parts' && S.pp && S.show.mom){
+    const sp = S.pp, b = bounceState();
+    const s2 = 66 / b.v;                                  /* px per (kg·m/s) */
+    const ox0 = 44, oy0 = 95;                             /* 矢量原点(屏幕) */
+    const a1x = ox0 + sp.p1.m*sp.p1.w*Math.cos(sp.p1.b)*s2;
+    const a1y = oy0 - sp.p1.m*sp.p1.w*Math.sin(sp.p1.b)*s2;
+    const b2x = ox0 + b.v*Math.cos(b.alpha)*s2;           /* m·u 端点(固定) */
+    const b2y = oy0 - b.v*Math.sin(b.alpha)*s2;
+    ctx.fillStyle = 'rgba(255,255,255,.85)';
+    ctx.fillRect(12, 10, 176, 132);
+    ctx.strokeStyle = 'rgba(0,0,0,.18)'; ctx.lineWidth = 1;
+    ctx.strokeRect(12, 10, 176, 132);
+    ctx.font = '10px sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillStyle = C.txt;
+    ctx.fillText('分裂瞬间 · 动量守恒', 18, 15);
+    ctx.font = '10px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.fillStyle = C.dimTxt;
+    ctx.fillText('m₁w₁ + m₂w₂ = mu', 100, 140);
+    drawArrow(ctx, ox0, oy0, a1x, a1y, C.red, 'm₁w₁', 1);
+    drawArrow(ctx, a1x, a1y, b2x, b2y, C.blue, 'm₂w₂', 1);
+    drawArrow(ctx, ox0, oy0, b2x, b2y, C.cyan, 'mu', 1, [6,4]);
+    dot(ctx, ox0, oy0, {color:'#1a1e2e', r:2.5});
+    ctx.font = '9px sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.fillStyle = C.dimTxt;
+    ctx.fillText('w₁=' + sp.p1.w.toFixed(2) + ' w₂=' + sp.p2.w.toFixed(2) + ' m/s', 18, 126);
+  }
+}
+
+/* ---------- 渲染 ---------- */
+function render(){
+  drawScene();
+  const L = S.L, g = S.g, sp = splitParts(), b = bounceState();
+  const bx = b.x, l1 = partLand(sp.p1, bx), l2 = partLand(sp.p2, bx);
+  const d = l2.x - l1.x;
+  const phiDeg = ((rad2deg(rodPhiNow()) % 360) + 360) % 360;
+  const Nratio = S.phase === 'swing' ? (3*Math.cos(S.phi) - 2) : 0;
+  const v = b.v;
+
+  $('phiV').innerHTML = phiDeg.toFixed(1)+'<small>°</small>';
+  $('nV').innerHTML = Nratio.toFixed(2)+'<small>mg</small>';
+  $('vV').innerHTML = v.toFixed(2)+'<small>m/s</small>';
+  $('aV').innerHTML = rad2deg(b.alpha).toFixed(1)+'<small>°</small>';
+  $('eV').innerHTML = sp.E.toFixed(2)+'<small>J</small>';
+  $('eMinV').innerHTML = sp.Emin.toFixed(2)+'<small>J</small>';
+  $('wV').innerHTML = sp.p1.w.toFixed(2)+' / '+sp.p2.w.toFixed(2)+'<small>m/s</small>';
+  $('xV').innerHTML = l1.x.toFixed(2)+' / '+l2.x.toFixed(2)+'<small>m</small>';
+  $('dV').innerHTML = d.toFixed(2)+'<small>m</small>';
+  $('tV').innerHTML = l1.tf.toFixed(2)+' / '+l2.tf.toFixed(2)+'<small>s</small>';
+
+  /* 判定卡 (与推导同序: ①转动 → ②抛体 → ③④分裂后) */
+  let vd = '';
+  if (S.phase === 'swing'){
+    vd = '<b>① 转动阶段</b>: N = mg(3cosφ−2) = '+Nratio.toFixed(2)+'mg; 脱离判据 N=0 ⟹ cosφ<sub>d</sub>=2/3, φ<sub>d</sub>≈48.2°, 脱离高度 2L/3='+(2*L/3).toFixed(2)+' m';
+  } else if (S.phase === 'proj'){
+    const atContact = S.tp > 0 && !S.running && Math.abs(S.tp - b.tf) < 1e-3;
+    vd = (atContact ? '● <b>已触地</b>(尚未反弹): v 向下, 与水平成 α 角<br>' : '') +
+         '<b>② 抛体阶段</b>: v<sub>x</sub>=√(8gL/27) 恒定, 机械能守恒; 触地 v=√(2gL)='+v.toFixed(2)+' m/s, tanα=√23/2≈'+(TAN_A).toFixed(3)+' (α='+rad2deg(b.alpha).toFixed(1)+'°)<br>'+
+         '<b>轻杆</b>: 脱离后以 ω<sub>d</sub>=√(2g/3L)='+omegaDetach().toFixed(3)+' rad/s 继续倒下, 至水平位置留在地面';
+  } else {
+    vd = '<b>③ 反弹+分裂</b>: E = mgL[(1+k)²/(4kcos²θ)−1] = '+sp.E.toFixed(2)+' J · E<sub>min</sub>(k=1) = '+sp.Emin.toFixed(2)+' J<br>';
+    if (S.done){
+      vd += '<b>④ 完毕</b>: 落点 x₁='+l1.x.toFixed(2)+', x₂='+l2.x.toFixed(2)+' m, d = x₂−x₁ = '+d.toFixed(2)+' m';
+      if (Math.abs(S.k - 1) < 1e-9){
+        vd += ' = (152L/27)tanθ = '+((152*L/27)*Math.tan(deg2rad(S.th))).toFixed(2)+' m ✓';
+      } else {
+        vd += ' (k≠1 非 E 最小; k=1 时 d=(152L/27)tanθ='+((152*L/27)*Math.tan(deg2rad(S.th))).toFixed(2)+' m)';
+      }
+      vd += '<br>※ 此时 t₁='+l1.tf.toFixed(2)+'s ≠ t₂='+l2.tf.toFixed(2)+'s, 两部分不同时落地';
+    } else {
+      vd += '<b>④ 两部分飞行中</b> · 预计落点 x₁='+l1.x.toFixed(2)+', x₂='+l2.x.toFixed(2)+' m, d='+d.toFixed(2)+' m';
+    }
+  }
+  $('verdict').innerHTML = vd;
+
+  /* 阶段标签 */
+  let ph;
+  if (!S.running && S.phase === 'swing' && S.phi <= PHI0 + 1e-3)
+    ph = '● 准备就绪 · 按 ▶ 运行 (φ='+phiDeg.toFixed(1)+'°, N='+Nratio.toFixed(2)+'mg)';
+  else if (S.phase === 'swing') ph = '● 转动中 · φ='+phiDeg.toFixed(1)+'° · N='+Nratio.toFixed(2)+'mg (N=0 时脱离)';
+  else if (S.phase === 'proj' && S.tp < 0.01 && !S.running) ph = '● 已定格 · 脱离瞬间 (N=0, φ≈48.2°) · 按 ▶ 继续抛体';
+  else if (S.phase === 'proj' && S.tp > 0 && !S.running && Math.abs(S.tp - b.tf) < 1e-3) ph = '● 已定格 · 触地瞬间 (v='+v.toFixed(2)+' m/s, tanα=√23/2) · 按 ▶ 继续反弹分裂';
+  else if (S.phase === 'proj') ph = '● 已脱离 · 抛体飞行中 (v_x 恒定)';
+  else if (S.phase === 'parts' && S.tp1 < 0.01 && S.tp2 < 0.01 && !S.running) ph = '● 反弹+分裂瞬间 · 已定格 (θ='+S.th+'°, k='+S.k+') · 按 ▶ 继续';
+  else if (S.phase === 'parts' && !S.done) ph = '● 两部分飞行 · t₁='+S.tp1.toFixed(2)+'s / t₂='+S.tp2.toFixed(2)+'s';
+  else if (S.done) ph = '● 已定格 · 两部分落地 · d='+d.toFixed(2)+' m · 按 ▶ 或改参数重跑';
+  else ph = '● 准备就绪 · 按 ▶ 运行';
+  $('phase').textContent = ph;
+
+  SC.syncRun();
+}
+
+/* ---------- 控件绑定 ---------- */
+bindRangeNumber('lR','lN',parseFloat, function(v){ S.L = v; resetSim(); });
+bindRangeNumber('thR','thN',parseFloat, function(v){
+  S.th = v;
+  if (S.phase === 'parts' || S.done) jumpToSplit(); else render();
+});
+bindRangeNumber('kR','kN',parseFloat, function(v){
+  S.k = v;
+  if (S.phase === 'parts' || S.done) jumpToSplit(); else render();
+});
+
+/* ---------- 模式切换 (临界定格) ---------- */
+function syncSeg(){
+  document.querySelectorAll('#modeSeg button').forEach(function(b){
+    b.classList.toggle('on', b.dataset.m === S.mode);
+  });
+}
+document.querySelectorAll('#modeSeg button').forEach(function(b){
+  b.addEventListener('click', function(){
+    S.running = false;
+    S.mode = b.dataset.m;
+    syncSeg();
+    if (S.mode === 'detach'){ jumpToDetach(); }            /* 点击即定格脱离瞬间 */
+    else if (S.mode === 'bounce'){ jumpToBounce(); }       /* 点击即定格触地瞬间 */
+    else if (S.mode === 'split'){ jumpToSplit(); }         /* 点击即定格反弹+分裂瞬间 */
+    else if (S.mode === 'land'){ jumpToLanded(); }         /* 点击即定格落地完成 */
+    else if (S.mode === 'parts'){ jumpToSplit(); S.running = true; render(); }  /* 跳到分裂点并自动运行 */
+    else { resetSim(); S.running = true; render(); }       /* 全程: 重置并自动运行 */
+  });
+});
+
+/* ---------- 重置 / 重启钩子 ---------- */
+function resetFn(){ resetSim(); }
+function onBeforeRun(){
+  if (S.mode === 'parts'){
+    if (S.phase !== 'parts' || S.done) jumpToSplit();
+    return;
+  }
+  if (S.done) resetSim();
+}
+
+/* ---------- 场景标准件 ---------- */
+const SC = setupScene({
+  canvas: sceneC, vp: VP, state: S, render: render,
+  resetFn: resetFn,
+  runLabel: '▶ 运行',
+  panDrag: true,
+  legend: [
+    {k:'vel',    label:'速度矢量 v / u / w₁ w₂', color:'#0e8fa0'},
+    {k:'forces', label:'受力 mg / N',            color:'#7c3aed'},
+    {k:'mom',    label:'动量平行四边形',          color:'#8893ad'},
+    {k:'traj',   label:'轨迹虚线',               color:'#8893ad'},
+    {k:'geom',   label:'角度/尺寸标注',           color:'#000000'}
+  ],
+  onBeforeRun: onBeforeRun
+});
+
+syncSeg();
+render();
+startLoop(S, {
+  sub: 0.002,
+  step: step,
+  render: render
+});
+</script>
+</body>
+</html>

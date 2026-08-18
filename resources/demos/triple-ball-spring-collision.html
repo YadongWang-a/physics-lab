@@ -1,0 +1,544 @@
+<!-- physics-lab-skill: 三球弹簧碰撞 · D 撞 A 与"恰好再次碰撞"条件 -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>三球弹簧碰撞 · 完全弹性碰撞与再次碰撞条件</title>
+<meta name="demo-mode" content="dynamic">
+<script>
+  window.addEventListener("message", function(e){
+    var d=e.data; if(!d||d.cmd!=="present")return;
+    document.body.classList.toggle("present", !!d.value);
+  });
+</script>
+<script>
+  window.MathJax = {
+    tex: { inlineMath: [['\\(','\\)']], displayMath: [['$$','$$'],['\\[','\\]']] },
+    svg: { fontURL: 'lib/fonts' },
+    startup: { typeset: true },
+    options: { enableMenu: false, a11y: { speech: false } }
+  };
+</script>
+<script src="lib/mathjax.js" async></script>
+<link rel="stylesheet" href="lib/common.css">
+<style>
+  /* ---- 页面专用 CSS 变量(画布颜色等, 浅色) ---- */
+  :root{
+    --canvas-grid:rgba(0,0,0,.04); --canvas-dim-txt:#6b7280; --canvas-txt:#1a1e2e;
+    --canvas-spring:#5a6880; --canvas-rail:#8a8fa0; --canvas-ref:#9aa3b2;
+    --cA-hi:#ffd98a; --cA-lo:#c47d10; --cA-st:#a5670a;
+    --cBC-hi:#a0c4ff; --cBC-lo:#2f6fd0; --cBC-st:#1a4fa0;
+    --cD-hi:#f0a3a3; --cD-lo:#c94040; --cD-st:#a03030;
+    --cVel:#0e8fa0; --cF:#7c3aed; --cGood:#1a8a4a;
+  }
+  /* ---- 页面专用布局 ---- */
+  .grid{display:grid;grid-template-columns:2.8fr 0.8fr;gap:14px}.grid>.card:last-child{min-width:0}
+  @media(max-width:1100px){.grid{grid-template-columns:1fr}}
+  /* ---- 顶栏状态按钮: 未触发时置灰 ---- */
+  .btn.dis{opacity:.45;pointer-events:none}
+  /* ---- 判定卡着色(绿底; 基础样式在 lib/common.css) + 答案卡内件 ---- */
+  .verdict{background:rgba(26,138,74,.08);border:1px solid var(--green)}
+  .verdict.bad{background:rgba(201,64,64,.07);border-color:var(--red)}
+  .ans b{color:var(--cyan)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ====== 标题行 ====== -->
+  <div class="head-row">
+    <div>
+      <h1>三球弹簧碰撞 · D 撞 A 与"恰好再次碰撞"条件</h1>
+    </div>
+  </div>
+
+  <!-- ====== 顶栏 · 关键状态跳转 ====== -->
+  <div class="topbar" style="gap:8px">
+    <div style="font-size:13px;color:var(--dim);margin-right:6px">关键状态 ▶</div>
+    <button class="btn" id="cInit">初始</button>
+    <button class="btn" id="cColl1">碰撞①</button>
+    <button class="btn" id="cPeak">最大势能</button>
+    <button class="btn" id="cNat">弹簧原长</button>
+    <button class="btn" id="cColl2">碰撞②</button>
+  </div>
+
+  <!-- ====== 双列布局 ====== -->
+  <div class="grid">
+
+    <!-- ====== 场景卡片 ====== -->
+    <div class="card">
+      <!-- 操作按钮 + 图例栏由 setupScene 注入 -->
+      <canvas id="scene" height="510"></canvas>
+      <!-- 阶段标签 -->
+      <div class="phase" id="phase">● 准备就绪 — 点击"运行": D 以 v₀ 撞击 A</div>
+    </div>
+
+    <!-- ====== 右侧卡片 · 参数 + 读数 + 判定 + 答案 ====== -->
+    <div class="card">
+      <h2>参数调整</h2>
+      <div class="controls">
+        <div class="ctl"><label>初速度 v₀</label>
+          <input type="range" id="v0R" min="0.4" max="6" step="0.1" value="2">
+          <input type="number" id="v0N" min="0.4" max="6" step="0.1" value="2"></div>
+        <div class="ctl"><label>质量比 M/m</label>
+          <input type="range" id="qR" min="0.5" max="25" step="0.1" value="11">
+          <input type="number" id="qN" min="0.5" max="25" step="0.1" value="11"></div>
+        <div class="ctl"><label>弹簧刚度 k</label>
+          <input type="range" id="kR" min="0.5" max="5" step="0.1" value="2">
+          <input type="number" id="kN" min="0.5" max="5" step="0.1" value="2"></div>
+        <div class="ctl"><label>动画速度</label>
+          <input type="range" id="speedR" min="0.1" max="3" step="0.1" value="1">
+          <input type="number" id="speedN" min="0.1" max="3" step="0.1" value="1"></div>
+        <div class="hint">m/M = 1/11 ⟺ M/m = 11: 弹簧恢复原长瞬间 D 恰好再次撞 A</div>
+      </div>
+      <h2 style="margin-top:12px">实时读数</h2>
+      <div class="readouts">
+        <div class="ro"><div class="k">时间 t</div><div class="v" id="tV">0.00<small>s</small></div></div>
+        <div class="ro"><div class="k">A 速度 v_A</div><div class="v" id="vAV">—</div></div>
+        <div class="ro"><div class="k">D 速度 v_D</div><div class="v" id="vDV">—</div></div>
+        <div class="ro"><div class="k">弹簧势能 E₁</div><div class="v" id="e1V">0.000</div></div>
+        <div class="ro"><div class="k">弹簧势能 E₂</div><div class="v" id="e2V">0.000</div></div>
+        <div class="ro"><div class="k">每根最大 E_max</div><div class="v" id="emV">—</div></div>
+        <div class="ro"><div class="k">Δt(碰撞②−原长)</div><div class="v" id="dtV">—</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 问题/推导/答案 弹层(右缘「解析」标签打开) -->
+  <div class="mpop" id="mpop">
+    <div class="mpop-back"></div>
+    <div class="mpop-panel" role="dialog" aria-modal="true">
+      <div class="sec"><button type="button" class="vhead" aria-expanded="true">问题 <span class="vcaret">▾</span></button>
+        <div class="sec-body"><div class="prob">D(质量 M)以 \(v_0\) 与 A(质量 m)对心完全弹性碰撞;A 经两根弹簧连 B、C(各 \(\frac{3}{5}m\),分别沿上、下光滑导轨水平运动)。求:① 碰撞后 A 的速度;② 每根弹簧最大弹性势能;③ 弹簧恢复原长时 D 与 A 恰好再次碰撞的质量比 \(m/M\)。</div></div></div>
+      <div class="sec"><button type="button" class="vhead" aria-expanded="true">推导 <span class="vcaret">▾</span></button>
+        <div class="sec-body"><div class="verdict" id="verdict">调整 M/m 观察: <b>M/m = 11</b> 时碰撞②与原长时刻重合("恰好")</div></div></div>
+      <div class="sec"><button type="button" class="vhead" aria-expanded="true">答案 <span class="vcaret">▾</span></button>
+        <div class="sec-body"><div class="ans" id="ans"><b>参考答案</b>
+          <br>① \(v_A = \dfrac{2M}{M+m}v_0\)(向右)
+          <br>② 每根弹簧最大弹性势能 \(E_{max} = \dfrac{3}{22}mv_A^2 = \dfrac{6mM^2v_0^2}{11(M+m)^2}\)
+          <br>③ 弹簧恢复原长时 D 与 A 恰好再次碰撞 ⟹ \(M = 11m\),即 \(\dfrac{m}{M} = \dfrac{1}{11}\)
+        </div></div></div>
+    </div>
+  </div>
+
+  <div class="foot">
+    无摩擦 · 完全弹性碰撞 · 轻弹簧 k(L−L₀) 沿轴线(图示竖直摆, 对称性保证 A 水平运动; 三问答案与弹簧刚度/导轨间距无关)<br>
+    演示为无量纲单位 · 总能量/水平动量实时守恒监测 · 双击此 HTML 即可离线运行 · 空格暂停 / R 重置
+  </div>
+</div>
+
+<script src="lib/common.js"></script>
+<script>
+"use strict";
+/* ---------- 物理参数 / 状态 ---------- */
+const H = 1.8, L0 = 1.8, R = 0.05;   /* 轨道半距 = 弹簧原长 / 球半径(恒定) */
+const S = { m:1, q:11, k:2, v0:2, speed:1, t:0, running:false, last:null,
+  M:11, xA:0, yA:0, vA:0, vAy:0, xB:0, vB:0, xC:0, vC:0, xD:-3.4, vD:2,
+  coll1:false, peakDone:false, natDone:false, coll2:false, dPrev:0,
+  epemax:0, peakSnap:null,
+  tColl1:null, tPeak:null, tNat:null, tColl2:null,
+  evColl1:null, evPeak:null, evNat:null, evColl2:null };
+const VP = { zoom:1, panX:0, panY:0 };
+
+/* ---------- 弹簧几何与受力 ---------- */
+function springStretch(){          /* 两弹簧伸长量(竖直摆: 两弹簧伸长始终相等) */
+  const L1 = Math.hypot(S.xA - S.xB, H);
+  const L2 = Math.hypot(S.xC - S.xA, H);
+  return { s1: L1 - L0, s2: L2 - L0, L1, L2 };
+}
+function accels(){
+  const { s1, s2, L1, L2 } = springStretch();
+  const dx1 = S.xA - S.xB, d2 = S.xC - S.xA;
+  const mb = 0.6*S.m;                        /* m_B = m_C = 3m/5 */
+  const f1 = S.k*s1/L1, f2 = S.k*s2/L2;
+  return { aA:{ x:(-f1*dx1 + f2*d2)/S.m, y:(f1*H - f2*H)/S.m },
+           aB: f1*dx1/mb, aC: -f2*d2/mb, s1, s2 };
+}
+
+/* ---------- 能量 / 动量 ---------- */
+function energy(){
+  const { s1, s2 } = springStretch();
+  const ke = 0.5*S.m*(S.vA*S.vA + S.vAy*S.vAy)
+           + 0.5*0.6*S.m*(S.vB*S.vB + S.vC*S.vC) + 0.5*S.M*S.vD*S.vD;
+  const pe = 0.5*S.k*(s1*s1 + s2*s2);
+  return { ke, pe, E: ke + pe };
+}
+function momentum(){
+  return S.m*S.vA + 0.6*S.m*S.vB + 0.6*S.m*S.vC + S.M*S.vD;
+}
+
+/* ---------- 状态快照 / 事件 ---------- */
+function snap(){
+  return { t:S.t, xA:S.xA, yA:S.yA, vA:S.vA, vAy:S.vAy, xB:S.xB, vB:S.vB,
+           xC:S.xC, vC:S.vC, xD:S.xD, vD:S.vD,
+           coll1:S.coll1, peakDone:S.peakDone, natDone:S.natDone, coll2:S.coll2 };
+}
+function restore(s){
+  S.running = false;
+  S.t = s.t; S.xA = s.xA; S.yA = s.yA; S.vA = s.vA; S.vAy = s.vAy;
+  S.xB = s.xB; S.vB = s.vB; S.xC = s.xC; S.vC = s.vC;
+  S.xD = s.xD; S.vD = s.vD;
+  S.coll1 = s.coll1; S.peakDone = s.peakDone; S.natDone = s.natDone; S.coll2 = s.coll2;
+  const { s1 } = springStretch();
+  S.epemax = Math.max(S.epemax, 0.5*S.k*s1*s1);
+  S.dPrev = s.xA - s.xB;
+  render();
+}
+function recordEvent(kind){
+  if (kind==='coll1'){ S.evColl1 = snap(); }
+  else if (kind==='peak' && S.peakSnap){ S.evPeak = S.peakSnap; }
+  else if (kind==='nat'){ S.evNat = snap(); }
+  else if (kind==='coll2'){ S.evColl2 = snap(); }
+}
+
+/* ---------- 积分: Velocity Verlet 子步(含 D-A 弹性碰撞) ---------- */
+function substep(dt){
+  const a0 = accels();
+  const vAhx = S.vA + 0.5*a0.aA.x*dt, vAhy = S.vAy + 0.5*a0.aA.y*dt;
+  const vBh = S.vB + 0.5*a0.aB*dt,   vCh = S.vC + 0.5*a0.aC*dt;
+  S.xA += vAhx*dt; S.yA += vAhy*dt; S.xB += vBh*dt; S.xC += vCh*dt;
+  const a1 = accels();
+  S.vA = vAhx + 0.5*a1.aA.x*dt; S.vAy = vAhy + 0.5*a1.aA.y*dt;
+  S.vB = vBh + 0.5*a1.aB*dt;    S.vC = vCh + 0.5*a1.aC*dt;
+
+  /* 第一次回到原长(Δ = xA − xB 由正变负, 子步级精度) */
+  const dNow = S.xA - S.xB;
+  if (!S.natDone && S.coll1 && S.t > S.tColl1 + 0.05 && S.dPrev > 0.0001 && dNow <= 0){
+    S.natDone = true; S.tNat = S.t; recordEvent('nat');
+  }
+  S.dPrev = dNow;
+
+  S.xD += S.vD*dt;
+  if (S.xD + R >= S.xA - R && S.vD > S.vA){   /* D-A 对心完全弹性碰撞 (lib elastic1D) */
+    const col = elastic1D(S.vA, S.vD, S.m, S.M);
+    const vA2 = col.vA, vD2 = col.vB;
+    const wasColl1 = S.coll1, wasColl2 = S.coll2;
+    if (!S.coll1) S.coll1 = true;
+    else if (!S.coll2) S.coll2 = true;
+    if (!wasColl1){
+      S.tColl1 = S.t; S.vA = vA2; S.vD = vD2; recordEvent('coll1');
+    } else if (!wasColl2){
+      S.tColl2 = S.t; S.vA = vA2; S.vD = vD2;
+      /* 碰撞②与原长时刻重合(Δ≈0, M/m=11): 碰撞后 Δ 冻结不再过零, 在此同刻记录原长事件 */
+      if (!S.natDone && Math.abs(S.xA - S.xB) < 0.002){
+        S.natDone = true; S.tNat = S.t; recordEvent('nat');
+      }
+      recordEvent('coll2');
+    } else {
+      S.vA = vA2; S.vD = vD2;
+    }
+  }
+  S.t += dt;
+}
+
+/* 每帧事件检测: 峰值追踪 + 自动停 */
+function postStep(){
+  const { s1 } = springStretch();
+  const e1 = 0.5*S.k*s1*s1;
+  if (e1 > S.epemax){ S.epemax = e1; S.peakSnap = snap(); S.tPeak = S.t; }
+  if (!S.peakDone && !S.evPeak && S.coll1 && e1 < S.epemax*0.999 && S.epemax > 0.001){
+    S.peakDone = true; recordEvent('peak');
+  }
+  if (S.t > 30) S.running = false;
+}
+
+/* ---------- 画布 ---------- */
+const sceneC = $('scene');
+let scene = fitCanvas(sceneC);
+window.addEventListener('resize', function(){ scene = fitCanvas(sceneC); });
+
+/* ---------- 坐标变换 (2D) ---------- */
+function view(){
+  const {w,h}=scene;
+  const xMin=-3.8, xMax=5.2, yMin=-2.0, yMax=2.0;
+  const {s, ox, oy} = fitView(w, h, xMin, xMax, yMin, yMax, {l:40, r:20, t:20, b:30});
+  return {s, ox, oy, w, h};
+}
+const X = function(x){ return x; };
+const Y = function(y){ return -y; };
+
+/* ---------- 颜色(一次缓存) ---------- */
+const C = palette();
+
+/* ---------- 绘制助手 ---------- */
+/* 页面特有: 球左缘双行标签(原 drawBall 标签部分——锚点在球左侧, 非居中; 简单单段 fillText 按原样保留) */
+function ballLabel(ctx, x, y, label, massL){
+  ctx.textAlign='right'; ctx.textBaseline='bottom';
+  ctx.fillStyle = '#1a1e2e';
+  ctx.font = 'bold 0.11px sans-serif';
+  ctx.fillText(label, X(x-0.085), Y(y+0.14));
+  ctx.font = '0.1px sans-serif';
+  ctx.textAlign='right'; ctx.textBaseline='top';
+  ctx.fillText(massL, X(x-0.085), Y(y-0.13));
+}
+function hArrow(ctx, x, y, v, label, col, V){
+  const sgn = v > 0 ? 1 : -1;
+  const len = Math.min(Math.abs(v)*0.26, 1.5);
+  if (len < 0.06) return;
+  const x0 = x + sgn*(R + 0.005);
+  drawArrow(ctx, X(x0), Y(y), X(x0 + sgn*len), Y(y), col, label, V.s);
+}
+function impactRing(ctx, cx, cy, t0, col, V){
+  const age = S.t - t0;
+  if (age >= 0 && age < 0.4){
+    /* 膨胀环 = glow(fill:false): r=0.06, spread=0.18 → 环半径 0.06+f·0.18 = 0.06+age·0.45 */
+    glow(ctx, X(cx), Y(cy), 0.06, age*2.5,
+         {fill:false, spread:0.18, ring:col, lw:0.016*V.s, scale:V.s});
+  }
+}
+
+/* ---------- 场景绘制 ---------- */
+function drawScene(){
+  const {ctx,w,h}=scene, V=view();
+  ctx.clearRect(0,0,w,h);
+  ctx.save();
+  applyViewport(ctx,w,h,VP);
+  ctx.translate(V.ox, V.oy);
+  ctx.scale(V.s, V.s);
+  const { s1 } = springStretch();
+  const natHL = S.coll1 && s1 < 0.06;   /* 弹簧接近原长 → 绿色高亮 */
+
+  /* ---- 上下轨道(主线): 手写保留——track() 强制 butt 端帽(原为 round, 两端可见)且刻度与主线同线宽(原刻度 0.016 < 主线 0.022), 无法逐像素复刻 ---- */
+  ctx.strokeStyle = '#8a8fa0'; ctx.lineWidth = 0.022; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(X(-2.6), Y(H)); ctx.lineTo(X(4.8), Y(H)); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(X(-2.6), Y(-H)); ctx.lineTo(X(4.8), Y(-H)); ctx.stroke();
+  ctx.lineWidth = 0.016;
+  ctx.beginPath();
+  ctx.moveTo(X(-2.6), Y(H-0.12)); ctx.lineTo(X(-2.6), Y(H+0.12));
+  ctx.moveTo(X(4.8), Y(H-0.12)); ctx.lineTo(X(4.8), Y(H+0.12));
+  ctx.moveTo(X(-2.6), Y(-H-0.12)); ctx.lineTo(X(-2.6), Y(-H+0.12));
+  ctx.moveTo(X(4.8), Y(-H-0.12)); ctx.lineTo(X(4.8), Y(-H+0.12));
+  ctx.stroke();
+  ctx.font = '0.11px sans-serif';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'bottom'; ctx.fillStyle = C.canvas.dimTxt;
+  ctx.fillText('上轨道', X(-2.55), Y(H+0.15));
+  ctx.textBaseline = 'top';
+  ctx.fillText('下轨道', X(-2.55), Y(-H-0.15));
+
+  /* ---- 初始参照(虚线 ≤0.016; dash/lw 以 world×V.s 传 px, 内部÷scale 还原世界值) ---- */
+  if (S.show.ref){
+    const ref = {color:'#9aa3b2', lw:0.016*V.s, dash:[0.06*V.s, 0.05*V.s], scale:V.s};
+    dashLine(ctx, X(0), Y(-2.0), X(0), Y(2.0), ref);
+    dashCircle(ctx, X(0), Y(0),  R+0.01, ref);
+    dashCircle(ctx, X(0), Y(H),  R+0.01, ref);
+    dashCircle(ctx, X(0), Y(-H), R+0.01, ref);
+    ctx.font = '0.1px sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
+    ctx.fillStyle = '#9aa3b2';
+    ctx.fillText('初始位置(碰撞点)', X(0.06), Y(1.95));
+  }
+
+  /* ---- 弹簧(13 圈 / 振幅 0.07 / 导程 0.11 / 线宽 0.022) ---- */
+  ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  const springOpt = {coils:13, amp:0.07, lead:0.11*V.s, N:130,
+                     color: natHL ? '#1a8a4a' : '#5a6880', lw:0.022*V.s, scale:V.s};
+  spring(ctx, X(S.xB), Y(H), X(S.xA), Y(S.yA), springOpt);
+  spring(ctx, X(S.xA), Y(S.yA), X(S.xC), Y(-H), springOpt);
+
+  /* ---- 球(半径恒定, 标签在球旁) ---- */
+  ball(ctx, X(S.xA), Y(S.yA), R, {hi:'#ffd98a', lo:'#c47d10', st:'#a5670a', lw:R*0.15*V.s, scale:V.s});
+  ballLabel(ctx, S.xA, S.yA, 'A', 'm');
+  ball(ctx, X(S.xB), Y(H),  R, {hi:'#a0c4ff', lo:'#2f6fd0', st:'#1a4fa0', lw:R*0.15*V.s, scale:V.s});
+  ballLabel(ctx, S.xB, H, 'B', '3m/5');
+  ball(ctx, X(S.xC), Y(-H), R, {hi:'#a0c4ff', lo:'#2f6fd0', st:'#1a4fa0', lw:R*0.15*V.s, scale:V.s});
+  ballLabel(ctx, S.xC, -H, 'C', '3m/5');
+  ball(ctx, X(S.xD), Y(0),  R, {hi:'#f0a3a3', lo:'#c94040', st:'#a03030', lw:R*0.15*V.s, scale:V.s});
+  ballLabel(ctx, S.xD, 0, 'D', 'M');
+
+  /* ---- 碰撞光环(glow 纯环) ---- */
+  if (S.coll1) impactRing(ctx, S.xA - R, S.yA, S.tColl1, 'rgba(201,64,64,.6)', V);
+  if (S.coll2) impactRing(ctx, S.xA - R, S.yA, S.tColl2, 'rgba(201,64,64,.6)', V);
+
+  /* ---- 速度矢量(水平) ---- */
+  if (S.show.v){
+    const VEL = '#0e8fa0';
+    if (Math.abs(S.vA) > 0.02) hArrow(ctx, S.xA, S.yA, S.vA, 'vA', VEL, V);
+    if (Math.abs(S.vB) > 0.02) hArrow(ctx, S.xB, H, S.vB, 'vB', VEL, V);
+    if (Math.abs(S.vC) > 0.02) hArrow(ctx, S.xC, -H, S.vC, 'vC', VEL, V);
+    if (Math.abs(S.vD) > 0.02) hArrow(ctx, S.xD, 0, S.vD, S.coll1 ? 'vD' : 'v₀', VEL, V);
+  }
+
+  /* ---- 弹簧力矢量(力画在物体上; 最大力 ≈ 0.35×k·s_max ≈ 1.1 世界单位 ≈ 120px) ---- */
+  if (S.show.F){
+    const { s1, s2, L1, L2 } = springStretch();
+    const dx1 = S.xA - S.xB, d2 = S.xC - S.xA;
+    const FS = 0.35;
+    if (s1 > 0.005){
+      const fx = -dx1/L1, fy = H/L1, f = Math.min(S.k*s1, 4.6);   /* 钳制极端参数下过长箭头 */
+      drawArrow(ctx, X(S.xA + fx*(R+0.01)), Y(S.yA + fy*(R+0.01)),
+                X(S.xA + fx*f*FS), Y(S.yA + fy*f*FS), '#7c3aed', 'F1', V.s);
+      const bx = dx1/L1, by = -H/L1;
+      drawArrow(ctx, X(S.xB + bx*(R+0.01)), Y(H + by*(R+0.01)),
+                X(S.xB + bx*f*FS), Y(H + by*f*FS), '#7c3aed', '', V.s);
+    }
+    if (s2 > 0.005){
+      const fx = d2/L2, fy = -H/L2, f = Math.min(S.k*s2, 4.6);
+      drawArrow(ctx, X(S.xA + fx*(R+0.01)), Y(S.yA + fy*(R+0.01)),
+                X(S.xA + fx*f*FS), Y(S.yA + fy*f*FS), '#7c3aed', 'F2', V.s);
+      const cx2 = -d2/L2, cy2 = H/L2;
+      drawArrow(ctx, X(S.xC + cx2*(R+0.01)), Y(-H + cy2*(R+0.01)),
+                X(S.xC + cx2*f*FS), Y(-H + cy2*f*FS), '#7c3aed', '', V.s);
+    }
+  }
+  ctx.restore();
+}
+
+/* ---------- 重置 / 守恒监测 ---------- */
+let CON = null;
+function rebuildConservation(){
+  const old = document.getElementById('conPanel');
+  if (old) old.remove();
+  CON = setupConservation(sceneC.parentElement, {
+    items: [
+      { label:'总能量 E', getValue: function(){ return energy().E; } },
+      { label:'水平动量 Px', getValue: function(){ return momentum(); } }
+    ],
+    tol: 0.01
+  });
+}
+function reset(){
+  S.running = false;
+  S.M = S.q*S.m;
+  S.t = 0; S.xA = 0; S.yA = 0; S.vA = 0; S.vAy = 0;
+  S.xB = 0; S.vB = 0; S.xC = 0; S.vC = 0;
+  S.xD = -3.4; S.vD = S.v0;
+  S.coll1 = false; S.peakDone = false; S.natDone = false; S.coll2 = false; S.dPrev = 0;
+  S.epemax = 0; S.peakSnap = null;
+  S.tColl1 = null; S.tPeak = null; S.tNat = null; S.tColl2 = null;
+  S.evColl1 = null; S.evPeak = null; S.evNat = null; S.evColl2 = null;
+  rebuildConservation();
+  render();
+}
+
+/* ---------- 主循环: lib startLoop (子步积分 + postStep 钩子已内置) ---------- */
+const SUB = 0.0008;
+
+/* ---------- 渲染 ---------- */
+function render(){
+  drawScene();
+  const u = 2*S.M*S.v0/(S.M+S.m);          /* 理论 v_A(碰撞后) */
+  const w = (S.M-S.m)*S.v0/(S.M+S.m);      /* 理论 v_D(碰撞后) */
+  const { s1, s2 } = springStretch();
+
+  $('tV').innerHTML = S.t.toFixed(2)+'<small>s</small>';
+  if (S.coll1){
+    $('vAV').innerHTML = S.vA.toFixed(2)+'<small>· 理论 '+u.toFixed(2)+'</small>';
+    $('vDV').innerHTML = S.vD.toFixed(2)+'<small>· 理论 '+w.toFixed(2)+'</small>';
+  } else {
+    $('vAV').textContent = '—'; $('vDV').textContent = '—';
+  }
+  $('e1V').textContent = (0.5*S.k*s1*s1).toFixed(3);
+  $('e2V').textContent = (0.5*S.k*s2*s2).toFixed(3);
+  if (S.coll1){
+    $('emV').innerHTML = S.epemax.toFixed(3)+'<small>· 理论 '+(3*S.m*u*u/22).toFixed(3)+'</small>';
+  } else {
+    $('emV').textContent = '—';
+  }
+  const dtv = $('dtV');
+  if (S.coll2 && S.tNat != null){
+    const dt = Math.abs(S.tColl2 - S.tNat);
+    const ok = dt <= 0.02;
+    dtv.innerHTML = dt.toFixed(3)+'<small>'+(ok ? '✓ 恰好' : '✗ 非恰好')+'</small>';
+    dtv.style.color = ok ? 'var(--green)' : 'var(--red)';
+  } else {
+    dtv.textContent = '—'; dtv.style.color = '';
+  }
+
+  /* 判定卡 */
+  const vd = $('verdict');
+  if (S.coll2 && S.tNat != null){
+    const dt = Math.abs(S.tColl2 - S.tNat);
+    if (dt <= 0.02){
+      vd.innerHTML = '✓ <b>判定:</b> 碰撞②恰在弹簧恢复原长时发生 — 满足 \(m/M = 1/11\)(当前 M/m = '+S.q.toFixed(1)+')';
+      vd.classList.remove('bad');
+    } else {
+      vd.innerHTML = '✗ <b>判定:</b> 碰撞②与原长时刻相差 Δt = '+dt.toFixed(2)+' s, 不是"恰好"(需 M/m = 11)';
+      vd.classList.add('bad');
+    }
+  } else if (S.coll2 && S.tNat == null){
+    vd.innerHTML = '✗ <b>判定:</b> 碰撞②发生时弹簧仍处于拉伸 — 早于原长时刻 (M/m &gt; 11 时 D 追得太快)';
+    vd.classList.add('bad');
+  } else if (S.coll1 && !S.coll2 && S.t > S.tColl1 + 10){
+    vd.innerHTML = '✗ <b>判定:</b> M/m 过小 — D 被弹回(或 A 的往返幅度不足以追回), 不发生再次碰撞';
+    vd.classList.add('bad');
+  } else {
+    vd.innerHTML = '调整 M/m 观察: <b>M/m = 11</b> 时碰撞②与原长时刻重合("恰好")';
+    vd.classList.remove('bad');
+  }
+
+  /* 阶段标签 */
+  const ph = $('phase');
+  if (S.coll2){
+    if (S.tNat != null && Math.abs(S.tColl2 - S.tNat) <= 0.02){
+      ph.textContent = '● 碰撞②: 恰在弹簧恢复原长时刻与 A 再次碰撞 ✓';
+      ph.style.color = 'var(--green)';
+    } else {
+      ph.textContent = '● 碰撞②: D 与 A 再次碰撞 (弹簧尚未回原长)';
+      ph.style.color = 'var(--red)';
+    }
+  } else if (S.natDone){
+    ph.textContent = '● 弹簧恢复原长: v_A = '+S.vA.toFixed(2)+', v_B = '+S.vB.toFixed(2)+', v_C = '+S.vC.toFixed(2)+', v_D = '+S.vD.toFixed(2);
+    ph.style.color = 'var(--purple)';
+  } else if (S.peakDone){
+    ph.textContent = '● 弹簧拉伸至最大, 每根 E_max = '+S.epemax.toFixed(3)+' (理论 3mv_A²/22)';
+    ph.style.color = 'var(--orange)';
+  } else if (S.coll1){
+    ph.textContent = '● 碰撞①完成: A 向右 v_A = '+S.vA.toFixed(2)+', 弹簧拉伸, B·C 被拉动';
+    ph.style.color = 'var(--cyan)';
+  } else if (S.t === 0){
+    ph.textContent = '● 准备就绪 — 点击"运行": D 以 v₀ 撞击 A';
+    ph.style.color = 'var(--green)';
+  } else {
+    ph.textContent = '● D 匀速接近 A …';
+    ph.style.color = 'var(--cyan)';
+  }
+  if (CON) CON.check();
+  SC.syncRun();
+}
+
+/* ---------- 控件绑定 ---------- */
+bindRangeNumber('v0R','v0N',parseFloat,function(v){S.v0=v;reset();});
+bindRangeNumber('qR','qN',parseFloat,function(v){S.q=v;reset();});
+bindRangeNumber('kR','kN',parseFloat,function(v){S.k=v;reset();});
+bindRangeNumber('speedR','speedN',parseFloat,function(v){S.speed=v;});
+
+/* ---------- 关键状态跳转(五个按钮默认均可点击; 事件未发生 → 快速推演到那一刻) ---------- */
+function jumpTo(kind){
+  S.running = false;                /* 先暂停, 跳到后停在目标状态 */
+  reset();                          /* 从初始状态确定性推演 */
+  let iters = 0;
+  while (S.t < 40 && iters < 4e6){
+    substep(SUB);
+    if (++iters % 20 === 0) postStep();
+    const done = kind==='coll1' ? S.coll1 : kind==='peak' ? S.peakDone
+               : kind==='nat' ? S.natDone : kind==='coll2' ? S.coll2 : true;
+    if (done) break;
+    if (kind==='coll2' && S.coll1 && S.t > S.tColl1 + 10) break;  /* 该参数下不可能 → verdict 会说明 */
+  }
+  postStep();
+  render();
+}
+$('cInit').onclick  = function(){ reset(); };
+$('cColl1').onclick = function(){ if (S.evColl1) restore(S.evColl1); else jumpTo('coll1'); };
+$('cPeak').onclick  = function(){ if (S.evPeak) restore(S.evPeak); else jumpTo('peak'); };
+$('cNat').onclick   = function(){ if (S.evNat) restore(S.evNat); else jumpTo('nat'); };
+$('cColl2').onclick = function(){ if (S.evColl2) restore(S.evColl2); else jumpTo('coll2'); };
+
+/* ---------- 场景标准件 (按钮/图例/视口/键盘 由 setupScene 注入并绑定) ---------- */
+const SC = setupScene({
+  canvas: sceneC, vp: VP, state: S, render: render,
+  resetFn: reset,
+  runLabel: '▶ 运行', panDrag: true,
+  legend: [
+    {k:'v',   label:'速度矢量', color:'#0e8fa0'},
+    {k:'F',   label:'弹簧力',   color:'#7c3aed'},
+    {k:'ref', label:'初始参照', color:'#9aa3b2'}
+  ],
+  onBeforeRun: function(){ if (S.t > 30) reset(); }
+});
+
+reset();
+startLoop(S, { sub: SUB, step: substep, render: render, postStep: postStep });
+</script>
+</body>
+</html>
