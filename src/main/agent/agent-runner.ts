@@ -31,6 +31,8 @@ export interface PhysicsAgentOptions {
   modelId?: string
   /** 恢复既有会话时传入已打开的 SessionManager；缺省则新建 */
   sessionManager?: SessionManager
+  /** 目标会话文件名（.pi-sessions/ 内）；缺省时用 Pi 默认命名（时间戳_uuid） */
+  sessionFile?: string
 }
 
 export const DEFAULT_MODEL = 'deepseek-v4-flash'
@@ -65,7 +67,12 @@ export async function createPhysicsSession(options: PhysicsAgentOptions): Promis
   if (!model) {
     throw new Error(`模型不存在: ${DEFAULT_PROVIDER}/${modelId}`)
   }
-  const manager = sessionManager ?? SessionManager.create(cwd, sessionDir)
+  // 会话文件选择：注入的 manager 优先（恢复既有会话）；否则按约定命名（<stem>.jsonl）；最后 Pi 默认
+  const manager =
+    sessionManager ??
+    (options.sessionFile
+      ? SessionManager.open(join(sessionDir, options.sessionFile), sessionDir, cwd)
+      : SessionManager.create(cwd, sessionDir))
   const { session } = await createAgentSession({
     cwd,
     agentDir,

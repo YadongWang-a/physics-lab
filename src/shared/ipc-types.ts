@@ -1,0 +1,32 @@
+/** 主进程 / preload / 渲染层共享的类型（三端 tsconfig 均 include src/shared） */
+
+export interface DemoMeta {
+  /** HTML 文件名（工作目录内相对名） */
+  file: string
+  /** 中文标题（提取自 physics-demo 注释 / <title>，兜底文件名） */
+  title: string
+  /** 会话文件名（.pi-sessions/ 内） */
+  sessionFile: string
+  /** 创建时间（Unix ms） */
+  createdAt: number
+}
+
+export interface WorkspaceSnapshot {
+  dir: string
+  demos: DemoMeta[]
+}
+
+/** preload 暴露给渲染层的 API 形状（contextBridge） */
+export interface RendererApi {
+  ping: () => string
+  workspace: {
+    /** 弹出目录选择并打开为新工作目录；取消返回 null */
+    choose: () => Promise<WorkspaceSnapshot | null>
+    /** 返回当前工作目录快照（启动时自动恢复上次目录并扫描） */
+    get: () => Promise<WorkspaceSnapshot | null>
+    /** 重新扫描工作目录 */
+    rescan: () => Promise<WorkspaceSnapshot>
+    /** 删除演示（html + 会话文件 + 清单条目）；UI 层负责二次确认 */
+    remove: (file: string) => Promise<WorkspaceSnapshot>
+  }
+}
