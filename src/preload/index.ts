@@ -34,6 +34,9 @@ const api: RendererApi = {
       return () => ipcRenderer.removeListener('workspace:changed', listener)
     }
   },
+  window: {
+    setFullscreen: (flag: boolean): Promise<void> => ipcRenderer.invoke('window:set-fullscreen', flag)
+  },
   settings: {
     get: (): Promise<SettingsView> => ipcRenderer.invoke('settings:get'),
     save: (payload: SaveSettingsPayload): Promise<SettingsView> =>

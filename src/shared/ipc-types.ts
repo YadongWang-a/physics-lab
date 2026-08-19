@@ -58,6 +58,10 @@ export interface RendererApi {
     /** 订阅工作目录清单变化（新演示生成等）；返回取消函数 */
     onWorkspaceChanged: (cb: () => void) => () => void
   }
+  window: {
+    /** 主窗口全屏/退出全屏（演示模式投影用） */
+    setFullscreen: (flag: boolean) => Promise<void>
+  }
   settings: {
     /** 当前设置视图（不含明文 Key） */
     get: () => Promise<SettingsView>

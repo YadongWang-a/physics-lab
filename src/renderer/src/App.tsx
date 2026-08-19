@@ -52,7 +52,11 @@ const styles: Record<string, React.CSSProperties> = {
   attachRow: { display: 'flex', gap: 8, padding: '0 12px', flexWrap: 'wrap' },
   attachThumb: { position: 'relative', width: 64, height: 64, border: '1px solid #c9d2dc', borderRadius: 6, overflow: 'hidden' },
   attachImg: { width: '100%', height: '100%', objectFit: 'cover' },
-  attachRemove: { position: 'absolute', top: 2, right: 2, border: 'none', background: 'rgba(0,0,0,0.55)', color: '#fff', borderRadius: 10, width: 16, height: 16, fontSize: 10, lineHeight: '14px', cursor: 'pointer', padding: 0 }
+  attachRemove: { position: 'absolute', top: 2, right: 2, border: 'none', background: 'rgba(0,0,0,0.55)', color: '#fff', borderRadius: 10, width: 16, height: 16, fontSize: 10, lineHeight: '14px', cursor: 'pointer', padding: 0 },
+  presentBtn: { border: '1px solid #c9d2dc', background: '#fff', borderRadius: 6, padding: '3px 10px', fontSize: 12, cursor: 'pointer', marginLeft: 8 },
+  presentStage: { position: 'fixed', inset: 0, zIndex: 50, background: '#000', display: 'flex', flexDirection: 'column' },
+  presentHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 16px', background: 'rgba(0,0,0,0.75)', color: '#fff', fontSize: 13 },
+  presentExit: { border: '1px solid rgba(255,255,255,0.4)', background: 'transparent', color: '#fff', borderRadius: 6, padding: '4px 14px', cursor: 'pointer', fontSize: 13 }
 }
 
 /** 把单条 agent 事件应用为消息变更；返回新的消息列表（未变更返回 null） */
@@ -126,6 +130,8 @@ export function App(): React.JSX.Element {
   const [hasMainKey, setHasMainKey] = useState<boolean | null>(null)
   /** 待发送的聊天图片（粘贴） */
   const [images, setImages] = useState<ImagePayload[]>([])
+  /** 演示模式（ticket 07）：全屏展示当前演示 */
+  const [presenting, setPresenting] = useState(false)
   const msgId = useRef(0)
   const webviewRef = useRef<WebviewElement | null>(null)
   // 当前活跃会话 key：选中演示名，或未选中时新会话的 key（chat.send 返回）
@@ -245,6 +251,26 @@ export function App(): React.JSX.Element {
     if (key) await window.api?.chat.abort(key)
   }, [selected])
 
+  const enterPresent = useCallback(() => {
+    setPresenting(true)
+    window.api?.window.setFullscreen(true)
+  }, [])
+
+  const exitPresent = useCallback(() => {
+    setPresenting(false)
+    window.api?.window.setFullscreen(false)
+  }, [])
+
+  // 演示模式 Esc 退出（webview 内聚焦时由 demo 处理，此处覆盖其余焦点场景；退出按钮兜底）
+  useEffect(() => {
+    if (!presenting) return
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') exitPresent()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [presenting, exitPresent])
+
   const removeDemo = useCallback(
     async (demo: DemoMeta) => {
       if (!window.confirm(`确定删除演示「${demo.title}」？\n将同时删除该演示的会话，且无法恢复。`)) return
@@ -285,15 +311,16 @@ export function App(): React.JSX.Element {
           </button>
         </div>
       )}
-      <aside style={styles.sidebar}>
-        <div style={styles.sidebarHeader}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <strong style={{ fontSize: 13 }}>演示列表</strong>
-            <button style={styles.gearBtn} title="模型设置" onClick={() => setSettingsOpen(true)}>
-              ⚙
-            </button>
-          </div>
-          <div style={styles.dirPath}>{ws.dir}</div>
+      {!presenting && (
+        <aside style={styles.sidebar}>
+          <div style={styles.sidebarHeader}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <strong style={{ fontSize: 13 }}>演示列表</strong>
+              <button style={styles.gearBtn} title="模型设置" onClick={() => setSettingsOpen(true)}>
+                ⚙
+              </button>
+            </div>
+            <div style={styles.dirPath}>{ws.dir}</div>
           <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
             <button onClick={() => window.api?.workspace.choose().then((s) => s && setWs(s))} style={{ fontSize: 12, cursor: 'pointer' }}>
               更换目录
@@ -327,17 +354,19 @@ export function App(): React.JSX.Element {
           ))}
         </div>
       </aside>
+      )}
 
-      <section style={styles.chat}>
-        <div style={styles.chatHeader}>
-          <span>{selectedDemo ? selectedDemo.title : '新演示'}</span>
-          {streaming && (
-            <button style={styles.stopBtn} onClick={stop}>
-              停止
-            </button>
-          )}
-        </div>
-        <div style={styles.chatBody}>
+      {!presenting && (
+        <section style={styles.chat}>
+          <div style={styles.chatHeader}>
+            <span>{selectedDemo ? selectedDemo.title : '新演示'}</span>
+            {streaming && (
+              <button style={styles.stopBtn} onClick={stop}>
+                停止
+              </button>
+            )}
+          </div>
+          <div style={styles.chatBody}>
           {messages.length === 0 && (
             <div style={styles.hint}>
               {selectedDemo ? '输入修改要求，或描述新的物理过程。' : '输入一道物理题或物理过程的描述，生成交互式演示。'}
@@ -398,10 +427,27 @@ export function App(): React.JSX.Element {
             发送
           </button>
         </div>
-      </section>
+        </section>
+      )}
 
-      <section style={styles.preview}>
-        <div style={styles.previewHeader}>{selectedDemo ? selectedDemo.title : '预览'}</div>
+      <section style={presenting ? styles.presentStage : styles.preview}>
+        {presenting ? (
+          <div style={styles.presentHeader}>
+            <span>{selectedDemo?.title ?? ''}（演示模式 · 空格暂停/继续，R 重置）</span>
+            <button style={styles.presentExit} onClick={exitPresent}>
+              退出演示（Esc）
+            </button>
+          </div>
+        ) : (
+          <div style={styles.previewHeader}>
+            {selectedDemo ? selectedDemo.title : '预览'}
+            {selectedDemo && (
+              <button style={styles.presentBtn} onClick={enterPresent}>
+                演示
+              </button>
+            )}
+          </div>
+        )}
         <div style={styles.previewBody}>
           {selectedDemo ? (
             <webview

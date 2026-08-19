@@ -222,6 +222,13 @@ function registerSettingsIpc(): void {
   ipcMain.handle('settings:test', async (_event, payload: { slot: ModelSlotConfig }) => {
     return testSlotConnection(payload.slot)
   })
+
+  // 演示模式（ticket 07）：主窗口真全屏，投影体验
+  ipcMain.handle('window:set-fullscreen', (_event, flag: boolean) => {
+    for (const win of BrowserWindow.getAllWindows()) {
+      win.setFullScreen(Boolean(flag))
+    }
+  })
 }
 
 /** settings:test 与冒烟共用：注册槽位 → 发最小 complete → 返回 ok/error */
@@ -446,8 +453,30 @@ async function smokeWorkspace(): Promise<void> {
       return ta ? ta.placeholder.includes('图片') : false
     })()`
   )
+  // 演示模式（ticket 07）：点「演示」→ 全屏覆盖层出现；点「退出演示」→ 恢复编辑态
+  await win.webContents.executeJavaScript(
+    `[...document.querySelectorAll('button')].find((b) => b.textContent === '演示')?.click()`
+  )
+  await delay(400)
+  const presentOn = await win.webContents.executeJavaScript(
+    `(() => ({
+      stage: !!document.querySelector('div[style*="position: fixed"]'),
+      exitBtn: [...document.querySelectorAll('button')].some((b) => b.textContent?.includes('退出演示')),
+      chatHidden: !document.querySelector('textarea')
+    }))()`
+  )
+  await win.webContents.executeJavaScript(
+    `[...document.querySelectorAll('button')].find((b) => b.textContent?.includes('退出演示'))?.click()`
+  )
+  await delay(400)
+  const presentOff = await win.webContents.executeJavaScript(
+    `(() => ({
+      chatBack: !!document.querySelector('textarea'),
+      presentGone: ![...document.querySelectorAll('button')].some((b) => b.textContent?.includes('退出演示'))
+    }))()`
+  )
   console.log(
-    `[smoke-workspace] demo items=${state.count}; dir shown=${state.dirShown}; webview=${state.webview}; settings modal=${settingsUi.modal}; paste hint=${pasteHint}`
+    `[smoke-workspace] demo items=${state.count}; dir shown=${state.dirShown}; webview=${state.webview}; settings modal=${settingsUi.modal}; paste hint=${pasteHint}; present on=${presentOn.stage && presentOn.exitBtn && presentOn.chatHidden}; present off=${presentOff.chatBack && presentOff.presentGone}`
   )
   const ok =
     state.count === 1 &&
@@ -456,7 +485,12 @@ async function smokeWorkspace(): Promise<void> {
     settingsUi.modal &&
     settingsUi.providerSelects >= 2 &&
     settingsUi.testBtn &&
-    pasteHint
+    pasteHint &&
+    presentOn.stage &&
+    presentOn.exitBtn &&
+    presentOn.chatHidden &&
+    presentOff.chatBack &&
+    presentOff.presentGone
   app.exit(ok ? 0 : 1)
 }
 
