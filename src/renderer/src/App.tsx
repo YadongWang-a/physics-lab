@@ -81,6 +81,23 @@ function applyChatEvent(prev: ChatMessage[], e: unknown, nextId: () => number): 
       const message = 'message' in ev && typeof ev.message === 'string' ? ev.message : '未知错误'
       return [...prev, { id: nextId(), role: 'error', text: `出错：${message}` }]
     }
+    case 'check_demo_result': {
+      const result = 'result' in ev ? ev.result : null
+      if (typeof result !== 'object' || result === null) return null
+      const ok = 'ok' in result && result.ok === true
+      const issues = 'issues' in result && Array.isArray(result.issues) ? result.issues : []
+      const detail = issues
+        .map((i) => {
+          if (typeof i !== 'object' || i === null) return ''
+          const code = 'code' in i ? String(i.code) : ''
+          const msg = 'message' in i ? String(i.message) : ''
+          return `[${code}] ${msg}`
+        })
+        .filter(Boolean)
+        .join('；')
+      const text = ok ? '✅ 自检通过' : `❌ 自检未通过：${detail}`
+      return [...prev, { id: nextId(), role: 'tool', text }]
+    }
     default:
       return null
   }

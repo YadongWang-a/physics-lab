@@ -1,7 +1,7 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { existsSync, mkdirSync, mkdtempSync, renameSync, watch, writeFileSync, type FSWatcher } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, renameSync, watch, writeFileSync, type FSWatcher } from 'node:fs'
 import { createPhysicsSession } from './agent/agent-runner'
 import { loadEnvFile } from '../shared/load-env'
 import { isInsufficientBalance } from '../shared/balance'
@@ -10,8 +10,15 @@ import { WorkspaceManager } from './workspace/workspace-manager'
 import { SettingsStore } from './workspace/app-settings'
 import { seedLibIntoWorkspace } from './workspace/lib-seed'
 import { SessionHost } from './agent/session-host'
+import { DemoChecker } from './agent/check-demo/runtime-check'
+import { runChecks } from './agent/check-demo/run-checks'
 
 loadEnvFile()
+
+// check_demo 冒烟：隐藏窗口 canvas 2D 在部分 GPU 环境拿不到 context → 软渲染（教学应用软渲染也更稳）
+if (process.argv.includes('--smoke-checkdemo')) {
+  app.disableHardwareAcceleration()
+}
 
 let currentWs: WorkspaceManager | null = null
 let settings: SettingsStore | null = null
@@ -91,11 +98,16 @@ function registerWorkspaceIpc(): void {
   ipcMain.handle('chat:send', async (event, file: string | null, text: string) => {
     if (!currentWs) throw new Error('尚未选择工作目录')
     const host = ensureSessionHost()
+    if (file) stoppedKeys.delete(file)
     const { key } = await host.getSession(currentWs.dirname, file, (e) => {
       broadcast('chat:event', { file: key, event: e })
-      // 新会话生成完成 → 绑定 HTML 并刷新列表
-      if (!file && (e as { type?: string }).type === 'agent_settled') {
-        finalizeNewSession(`${key}.jsonl`)
+      if ((e as { type?: string }).type !== 'agent_settled') return
+      // 新会话：先绑定生成的新 HTML，再自动自检
+      if (!file) {
+        const created = finalizeNewSession(`${key}.jsonl`)
+        if (created) void autoCheckDemo(host, currentWs!.dirname, created, key)
+      } else {
+        void autoCheckDemo(host, currentWs!.dirname, file, key)
       }
     })
     host.prompt(key, text).catch((err: unknown) => {
@@ -108,6 +120,7 @@ function registerWorkspaceIpc(): void {
   })
 
   ipcMain.handle('chat:abort', async (_event, file: string) => {
+    stoppedKeys.add(file)
     await sessionHost?.abort(file)
     return { ok: true }
   })
@@ -125,17 +138,47 @@ function ensureSessionHost(): SessionHost {
   return sessionHost
 }
 
+// 自动自检兑底：不依赖模型自觉调用 check_demo；settled 后应用层检查 + 失败注入修复
+let autoChecker: DemoChecker | null = null
+const autoChecking = new Set<string>()
+/** 用户停止过的会话：不再自动注入修复（下次用户发送时解除） */
+const stoppedKeys = new Set<string>()
+
+async function autoCheckDemo(
+  host: SessionHost,
+  wsDir: string,
+  file: string,
+  key: string
+): Promise<void> {
+  if (autoChecking.has(key)) return
+  if (!autoChecker) autoChecker = new DemoChecker()
+  const result = await runChecks(wsDir, file, autoChecker)
+  broadcast('chat:event', { file: key, event: { type: 'check_demo_result', result } })
+  if (result.ok || stoppedKeys.has(key)) return
+  // 失败 → 注入修复指令；修复后 settled 会再次触发本流程（用户点停止可逃出）
+  autoChecking.add(key)
+  try {
+    const summary = result.issues.map((i) => `[${i.code}] ${i.message}`).join('\n')
+    await host.prompt(
+      key,
+      `【自动自检未通过】check_demo 返回：\n${summary}\n请修复这些问题（重新生成或编辑 HTML），并调用 check_demo 验证直到通过。`
+    )
+  } finally {
+    autoChecking.delete(key)
+  }
+}
+
 /**
  * 新会话生成完成后：扫描识别新 HTML，把临时会话文件（_new-<ts>.jsonl）
  * 重命名为 <新html>.jsonl（与清单约定一致），并通知渲染层刷新列表。
  */
-function finalizeNewSession(pendingSessionFile: string): void {
-  if (!currentWs) return
+function finalizeNewSession(pendingSessionFile: string): string | null {
+  if (!currentWs) return null
   const before = new Set(currentWs.list().map((d) => d.file))
   currentWs.scan()
   const after = currentWs.list().map((d) => d.file)
   const created = after.filter((f) => !before.has(f))
-  if (created.length !== 1) return
+  if (created.length !== 1) return null
   const stem = created[0]!.replace(/\.html$/i, '')
   const oldPath = join(currentWs.dirname, '.pi-sessions', pendingSessionFile)
   const newPath = join(currentWs.dirname, '.pi-sessions', `${stem}.jsonl`)
@@ -143,6 +186,7 @@ function finalizeNewSession(pendingSessionFile: string): void {
     renameSync(oldPath, newPath)
   }
   broadcast('workspace:changed', {})
+  return created[0]!
 }
 
 function createWindow(): void {
@@ -273,6 +317,34 @@ async function smokeWorkspace(): Promise<void> {
   app.exit(state.count === 1 && state.dirShown && state.webview ? 0 : 1)
 }
 
+/**
+ * check_demo 冒烟（ticket 04 验收）：
+ *   electron-vite dev -- --smoke-checkdemo
+ * 对 resources/demos/ 的真实演示跑完整 check_demo（静态 + 运行时断言）。
+ */
+async function smokeCheckDemo(): Promise<void> {
+  const demoDir = join(app.getAppPath(), 'resources', 'demos')
+  // 旧版像素系 demo（CLAUDE.md 注明）非新模板体系产物，运行时断言不适用（静态检查仍全过）
+  const legacy: Record<string, true> = {
+    'arc-projectile.html': true,
+    'ball-spring.html': true,
+    'isochronous-circle.html': true
+  }
+  const files = readdirSync(demoDir).filter(
+    (f) => f.toLowerCase().endsWith('.html') && !legacy[f]
+  )
+  const checker = new DemoChecker()
+  let passed = 0
+  for (const file of files) {
+    const result = await runChecks(demoDir, file, checker)
+    console.log(`[smoke-checkdemo] ${file} ${result.ok ? 'PASS' : 'FAIL'} ${JSON.stringify(result.issues)}`)
+    if (result.ok) passed++
+  }
+  checker.destroy()
+  console.log(`[smoke-checkdemo] ${passed}/${files.length} passed`)
+  app.exit(passed === files.length ? 0 : 1)
+}
+
 app.whenReady().then(async () => {
   // 冒烟模式隔离 userData：不污染真实 settings.json（恢复上次工作目录）
   if (process.argv.some((a) => a.startsWith('--smoke'))) {
@@ -302,6 +374,13 @@ app.whenReady().then(async () => {
   if (process.argv.includes('--smoke-workspace')) {
     await smokeWorkspace().catch((err) => {
       console.error('[smoke-workspace] FAIL', err)
+      app.exit(1)
+    })
+    return
+  }
+  if (process.argv.includes('--smoke-checkdemo')) {
+    await smokeCheckDemo().catch((err) => {
+      console.error('[smoke-checkdemo] FAIL', err)
       app.exit(1)
     })
     return

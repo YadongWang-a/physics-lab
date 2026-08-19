@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createPhysicsSession, SKILL_SYSTEM_PROMPT } from '../src/main/agent/agent-runner'
 import { seedLibIntoWorkspace } from '../src/main/workspace/lib-seed'
+import { collectIssues, idCrossCheck, skeletonCheck, syntaxCheck } from '../src/main/agent/check-demo/static-check'
 
 /**
  * ticket 03：skill 默认加载 + lib 预置 + 端到端生成。
@@ -84,5 +85,12 @@ describe.skipIf(!hasKey)('端到端：物理题 → skill 流程生成演示（�
     expect(demo).toMatch(/^[a-z0-9]+(?:-[a-z0-9]+)*\.html$/) // kebab 命名
     const content = readFileSync(join(dirs.cwd, demo), 'utf8')
     expect(content).toMatch(/src=["']lib\/common\.js["']/) // 引用 lib（离线可运行）
+    // 自检保证（应用层兜底等价验证）：生成文件必须通过 check_demo 静态检查
+    const result = collectIssues([
+      ...syntaxCheck(content),
+      ...idCrossCheck(content),
+      ...skeletonCheck(content)
+    ])
+    expect(result.issues.filter((i) => i.level === 'error')).toEqual([])
   }, 600_000)
 })
