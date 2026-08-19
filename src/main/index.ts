@@ -3,6 +3,9 @@ import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, renameSync, watch, writeFileSync, type FSWatcher } from 'node:fs'
 import { createPhysicsSession } from './agent/agent-runner'
+import { ModelRegistry, ModelRuntime } from '@earendil-works/pi-coding-agent'
+import { applySlotToRuntime, listProviderModels } from './agent/provider-config'
+import type { ModelSlotConfig, SaveSettingsPayload, SettingsView } from '../shared/settings-types'
 import { loadEnvFile } from '../shared/load-env'
 import { isInsufficientBalance } from '../shared/balance'
 import type { WorkspaceSnapshot } from '../shared/ipc-types'
@@ -129,6 +132,76 @@ function registerWorkspaceIpc(): void {
     if (!currentWs) return []
     return ensureSessionHost().history(file, currentWs.dirname)
   })
+}
+
+// ---- settings：双槽位模型配置（ticket 05） ----
+/** 渲染层视图：剥离明文 Key，只带 hasApiKey 状态 */
+function settingsView(): SettingsView {
+  const s = settings?.load() ?? {}
+  return {
+    main: s.main ? { ...s.main, hasApiKey: Boolean(s.main.apiKey) } : null,
+    vision: s.vision ? { ...s.vision, hasApiKey: Boolean(s.vision.apiKey) } : null
+  }
+}
+
+function registerSettingsIpc(): void {
+  ipcMain.handle('settings:get', () => settingsView())
+
+  ipcMain.handle('settings:save', (_event, payload: SaveSettingsPayload) => {
+    if (!settings) throw new Error('设置未初始化')
+    const current = settings.load()
+    const main: ModelSlotConfig | undefined = payload.main ?? current.main
+    // 明文 Key 走独立字段（渲染层不回显）；省略/空串 = 保持原样
+    if (main && payload.mainApiKey) main.apiKey = payload.mainApiKey
+    const vision: ModelSlotConfig | undefined =
+      payload.vision === null ? undefined : (payload.vision ?? current.vision)
+    if (vision && payload.visionApiKey) vision.apiKey = payload.visionApiKey
+    settings.save({ workspaceDir: current.workspaceDir, main, vision })
+    // 配置变化 → 旧会话（旧模型/旧 Key）全部释放；下次消息按新配置重建，历史从磁盘恢复
+    sessionHost?.releaseAll()
+    broadcast('settings:changed', {})
+    return settingsView()
+  })
+
+  /** 内置供应商模型列表（动态获取；custom 由用户在 UI 手动填模型名） */
+  ipcMain.handle('settings:models', async (_event, provider: string) => {
+    const runtime = await ModelRuntime.create({
+      authPath: join(app.getPath('userData'), 'agent', 'auth.json'),
+      refreshOnCreate: false
+    })
+    const registry = new ModelRegistry(runtime)
+    await registry.refresh()
+    return listProviderModels(runtime, provider)
+  })
+
+  /** 用给定配置发一次最小请求，验证 Key/端点可用 */
+  ipcMain.handle('settings:test', async (_event, payload: { slot: ModelSlotConfig }) => {
+    return testSlotConnection(payload.slot)
+  })
+}
+
+/** settings:test 与冒烟共用：注册槽位 → 发最小 complete → 返回 ok/error */
+async function testSlotConnection(slot: ModelSlotConfig): Promise<{ ok: boolean; error?: string }> {
+  const runtime = await ModelRuntime.create({
+    authPath: join(app.getPath('userData'), 'agent', 'auth.json'),
+    refreshOnCreate: false
+  })
+  try {
+    await applySlotToRuntime(runtime, slot)
+    await runtime.refresh()
+    const model = runtime.getModel(slot.provider, slot.modelId)
+    if (!model) {
+      return { ok: false, error: `模型不存在：${slot.provider}/${slot.modelId}` }
+    }
+    await runtime.complete(
+      model,
+      { messages: [{ role: 'user', content: '只回复一个字：好', timestamp: Date.now() }] },
+      { signal: AbortSignal.timeout(30000) }
+    )
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) }
+  }
 }
 
 function ensureSessionHost(): SessionHost {
@@ -311,10 +384,23 @@ async function smokeWorkspace(): Promise<void> {
     if (state.count === 1 && state.dirShown && state.webview) break
     await delay(500)
   }
-  console.log(
-    `[smoke-workspace] demo items=${state.count}; dir shown=${state.dirShown}; webview=${state.webview}`
+  // 设置弹窗（ticket 05）：点齿轮 → 断言双槽位表单渲染
+  await win.webContents.executeJavaScript(`document.querySelector('button[title="模型设置"]').click()`)
+  await delay(600)
+  const settingsUi = await win.webContents.executeJavaScript(
+    `(() => ({
+      modal: !!document.querySelector('div[style*="z-index: 100"]'),
+      providerSelects: document.querySelectorAll('select').length,
+      keyInputs: document.querySelectorAll('input[type="password"]').length,
+      testBtn: [...document.querySelectorAll('button')].some((b) => b.textContent?.includes('测试连接'))
+    }))()`
   )
-  app.exit(state.count === 1 && state.dirShown && state.webview ? 0 : 1)
+  console.log(
+    `[smoke-workspace] demo items=${state.count}; dir shown=${state.dirShown}; webview=${state.webview}; settings modal=${settingsUi.modal}`
+  )
+  const ok =
+    state.count === 1 && state.dirShown && state.webview && settingsUi.modal && settingsUi.providerSelects >= 2 && settingsUi.testBtn
+  app.exit(ok ? 0 : 1)
 }
 
 /**
@@ -345,6 +431,47 @@ async function smokeCheckDemo(): Promise<void> {
   app.exit(passed === files.length ? 0 : 1)
 }
 
+/**
+ * 设置冒烟（ticket 05 验收）：
+ *   electron-vite dev -- --smoke-settings
+ * ① 加密存取往返（明文不落盘）② 模型列表动态获取 ③ 真实 Key 最小 complete（无 Key 则 SKIP）。
+ */
+async function smokeSettings(): Promise<void> {
+  const store = SettingsStore.at(app.getPath('userData'))
+  const probeKey = process.env.OPENCODE_API_KEY ?? 'sk-roundtrip-probe'
+  store.save({ main: { provider: 'opencode-go', modelId: 'deepseek-v4-flash', apiKey: probeKey } })
+  const loaded = store.load()
+  const roundtrip = loaded.main?.apiKey === probeKey
+  console.log(`[smoke-settings] encrypted roundtrip=${roundtrip}`)
+
+  const runtime = await ModelRuntime.create({
+    authPath: join(app.getPath('userData'), 'agent', 'auth.json'),
+    refreshOnCreate: false
+  })
+  const registry = new ModelRegistry(runtime)
+  await registry.refresh()
+  const models = listProviderModels(runtime, 'opencode-go')
+  console.log(`[smoke-settings] models count=${models.length}`)
+  if (models.length === 0 || !roundtrip) {
+    console.log('[smoke-settings] FAIL')
+    app.exit(1)
+    return
+  }
+
+  if (!process.env.OPENCODE_API_KEY) {
+    console.log('[smoke-settings] SKIP (无 OPENCODE_API_KEY)')
+    app.exit(0)
+    return
+  }
+  const test = await testSlotConnection({
+    provider: 'opencode-go',
+    modelId: 'deepseek-v4-flash',
+    apiKey: process.env.OPENCODE_API_KEY
+  })
+  console.log(`[smoke-settings] complete ${test.ok ? 'OK' : 'FAIL: ' + (test.error ?? '')}`)
+  app.exit(test.ok ? 0 : 1)
+}
+
 app.whenReady().then(async () => {
   // 冒烟模式隔离 userData：不污染真实 settings.json（恢复上次工作目录）
   if (process.argv.some((a) => a.startsWith('--smoke'))) {
@@ -353,9 +480,11 @@ app.whenReady().then(async () => {
   settings = SettingsStore.at(app.getPath('userData'))
   sessionHost = new SessionHost({
     agentDir: join(app.getPath('userData'), 'agent'),
-    skillDir: skillDir()
+    skillDir: skillDir(),
+    getMainSlot: () => settings?.load().main
   })
   registerWorkspaceIpc()
+  registerSettingsIpc()
 
   if (process.argv.includes('--smoke-agent')) {
     await smokeAgent().catch((err) => {
@@ -381,6 +510,13 @@ app.whenReady().then(async () => {
   if (process.argv.includes('--smoke-checkdemo')) {
     await smokeCheckDemo().catch((err) => {
       console.error('[smoke-checkdemo] FAIL', err)
+      app.exit(1)
+    })
+    return
+  }
+  if (process.argv.includes('--smoke-settings')) {
+    await smokeSettings().catch((err) => {
+      console.error('[smoke-settings] FAIL', err)
       app.exit(1)
     })
     return

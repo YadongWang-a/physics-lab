@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { ChatHistoryEntry, RendererApi, WorkspaceSnapshot } from '../shared/ipc-types'
+import type { ModelSlotConfig, SaveSettingsPayload, SettingsView } from '../shared/settings-types'
 
 const api: RendererApi = {
   ping: (): string => 'pong',
@@ -31,6 +32,19 @@ const api: RendererApi = {
       const listener = (): void => cb()
       ipcRenderer.on('workspace:changed', listener)
       return () => ipcRenderer.removeListener('workspace:changed', listener)
+    }
+  },
+  settings: {
+    get: (): Promise<SettingsView> => ipcRenderer.invoke('settings:get'),
+    save: (payload: SaveSettingsPayload): Promise<SettingsView> =>
+      ipcRenderer.invoke('settings:save', payload),
+    models: (provider: string): Promise<string[]> => ipcRenderer.invoke('settings:models', provider),
+    test: (slot: ModelSlotConfig): Promise<{ ok: boolean; error?: string }> =>
+      ipcRenderer.invoke('settings:test', { slot }),
+    onChanged: (cb) => {
+      const listener = (): void => cb()
+      ipcRenderer.on('settings:changed', listener)
+      return () => ipcRenderer.removeListener('settings:changed', listener)
     }
   }
 }

@@ -21,6 +21,8 @@ export interface ChatHistoryEntry {
   text: string
 }
 
+import type { ModelSlotConfig, SaveSettingsPayload, SettingsView } from './settings-types'
+
 /** preload 暴露给渲染层的 API 形状（contextBridge） */
 export interface RendererApi {
   ping: () => string
@@ -49,5 +51,17 @@ export interface RendererApi {
     onChanged: (cb: (payload: { file: string }) => void) => () => void
     /** 订阅工作目录清单变化（新演示生成等）；返回取消函数 */
     onWorkspaceChanged: (cb: () => void) => () => void
+  }
+  settings: {
+    /** 当前设置视图（不含明文 Key） */
+    get: () => Promise<SettingsView>
+    /** 保存双槽位配置（Key 独立传，空 = 保持原样）；保存后旧会话全部释放 */
+    save: (payload: SaveSettingsPayload) => Promise<SettingsView>
+    /** 内置供应商模型 id 列表（动态获取） */
+    models: (provider: string) => Promise<string[]>
+    /** 用给定槽位发一次最小请求验证 Key/端点 */
+    test: (slot: ModelSlotConfig) => Promise<{ ok: boolean; error?: string }>
+    /** 订阅设置变化（保存成功）；返回取消函数 */
+    onChanged: (cb: () => void) => () => void
   }
 }

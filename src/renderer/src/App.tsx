@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { DemoMeta, RendererApi, WorkspaceSnapshot } from '../../shared/ipc-types'
+import { SettingsModal } from './SettingsModal'
 
 declare global {
   interface Window {
@@ -45,7 +46,9 @@ const styles: Record<string, React.CSSProperties> = {
   previewHeader: { padding: '10px 14px', borderBottom: '1px solid #e2e5ea', fontSize: 13, fontWeight: 600 },
   previewBody: { flex: 1, position: 'relative' },
   hint: { fontSize: 12, color: '#9ca3af' },
-  picker: { padding: '18px 28px', fontSize: 15, border: '1px solid #c9d2dc', borderRadius: 8, background: '#fff', cursor: 'pointer' }
+  picker: { padding: '18px 28px', fontSize: 15, border: '1px solid #c9d2dc', borderRadius: 8, background: '#fff', cursor: 'pointer' },
+  banner: { background: '#fff7e6', borderBottom: '1px solid #ffd591', padding: '8px 14px', fontSize: 12, color: '#874d00', display: 'flex', gap: 10, alignItems: 'center' },
+  gearBtn: { border: 'none', background: 'transparent', color: '#4b5563', cursor: 'pointer', fontSize: 15, lineHeight: 1 }
 }
 
 /** 把单条 agent 事件应用为消息变更；返回新的消息列表（未变更返回 null） */
@@ -110,6 +113,9 @@ export function App(): React.JSX.Element {
   const [streaming, setStreaming] = useState(false)
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(true)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  /** 主模型槽位是否已配置 Key（未配置 → 顶部引导条） */
+  const [hasMainKey, setHasMainKey] = useState<boolean | null>(null)
   const msgId = useRef(0)
   const webviewRef = useRef<WebviewElement | null>(null)
   // 当前活跃会话 key：选中演示名，或未选中时新会话的 key（chat.send 返回）
@@ -167,10 +173,15 @@ export function App(): React.JSX.Element {
         }
       })
     })
+    const offSettings = window.api?.settings.onChanged(() => {
+      window.api?.settings.get().then((v) => setHasMainKey(Boolean(v.main?.hasApiKey)))
+    })
+    window.api?.settings.get().then((v) => setHasMainKey(Boolean(v.main?.hasApiKey)))
     return () => {
       offEvent?.()
       offPreview?.()
       offWorkspace?.()
+      offSettings?.()
     }
   }, [])
 
@@ -244,9 +255,22 @@ export function App(): React.JSX.Element {
 
   return (
     <div style={styles.layout}>
+      {hasMainKey === false && (
+        <div style={styles.banner}>
+          <span>尚未配置主模型 API Key，无法生成演示。</span>
+          <button style={{ ...styles.gearBtn, color: '#874d00', fontWeight: 600 }} onClick={() => setSettingsOpen(true)}>
+            去设置 →
+          </button>
+        </div>
+      )}
       <aside style={styles.sidebar}>
         <div style={styles.sidebarHeader}>
-          <strong style={{ fontSize: 13 }}>演示列表</strong>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <strong style={{ fontSize: 13 }}>演示列表</strong>
+            <button style={styles.gearBtn} title="模型设置" onClick={() => setSettingsOpen(true)}>
+              ⚙
+            </button>
+          </div>
           <div style={styles.dirPath}>{ws.dir}</div>
           <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
             <button onClick={() => window.api?.workspace.choose().then((s) => s && setWs(s))} style={{ fontSize: 12, cursor: 'pointer' }}>
@@ -351,6 +375,7 @@ export function App(): React.JSX.Element {
           )}
         </div>
       </section>
+      {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
     </div>
   )
 }

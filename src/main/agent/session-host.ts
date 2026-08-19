@@ -2,6 +2,7 @@ import { join } from 'node:path'
 import { existsSync } from 'node:fs'
 import { SessionManager } from '@earendil-works/pi-coding-agent'
 import { createPhysicsSession, SKILL_SYSTEM_PROMPT, type PhysicsSession } from './agent-runner'
+import type { ModelSlotConfig } from '../../shared/settings-types'
 import type { ChatHistoryEntry } from '../../shared/ipc-types'
 
 /**
@@ -13,6 +14,8 @@ import type { ChatHistoryEntry } from '../../shared/ipc-types'
 export interface SessionHostOptions {
   agentDir: string
   skillDir: string
+  /** 当前主模型槽位（每次建会话时读取，设置保存后新配置生效） */
+  getMainSlot: () => ModelSlotConfig | undefined
 }
 
 interface SessionEntry {
@@ -63,6 +66,7 @@ export class SessionHost {
       cwd: workspaceDir,
       sessionDir: join(workspaceDir, '.pi-sessions'),
       agentDir: this.opts.agentDir,
+      mainSlot: this.opts.getMainSlot(),
       sessionFile: `${key}.jsonl`,
       skillDir: this.opts.skillDir,
       systemPrompt: SKILL_SYSTEM_PROMPT
@@ -104,5 +108,13 @@ export class SessionHost {
   release(key: string): void {
     this.sessions.get(key)?.ps.dispose()
     this.sessions.delete(key)
+  }
+
+  /** 释放全部会话（设置保存后调用：旧模型配置失效，下次消息按新配置重建并从磁盘恢复历史） */
+  releaseAll(): void {
+    for (const [key, entry] of this.sessions) {
+      entry.ps.dispose()
+      this.sessions.delete(key)
+    }
   }
 }

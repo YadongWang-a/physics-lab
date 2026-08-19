@@ -9,6 +9,8 @@ import {
   type AgentSession
 } from '@earendil-works/pi-coding-agent'
 import { checkDemoTool } from './check-demo/tool'
+import { applySlotToRuntime } from './provider-config'
+import type { ModelSlotConfig } from '../../shared/settings-types'
 
 /**
  * SDK 层 seam：主进程与 Pi agent 的唯一集成点（ticket 01 最小版）。
@@ -33,6 +35,8 @@ export interface PhysicsAgentOptions {
   apiKey?: string
   /** 模型 id，默认 deepseek-v4-flash */
   modelId?: string
+  /** 主模型槽位配置（ticket 05 设置页）；存在时优先于 provider/apiKey/modelId */
+  mainSlot?: ModelSlotConfig
   /** 恢复既有会话时传入已打开的 SessionManager；缺省则新建 */
   sessionManager?: SessionManager
   /** 目标会话文件名（.pi-sessions/ 内）；缺省时用 Pi 默认命名（时间戳_uuid） */
@@ -83,6 +87,7 @@ export async function createPhysicsSession(options: PhysicsAgentOptions): Promis
     apiKey,
     provider = DEFAULT_PROVIDER,
     modelId = DEFAULT_MODEL,
+    mainSlot,
     sessionManager,
     skillDir,
     systemPrompt
@@ -93,17 +98,22 @@ export async function createPhysicsSession(options: PhysicsAgentOptions): Promis
   const modelRuntime = await ModelRuntime.create({
     authPath: join(agentDir, 'auth.json')
   })
-  const envVar = PROVIDER_ENV[provider]
-  const key = apiKey ?? (envVar ? process.env[envVar] : undefined) ?? process.env.DEEPSEEK_API_KEY
-  if (key) {
-    await modelRuntime.setRuntimeApiKey(provider, key)
+  // 设置页槽位优先；否则旧参数/环境变量（冒烟与测试路径）
+  const slot = mainSlot ?? { provider, modelId, apiKey }
+  await applySlotToRuntime(modelRuntime, slot)
+  // 环境变量兜底（槽位未带 Key 时）
+  if (!slot.apiKey) {
+    const envKey =
+      (PROVIDER_ENV[slot.provider] ? process.env[PROVIDER_ENV[slot.provider]!] : undefined) ??
+      process.env.DEEPSEEK_API_KEY
+    if (envKey) await modelRuntime.setRuntimeApiKey(slot.provider, envKey)
   }
 
   const registry = new ModelRegistry(modelRuntime)
   await registry.refresh()
-  const model = registry.find(provider, modelId)
+  const model = registry.find(slot.provider, slot.modelId)
   if (!model) {
-    throw new Error(`模型不存在: ${provider}/${modelId}`)
+    throw new Error(`模型不存在: ${slot.provider}/${slot.modelId}`)
   }
 
   // 只读注册 skill（ADR-0003：不修改 skill 内容）+ 系统提示常驻触发

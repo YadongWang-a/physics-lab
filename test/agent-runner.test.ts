@@ -74,6 +74,24 @@ describe.skipIf(!hasKey)('SDK 层：agent 会话（真实 Key）', () => {
     expect(types.some((t) => t === 'message')).toBe(true)
   })
 
+  it('mainSlot 配置生效：会话使用设置页指定的供应商/模型（ticket 05）', async (ctx) => {
+    const dirs = makeDirs()
+    const apiKey = process.env.OPENCODE_API_KEY ?? process.env.DEEPSEEK_API_KEY
+    if (!apiKey) ctx.skip()
+    const { session, dispose } = await createPhysicsSession({
+      ...dirs,
+      mainSlot: { provider: 'opencode-go', modelId: 'deepseek-v4-flash', apiKey }
+    })
+    await session.prompt('只回复两个字：你好')
+    skipOnInsufficientBalance(ctx, session.messages)
+
+    const last = session.messages[session.messages.length - 1]
+    const assistant = last as { role?: string; provider?: string } | undefined
+    expect(assistant?.role).toBe('assistant')
+    expect(assistant?.provider).toBe('opencode-go')
+    dispose()
+  })
+
   it('会话可恢复：恢复后保留历史并可继续对话', async (ctx) => {
     const dirs = makeDirs()
     const first = await createPhysicsSession(dirs)
