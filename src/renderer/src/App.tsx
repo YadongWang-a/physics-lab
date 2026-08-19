@@ -34,14 +34,24 @@ const styles: Record<string, React.CSSProperties> = {
   providerBadge: { display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 6, background: 'var(--pl-muted)', fontSize: 12 },
   dot: { width: 8, height: 8, borderRadius: '50%' },
   winBtn: { width: 36, height: 34, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: 'none', color: 'var(--pl-muted-foreground)', cursor: 'pointer', borderRadius: 6 },
-  // ---- 标签页栏 ----
-  tabbar: { height: 38, flexShrink: 0, display: 'flex', alignItems: 'flex-end', gap: 2, padding: '0 8px', borderBottom: '1px solid var(--pl-border)', background: 'var(--pl-card)', overflowX: 'auto' },
-  tab: { position: 'relative', height: 30, display: 'inline-flex', alignItems: 'center', gap: 6, padding: '0 6px 0 12px', fontSize: 13, color: 'var(--pl-muted-foreground)', border: '1px solid transparent', borderBottom: 'none', borderRadius: '7px 7px 0 0', cursor: 'pointer', background: 'transparent', maxWidth: 200, flexShrink: 0 },
-  tabActive: { color: 'var(--pl-foreground)', background: 'var(--pl-background)', borderColor: 'var(--pl-border)' },
-  tabBarTop: { position: 'absolute', left: -1, right: -1, top: -1, height: 2, background: 'var(--pl-primary)', borderRadius: '2px 2px 0 0' },
-  tabTitle: { flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-  tabClose: { border: 'none', background: 'transparent', color: 'var(--pl-muted-foreground)', cursor: 'pointer', fontSize: 13, borderRadius: 4, width: 20, height: 20, lineHeight: '20px', padding: 0 },
-  tabNew: { width: 28, height: 30, marginBottom: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--pl-muted-foreground)', borderRadius: '7px 7px 0 0', cursor: 'pointer', flexShrink: 0, border: 'none', background: 'transparent', fontSize: 16 },
+  // ---- 浏览窗口（工作空间演示列表，可收缩；标题栏 ☰ 呼出） ----
+  browse: { width: 208, minWidth: 208, display: 'flex', flexDirection: 'column', background: 'var(--pl-background)', borderRight: '1px solid var(--pl-line-soft, #edf1f6)', flexShrink: 0, transition: 'width 240ms ease, opacity 200ms ease, min-width 240ms ease' },
+  browseCollapsed: { width: 0, minWidth: 0, opacity: 0, overflow: 'hidden', borderRight: 'none' },
+  browseHead: { height: 40, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6, padding: '0 8px 0 14px' },
+  browseHeadTitle: { fontSize: 12, fontWeight: 600, flex: 1 },
+  browseHeadCount: { fontSize: 11, color: 'var(--pl-muted-foreground)', fontWeight: 400 },
+  browseHeadBtn: { width: 24, height: 24, border: 'none', background: 'transparent', color: 'var(--pl-muted-foreground)', borderRadius: 6, cursor: 'pointer', fontSize: 12, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' },
+  browseList: { flex: 1, overflowY: 'auto', padding: '2px 8px 12px', display: 'flex', flexDirection: 'column', gap: 2 },
+  browseItem: { display: 'flex', alignItems: 'center', gap: 9, padding: '7px 8px', borderRadius: 'var(--pl-radius-md)', cursor: 'pointer', userSelect: 'none', position: 'relative' },
+  browseItemHover: { background: 'var(--pl-card)' },
+  browseItemActive: { background: 'var(--pl-primary-soft, #e8f0fe)' },
+  browseThumb: { width: 34, height: 26, borderRadius: 5, background: 'var(--pl-card)', border: '1px solid var(--pl-border)', flexShrink: 0, position: 'relative', overflow: 'hidden' },
+  browseMeta: { flex: 1, minWidth: 0 },
+  browseTitle: { fontSize: 12, color: 'var(--pl-foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.4 },
+  browseTitleActive: { color: '#1d4ed8', fontWeight: 500 },
+  browseFile: { fontSize: 10, color: 'var(--pl-muted-foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.3 },
+  browseEmpty: { padding: '12px 14px', fontSize: 11, color: 'var(--pl-muted-foreground)', lineHeight: 1.6 },
+  browseDelete: { position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', width: 18, height: 18, border: 'none', background: 'var(--pl-muted)', color: 'var(--pl-muted-foreground)', borderRadius: 5, fontSize: 10, cursor: 'pointer', lineHeight: 1, display: 'none' },
   // ---- 工作台 ----
   workspace: { flex: 1, display: 'flex', overflow: 'hidden', position: 'relative' },
   chat: { width: 420, minWidth: 320, maxWidth: '50%', display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--pl-border)', background: 'var(--pl-background)', transition: 'width 240ms ease, opacity 200ms ease, min-width 240ms ease' },
@@ -159,6 +169,8 @@ export function App(): React.JSX.Element {
   const [presenting, setPresenting] = useState(false)
   /** 聊天面板折叠（参考 physics-lab-main 界面交互） */
   const [chatCollapsed, setChatCollapsed] = useState(false)
+  /** 浏览窗口（演示列表）折叠：收起后完全隐藏，标题栏 ☰ 呼出 */
+  const [browseCollapsed, setBrowseCollapsed] = useState(false)
   const msgId = useRef(0)
   const webviewRef = useRef<WebviewElement | null>(null)
   // 当前活跃会话 key：选中演示名，或未选中时新会话的 key（chat.send 返回）
@@ -345,6 +357,14 @@ export function App(): React.JSX.Element {
           <span style={styles.brandName}>物理演示生成器</span>
         </div>
         <div style={styles.titlebarRight} className="titlebar-no-drag">
+          <button
+            style={browseCollapsed ? styles.iconBtn : { ...styles.iconBtn, background: 'var(--pl-muted)', color: 'var(--pl-foreground)' }}
+            className="icon-btn"
+            title={browseCollapsed ? '显示演示列表' : '隐藏演示列表'}
+            onClick={() => setBrowseCollapsed((c) => !c)}
+          >
+            ☰ 演示
+          </button>
           <button style={styles.iconBtn} className="icon-btn" title="模型设置" onClick={() => setSettingsOpen(true)}>
             ⚙ 设置
           </button>
@@ -375,43 +395,56 @@ export function App(): React.JSX.Element {
       )}
 
       {/* 会话标签页栏 */}
-      {!presenting && (
-        <div style={styles.tabbar} className="no-scrollbar">
-          <button style={styles.tabNew} className="tab-new" title="新建演示" onClick={onNewTab}>
-            +
-          </button>
-          {ws.demos.map((d) => (
-            <div
-              key={d.file}
-              data-demo-item
-              style={selected === d.file ? { ...styles.tab, ...styles.tabActive } : styles.tab}
-              title={d.file}
-              onClick={() => selectDemo(d.file)}
-            >
-              {selected === d.file && <span style={styles.tabBarTop} />}
-              <span style={styles.tabTitle}>{d.title}</span>
-              <button
-                style={styles.tabClose}
-                className="tab-close"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  removeDemo(d)
-                }}
-              >
-                ✕
-              </button>
-            </div>
-          ))}
-          {ws.demos.length === 0 && (
-            <span style={{ ...styles.hint, alignSelf: 'center', padding: '0 10px 4px' }}>
-              还没有演示 — 在聊天区输入一道物理题开始生成
-            </span>
-          )}
-        </div>
-      )}
-
       {/* 工作台 */}
       <section style={styles.workspace}>
+        {/* 浏览窗口（工作空间演示列表，可收缩） */}
+        {!presenting && !browseCollapsed && (
+          <section style={styles.browse}>
+            <div style={styles.browseHead}>
+              <span style={styles.browseHeadTitle}>演示</span>
+              <span style={styles.browseHeadCount}>{ws.demos.length}</span>
+              <button style={styles.browseHeadBtn} title="刷新列表" onClick={refresh}>
+                ⟲
+              </button>
+              <button style={styles.browseHeadBtn} title="收起浏览" onClick={() => setBrowseCollapsed(true)}>
+                ◀
+              </button>
+            </div>
+            <div style={styles.browseList} className="no-scrollbar">
+              {ws.demos.length === 0 && (
+                <div style={styles.browseEmpty}>还没有演示 — 在聊天区输入一道物理题开始生成</div>
+              )}
+              {ws.demos.map((d) => (
+                <div
+                  key={d.file}
+                  data-demo-item
+                  style={selected === d.file ? { ...styles.browseItem, ...styles.browseItemActive } : styles.browseItem}
+                  title={d.file}
+                  onClick={() => selectDemo(d.file)}
+                >
+                  <div style={styles.browseThumb} />
+                  <div style={styles.browseMeta}>
+                    <div style={selected === d.file ? { ...styles.browseTitle, ...styles.browseTitleActive } : styles.browseTitle}>
+                      {d.title}
+                    </div>
+                    <div style={styles.browseFile}>{d.file}</div>
+                  </div>
+                  <button
+                    style={styles.browseDelete}
+                    title="删除演示"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      removeDemo(d)
+                    }}
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
         {!presenting && (
           <section style={chatCollapsed ? { ...styles.chat, ...styles.chatCollapsed } : styles.chat}>
             <div style={styles.chatBody}>

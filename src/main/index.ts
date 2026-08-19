@@ -526,8 +526,26 @@ async function smokeWorkspace(): Promise<void> {
       presentGone: ![...document.querySelectorAll('button')].some((b) => b.textContent?.includes('退出演示'))
     }))()`
   )
+  // 浏览窗口（v2.1）：☰ 演示 收起 → 完全隐藏；再点展开 → 恢复列表
+  await win.webContents.executeJavaScript(
+    `[...document.querySelectorAll('button')].find((b) => b.title === '隐藏演示列表')?.click()`
+  )
+  await delay(400)
+  const browseOff = await win.webContents.executeJavaScript(
+    `(() => ({
+      itemsGone: document.querySelectorAll('[data-demo-item]').length === 0,
+      toggleTitle: [...document.querySelectorAll('button')].find((b) => b.textContent?.includes('演示'))?.title ?? ''
+    }))()`
+  )
+  await win.webContents.executeJavaScript(
+    `[...document.querySelectorAll('button')].find((b) => b.title === '显示演示列表')?.click()`
+  )
+  await delay(400)
+  const browseOn = await win.webContents.executeJavaScript(
+    `document.querySelectorAll('[data-demo-item]').length`
+  )
   console.log(
-    `[smoke-workspace] demo items=${state.count}; dir shown=${state.dirShown}; webview=${state.webview}; settings modal=${settingsUi.modal}; paste hint=${pasteHint}; present on=${presentOn.stage && presentOn.exitBtn && presentOn.chatHidden}; present off=${presentOff.chatBack && presentOff.presentGone}; chrome=${chrome.titlebar && chrome.winControls && chrome.tabs === 1 && chrome.statusbar}`
+    `[smoke-workspace] demo items=${state.count}; dir shown=${state.dirShown}; webview=${state.webview}; settings modal=${settingsUi.modal}; paste hint=${pasteHint}; present on=${presentOn.stage && presentOn.exitBtn && presentOn.chatHidden}; present off=${presentOff.chatBack && presentOff.presentGone}; chrome=${chrome.titlebar && chrome.winControls && chrome.tabs === 1 && chrome.statusbar}; browse off=${browseOff.itemsGone}; browse on=${browseOn === 1}`
   )
   const ok =
     state.count === 1 &&
@@ -545,7 +563,9 @@ async function smokeWorkspace(): Promise<void> {
     chrome.titlebar &&
     chrome.winControls &&
     chrome.tabs === 1 &&
-    chrome.statusbar
+    chrome.statusbar &&
+    browseOff.itemsGone &&
+    browseOn === 1
   app.exit(ok ? 0 : 1)
 }
 
