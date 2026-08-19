@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>物理演示生成器 — 界面原型 v1</title>
+<style>
+/* ============================================================
+   原型 v1 — 清新明快（PhET 方向）· 精致化浅色 · 主色 #2563eb
+   结构保留现有：无框标题栏 / 标签页 / 工作台 / 预览舞台
+   去气泡聊天（Linear 风格）· 白卡浮浅灰舞台 · 去掉状态栏
+   ============================================================ */
+
+:root {
+  /* 色板（主色保留 #2563eb） */
+  --bg: #f1f5f9;            /* 舞台灰（比参考项目 #f8fafc 深一档，衬白卡） */
+  --bg-deep: #e8edf3;       /* 更深层背景（标签页底部） */
+  --card: #ffffff;
+  --ink: #0f172a;
+  --ink-2: #475569;
+  --ink-3: #94a3b8;
+  --primary: #2563eb;
+  --primary-soft: #e8f0fe;  /* user 消息/选中态浅蓝 */
+  --primary-deep: #1d4ed8;  /* hover 主色 */
+  --line: #e2e8f0;
+  --line-soft: #edf1f6;
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --error: #ef4444;
+
+  /* 圆角 */
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 14px;
+  --r-xl: 18px;
+
+  /* 阴影 */
+  --s-1: 0 1px 2px rgba(15,23,42,.05), 0 1px 1px rgba(15,23,42,.04);
+  --s-2: 0 6px 20px -6px rgba(15,23,42,.10);
+  --s-3: 0 24px 60px -20px rgba(15,23,42,.22);
+
+  /* 字体（系统栈，离线可靠） */
+  --font: "Segoe UI", "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+  --mono: "JetBrains Mono", "Cascadia Code", Consolas, monospace;
+
+  /* 排版阶梯 */
+  --fs-11: 11px;
+  --fs-12: 12px;
+  --fs-13: 13px;
+  --fs-14: 13.5px;
+  --fs-15: 15px;
+  --fs-16: 16px;
+  --lh: 1.6;
+
+  /* 间距 */
+  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 20px; --sp-6: 24px; --sp-7: 32px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  font-family: var(--font); color: var(--ink); background: var(--bg);
+  overflow: hidden; font-size: var(--fs-13); line-height: var(--lh);
+}
+button { font-family: inherit; }
+input, textarea, select { font-family: inherit; }
+
+/* ================= 原型查看器（非产品部分） ================= */
+.viewer {
+  position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 999;
+  display: flex; gap: 6px; align-items: center;
+  background: #0f172a; color: #cbd5e1; padding: 8px 12px; border-radius: 999px;
+  box-shadow: var(--s-3); font-size: 12px;
+}
+.viewer b { color: #fff; margin-right: 4px; }
+.viewer button {
+  border: 1px solid #334155; background: #1e293b; color: #e2e8f0;
+  border-radius: 999px; padding: 4px 12px; font-size: 12px; cursor: pointer;
+}
+.viewer button.on { background: var(--primary); border-color: var(--primary); color: #fff; }
+
+/* ================= 无框标题栏 ================= */
+.titlebar {
+  height: 46px; display: flex; align-items: center; justify-content: space-between;
+  padding: 0 10px 0 16px; background: var(--card);
+  -webkit-app-region: drag; user-select: none; position: relative; z-index: 20;
+}
+.brand { display: flex; align-items: center; gap: 10px; }
+.brand-logo {
+  width: 26px; height: 26px; border-radius: 7px; background: var(--primary);
+  color: #fff; display: flex; align-items: center; justify-content: center; font-size: 14px;
+}
+.brand-name { font-size: 14px; font-weight: 600; letter-spacing: -0.01em; }
+.titlebar-right { display: flex; align-items: center; gap: 6px; -webkit-app-region: no-drag; }
+.icon-btn {
+  display: inline-flex; align-items: center; gap: 6px; border: none; background: transparent;
+  color: var(--ink-2); padding: 6px 10px; border-radius: var(--r-sm); font-size: 13px; cursor: pointer;
+}
+.icon-btn:hover { background: var(--bg); color: var(--ink); }
+.badge {
+  display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px;
+  border-radius: 999px; background: var(--bg); font-size: 12px; color: var(--ink-2);
+}
+.badge .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--success); }
+.win-divider { width: 1px; height: 18px; background: var(--line); margin: 0 4px; }
+.win-btn {
+  width: 38px; height: 34px; border: none; background: transparent; color: var(--ink-3);
+  font-size: 13px; cursor: pointer; border-radius: var(--r-sm);
+}
+.win-btn:hover { background: var(--bg); color: var(--ink); }
+.win-btn.close:hover { background: var(--error); color: #fff; }
+
+/* ================= 浏览窗口（工作空间演示列表，可收缩） ================= */
+.browse {
+  width: 208px; min-width: 208px; display: flex; flex-direction: column;
+  background: var(--bg); border-right: 1px solid var(--line-soft);
+  transition: width .24s ease, opacity .2s ease, min-width .24s ease; flex-shrink: 0;
+}
+.browse.collapsed { width: 0; min-width: 0; opacity: 0; overflow: hidden; border-right: none; }
+.browse-head {
+  height: 40px; display: flex; align-items: center; gap: 6px;
+  padding: 0 8px 0 14px; flex-shrink: 0;
+}
+.browse-head .title { font-size: var(--fs-12); font-weight: 600; flex: 1; }
+.browse-head .count { font-size: var(--fs-11); color: var(--ink-3); font-weight: 400; }
+.browse-head button {
+  width: 24px; height: 24px; border: none; background: transparent; color: var(--ink-3);
+  border-radius: 6px; cursor: pointer; font-size: 12px; display: inline-flex; align-items: center; justify-content: center;
+}
+.browse-head button:hover { background: var(--bg-deep); color: var(--ink); }
+.browse-list { flex: 1; overflow-y: auto; padding: 2px 8px 12px; display: flex; flex-direction: column; gap: 2px; }
+.browse-item {
+  display: flex; align-items: center; gap: 9px; padding: 7px 8px;
+  border-radius: var(--r-md); cursor: pointer; user-select: none;
+}
+.browse-item:hover { background: var(--card); }
+.browse-item.active { background: var(--primary-soft); }
+.browse-thumb {
+  width: 34px; height: 26px; border-radius: 5px; background: var(--card);
+  border: 1px solid var(--line); flex-shrink: 0; position: relative; overflow: hidden;
+}
+.browse-item.active .browse-thumb { border-color: rgba(37,99,235,.3); }
+.browse-thumb .mini-ball {
+  position: absolute; left: 50%; bottom: 3px; transform: translateX(-50%);
+  width: 7px; height: 7px; border-radius: 50%; background: var(--primary); opacity: .8;
+}
+.browse-thumb .mini-line { position: absolute; left: 4px; right: 4px; bottom: 3px; height: 1px; background: var(--line); }
+.browse-item .meta { flex: 1; min-width: 0; }
+.browse-item .meta .t { font-size: var(--fs-12); color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.4; }
+.browse-item.active .meta .t { color: var(--primary-deep); font-weight: 500; }
+.browse-item .meta .f { font-size: var(--fs-10); color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.3; }
+.browse-empty { padding: 12px 14px; font-size: var(--fs-11); color: var(--ink-3); line-height: 1.6; }
+/* 收缩手柄条 */
+.browse-handle {
+  width: 14px; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+  cursor: pointer; color: var(--ink-3); font-size: 9px; background: transparent;
+  border-right: 1px solid var(--line-soft); transition: background .15s, color .15s;
+}
+.browse-handle:hover { background: var(--primary-soft); color: var(--primary); }
+
+/* ================= 工作台 ================= */
+.workspace { display: flex; height: calc(100vh - 46px); position: relative; }
+
+/* ---- 聊天面板（去气泡 Linear 风格）---- */
+.chat {
+  width: 400px; min-width: 320px; display: flex; flex-direction: column;
+  background: var(--bg); transition: width .24s ease, opacity .2s ease, min-width .24s ease;
+}
+.chat.collapsed { width: 0; min-width: 0; opacity: 0; overflow: hidden; }
+.chat-scroll { flex: 1; overflow-y: auto; padding: var(--sp-6) var(--sp-5); display: flex; flex-direction: column; gap: var(--sp-5); }
+.msg-user {
+  align-self: flex-end; background: var(--primary-soft); color: var(--ink);
+  padding: 9px 14px; border-radius: var(--r-lg) var(--r-lg) 4px var(--r-lg);
+  max-width: 88%; font-size: var(--fs-14); line-height: 1.6;
+}
+.msg-assistant { align-self: flex-start; max-width: 92%; }
+.msg-meta { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; font-size: var(--fs-11); color: var(--ink-3); }
+.msg-meta .avatar {
+  width: 18px; height: 18px; border-radius: 5px; background: var(--primary); color: #fff;
+  font-size: 10px; display: flex; align-items: center; justify-content: center; font-weight: 600;
+}
+.msg-meta .name { font-weight: 500; color: var(--ink-2); }
+.msg-text { font-size: var(--fs-14); line-height: 1.7; color: var(--ink); }
+.msg-assistant .msg-text p + p { margin-top: 8px; }
+.msg-assistant .msg-text .formula { font-family: var(--mono); font-size: 12.5px; background: var(--bg); border-radius: 6px; padding: 2px 6px; }
+.msg-tool {
+  align-self: flex-start; font-family: var(--mono); font-size: var(--fs-11);
+  color: var(--ink-3); display: flex; align-items: center; gap: 6px;
+}
+.msg-tool .spinner { width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--line); border-top-color: var(--primary); animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.msg-divider { align-self: center; width: 60%; height: 1px; background: var(--line-soft); margin: 2px 0; }
+
+/* 输入区 */
+.input-card {
+  margin: 0 var(--sp-4) var(--sp-4); border: 1px solid var(--line);
+  border-radius: var(--r-xl); background: var(--card); box-shadow: var(--s-1);
+}
+.input-card:focus-within { border-color: rgba(37,99,235,.4); box-shadow: 0 0 0 3px rgba(37,99,235,.08); }
+.input-card textarea {
+  width: 100%; border: none; outline: none; resize: none; background: transparent;
+  padding: 13px 15px 4px; font-size: var(--fs-14); line-height: 1.6; color: var(--ink);
+  max-height: 128px; font-family: inherit;
+}
+.input-card textarea::placeholder { color: var(--ink-3); }
+.input-foot { display: flex; align-items: center; justify-content: space-between; padding: 5px 9px 8px 15px; }
+.input-hint { font-size: var(--fs-11); color: var(--ink-3); }
+.btn-send {
+  width: 36px; height: 34px; border: none; border-radius: var(--r-md); background: var(--primary);
+  color: #fff; font-size: 15px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+}
+.btn-send:hover { background: var(--primary-deep); }
+.btn-send:disabled { opacity: .4; cursor: default; }
+.btn-stop {
+  border: 1px solid var(--line); background: var(--card); color: var(--error);
+  border-radius: var(--r-md); padding: 6px 14px; font-size: 12.5px; cursor: pointer;
+}
+.attach-row { display: flex; gap: 8px; padding: 0 var(--sp-4) var(--sp-2); flex-wrap: wrap; }
+.attach-thumb { position: relative; width: 58px; height: 58px; border: 1px solid var(--line); border-radius: var(--r-md); overflow: hidden; background: var(--bg); }
+.attach-thumb::after { content: "图"; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--ink-3); font-size: 12px; }
+.attach-x { position: absolute; top: 3px; right: 3px; width: 16px; height: 16px; border: none; border-radius: 50%; background: rgba(15,23,42,.55); color: #fff; font-size: 9px; cursor: pointer; line-height: 1; }
+
+/* 空态聊天 */
+.chat-welcome { padding: var(--sp-5) 0; }
+.chat-welcome .kicker { font-size: var(--fs-11); color: var(--primary); font-weight: 600; letter-spacing: .06em; margin-bottom: 6px; }
+.chat-welcome h2 { font-size: var(--fs-16); font-weight: 600; margin-bottom: 8px; letter-spacing: -0.01em; }
+.chat-welcome p { font-size: var(--fs-13); color: var(--ink-2); }
+.chat-welcome .examples { margin-top: 14px; display: flex; flex-direction: column; gap: 6px; }
+.chat-welcome .examples button {
+  text-align: left; border: 1px solid var(--line); background: var(--card); color: var(--ink-2);
+  border-radius: var(--r-md); padding: 9px 13px; font-size: 12.5px; cursor: pointer; transition: border-color .15s;
+}
+.chat-welcome .examples button:hover { border-color: rgba(37,99,235,.4); color: var(--ink); }
+
+/* ---- 预览舞台（白卡浮浅灰）---- */
+.preview { flex: 1; display: flex; flex-direction: column; background: var(--bg); min-width: 0; position: relative; }
+.preview-toolbar {
+  height: 40px; display: flex; align-items: center; gap: 10px; padding: 0 12px; flex-shrink: 0;
+}
+.btn-collapse {
+  width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--line);
+  background: var(--card); color: var(--ink-2); cursor: pointer; font-size: 10px;
+  display: flex; align-items: center; justify-content: center; box-shadow: var(--s-1);
+}
+.btn-collapse:hover { background: var(--bg-deep); color: var(--ink); }
+.preview-actions { margin-left: auto; display: flex; gap: 8px; }
+.preview-actions button {
+  border: 1px solid var(--line); background: var(--card); color: var(--ink-2);
+  border-radius: var(--r-md); padding: 5px 12px; font-size: 12.5px; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.preview-actions button:hover { color: var(--ink); border-color: var(--ink-3); }
+.preview-actions .primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+.preview-actions .primary:hover { background: var(--primary-deep); }
+.preview-stage { flex: 1; margin: 0 12px 12px; border-radius: var(--r-lg); background: var(--card); box-shadow: var(--s-1); position: relative; overflow: hidden; }
+
+/* 演示内容示意（弹簧振子 CSS 动画） */
+.demo-scene { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+.demo-scene .ground { position: absolute; left: 0; right: 0; bottom: 22%; height: 2px; background: var(--ink-3); opacity: .5; }
+.demo-scene .spring {
+  position: absolute; left: 50%; transform: translateX(-50%); top: 24%; height: 200px; width: 3px;
+  background: repeating-linear-gradient(to bottom, var(--ink-2) 0 8px, transparent 8px 14px);
+  animation: squeeze 1.6s ease-in-out infinite;
+}
+.demo-scene .ball {
+  position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(22% - 17px);
+  width: 34px; height: 34px; border-radius: 50%; background: radial-gradient(circle at 32% 28%, #60a5fa, #2563eb 60%, #1e40af);
+  box-shadow: 0 6px 14px rgba(37,99,235,.35); animation: bounce 1.6s ease-in-out infinite;
+}
+@keyframes squeeze { 0%,100% { transform: translateX(-50%) scaleY(1); } 50% { transform: translateX(-50%) scaleY(.72); } }
+@keyframes bounce { 0%,100% { bottom: calc(22% - 17px); } 50% { bottom: calc(22% + 46px); } }
+.demo-scene .lbl {
+  position: absolute; top: 14px; left: 16px; font-size: var(--fs-11); color: var(--ink-3);
+  font-family: var(--mono); background: var(--bg); border-radius: 6px; padding: 3px 8px;
+}
+.demo-scene .hud { position: absolute; bottom: 14px; left: 16px; display: flex; gap: 8px; }
+.demo-scene .hud span { font-size: var(--fs-11); font-family: var(--mono); color: var(--ink-2); background: var(--bg); border-radius: 6px; padding: 3px 8px; }
+
+/* 预览空态 */
+.preview-empty { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; }
+.preview-empty .big {
+  width: 64px; height: 64px; border-radius: 50%; background: var(--primary-soft);
+  display: flex; align-items: center; justify-content: center; font-size: 26px; color: var(--primary); margin-bottom: 8px;
+}
+.preview-empty h3 { font-size: var(--fs-15); font-weight: 600; }
+.preview-empty p { font-size: var(--fs-13); color: var(--ink-2); }
+
+/* ---- 设置遮罩 ---- */
+.setup-mask {
+  position: fixed; inset: 0; z-index: 60; background: rgba(15,23,42,.45);
+  backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center;
+}
+.setup-mask.show { display: flex; }
+.setup-card {
+  width: 560px; max-width: 92%; max-height: 86vh; overflow-y: auto;
+  background: var(--card); border-radius: var(--r-lg); box-shadow: var(--s-3);
+  padding: 24px; border: 1px solid var(--line);
+}
+.setup-head { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
+.setup-head .brand-logo { width: 30px; height: 30px; font-size: 15px; }
+.setup-head h3 { font-size: var(--fs-16); font-weight: 600; }
+.setup-sub { font-size: var(--fs-12); color: var(--ink-2); margin-bottom: 20px; line-height: 1.7; }
+.slot-card { border: 1px solid var(--line); border-radius: var(--r-md); padding: 16px; margin-bottom: 14px; background: var(--bg); }
+.slot-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.slot-head h4 { font-size: var(--fs-13); font-weight: 600; }
+.slot-toggle {
+  border: 1px solid var(--line); background: var(--card); color: var(--ink-2);
+  border-radius: 999px; padding: 4px 12px; font-size: var(--fs-11); cursor: pointer;
+}
+.field { display: flex; align-items: center; gap: 8px; margin-bottom: 9px; }
+.field > label { width: 76px; flex-shrink: 0; font-size: var(--fs-12); color: var(--ink-2); }
+.field input, .field select {
+  flex: 1; border: 1px solid var(--line); border-radius: var(--r-sm); padding: 7px 10px;
+  font-size: var(--fs-12); background: var(--card); color: var(--ink); outline: none;
+}
+.field input:focus, .field select:focus { border-color: rgba(37,99,235,.5); box-shadow: 0 0 0 3px rgba(37,99,235,.08); }
+.btn-test {
+  border: 1px solid var(--line); background: var(--card); color: var(--ink-2);
+  border-radius: var(--r-sm); padding: 5px 12px; font-size: var(--fs-11); cursor: pointer;
+}
+.btn-test.ok { color: var(--success); }
+.setup-foot { display: flex; justify-content: flex-end; gap: 10px; margin-top: 6px; }
+.btn-ghost {
+  border: 1px solid var(--line); background: var(--card); color: var(--ink-2);
+  border-radius: var(--r-sm); padding: 8px 16px; font-size: var(--fs-13); cursor: pointer;
+}
+.btn-solid {
+  border: none; background: var(--primary); color: #fff; border-radius: var(--r-sm);
+  padding: 8px 20px; font-size: var(--fs-13); font-weight: 500; cursor: pointer;
+}
+.btn-solid:hover { background: var(--primary-deep); }
+
+/* 空工作台态（无标签页时） */
+.workspace.no-tabs .chat { border-right: none; }
+</style>
+</head>
+<body data-state="demo">
+
+<!-- ======== 无框标题栏 ======== -->
+<header class="titlebar">
+  <div class="brand">
+    <div class="brand-logo">⚗</div>
+    <span class="brand-name">物理演示生成器</span>
+  </div>
+  <div class="titlebar-right">
+    <button class="icon-btn">⚙ 设置</button>
+    <div class="badge"><span class="dot"></span>模型已配置</div>
+    <div class="win-divider"></div>
+    <button class="win-btn">─</button>
+    <button class="win-btn">□</button>
+    <button class="win-btn close">✕</button>
+  </div>
+</header>
+
+<!-- ======== 工作台 ======== -->
+<section class="workspace" id="workspace">
+
+  <!-- 浏览窗口（工作空间演示列表，可收缩） -->
+  <section class="browse" id="browse">
+    <div class="browse-head">
+      <span class="title">演示</span>
+      <span class="count">5</span>
+      <button title="刷新">⟲</button>
+      <button class="btn-browse-collapse" title="收起浏览">◀</button>
+    </div>
+    <div class="browse-list" id="browseList">
+      <div class="browse-item active">
+        <div class="browse-thumb"><div class="mini-line"></div><div class="mini-ball"></div></div>
+        <div class="meta"><div class="t">弹簧振子</div><div class="f">spring-oscillator.html</div></div>
+      </div>
+      <div class="browse-item">
+        <div class="browse-thumb"><div class="mini-line"></div><div class="mini-ball" style="left:30%"></div></div>
+        <div class="meta"><div class="t">平抛运动</div><div class="f">projectile-motion.html</div></div>
+      </div>
+      <div class="browse-item">
+        <div class="browse-thumb"><div class="mini-line"></div><div class="mini-ball" style="left:62%"></div></div>
+        <div class="meta"><div class="t">单摆</div><div class="f">simple-pendulum.html</div></div>
+      </div>
+      <div class="browse-item">
+        <div class="browse-thumb"><div class="mini-line"></div><div class="mini-ball" style="left:45%"></div></div>
+        <div class="meta"><div class="t">自由落体</div><div class="f">free-fall-ball.html</div></div>
+      </div>
+      <div class="browse-item">
+        <div class="browse-thumb"><div class="mini-line"></div><div class="mini-ball" style="left:20%"></div></div>
+        <div class="meta"><div class="t">弹性碰撞</div><div class="f">elastic-collision.html</div></div>
+      </div>
+    </div>
+    <div class="browse-empty" id="browseEmpty" style="display:none">还没有演示 — 生成后自动出现在这里</div>
+  </section>
+  <div class="browse-handle" id="browseHandle" title="展开浏览">▶</div>
+
+  <!-- 聊天面板 -->
+  <section class="chat" id="chat">
+    <div class="chat-scroll" id="chatScroll">
+      <!-- 空态欢迎 -->
+      <div class="chat-welcome" id="welcome">
+        <div class="kicker">物理演示生成器</div>
+        <h2>输入一道物理题，开始生成</h2>
+        <p>支持文字描述或粘贴题目照片。agent 会按流程推导、生成交互演示并自动自检。</p>
+        <div class="examples">
+          <button>一个小球从 5m 高处自由落体，求落地时间</button>
+          <button>两个小球弹性碰撞，质量 1:2</button>
+          <button>绳环从高处下落（物理过程，无需答案）</button>
+        </div>
+      </div>
+      <!-- 演示态消息 -->
+      <div class="msg-assistant" id="demoMsgs">
+        <div class="msg-meta"><span class="avatar">⚗</span><span class="name">物理助手</span><span>推导</span></div>
+        <div class="msg-text">
+          <p>小球自由落体，取 <span class="formula">g = 9.8 m/s²</span>。设下落高度 <span class="formula">h = 5 m</span>：</p>
+          <p>由 <span class="formula">h = ½gt²</span> 得 <span class="formula">t = √(2h/g) = √(2×5/9.8) ≈ 1.01 s</span></p>
+          <p>落地速度 <span class="formula">v = gt ≈ 9.9 m/s</span>。开始生成演示…</p>
+        </div>
+      </div>
+      <div class="msg-tool"><span class="spinner"></span>write 弹簧振子.html</div>
+      <div class="msg-tool">✓ check_demo 通过（静态 + 运行时）</div>
+      <div class="msg-divider"></div>
+      <div class="msg-user">把摩擦系数改成 0.2</div>
+      <div class="msg-assistant">
+        <div class="msg-meta"><span class="avatar">⚗</span><span class="name">物理助手</span><span>修改</span></div>
+        <div class="msg-text">
+          <p>已更新 <span class="formula">μ = 0.2</span>，重新自检通过。</p>
+        </div>
+      </div>
+      <div class="msg-divider"></div>
+      <div class="msg-user">再生成一个 3D 的平抛演示</div>
+    </div>
+
+    <div class="attach-row">
+      <div class="attach-thumb"><button class="attach-x">✕</button></div>
+    </div>
+
+    <div class="input-card">
+      <textarea rows="2" placeholder="输入物理题或修改要求（可粘贴题目图片）…"></textarea>
+      <div class="input-foot">
+        <span class="input-hint">Shift + Enter 换行</span>
+        <button class="btn-send" disabled>↑</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 预览舞台 -->
+  <section class="preview">
+    <div class="preview-toolbar">
+      <button class="btn-collapse" title="收起对话">◀</button>
+      <div class="preview-actions">
+        <button>⟳ 刷新</button>
+        <button class="primary">▶ 演示</button>
+      </div>
+    </div>
+    <div class="preview-stage">
+      <div class="preview-empty" id="previewEmpty">
+        <div class="big">▶</div>
+        <h3>演示生成后在此加载</h3>
+        <p>输入一道物理题，或从上方标签页选择已有演示</p>
+      </div>
+      <div class="demo-scene" id="demoScene">
+        <div class="lbl">m = 0.5 kg · k = 20 N/m</div>
+        <div class="ground"></div>
+        <div class="spring"></div>
+        <div class="ball"></div>
+        <div class="hud"><span>t = 1.24 s</span><span>v = 0.62 m/s</span></div>
+      </div>
+    </div>
+  </section>
+</section>
+
+<!-- ======== 设置遮罩 ======== -->
+<div class="setup-mask" id="setupMask">
+  <div class="setup-card">
+    <div class="setup-head">
+      <div class="brand-logo">⚗</div>
+      <h3>模型设置</h3>
+    </div>
+    <p class="setup-sub">API Key 经系统加密（DPAPI）保存，不会明文落盘；测试只发送一条最小请求。保存后当前会话将按新配置重建。<br>申请 Key：opencode（opencode.ai/account）或 DeepSeek（platform.deepseek.com）注册后创建。</p>
+
+    <div class="slot-card">
+      <div class="slot-head"><h4>主模型（生成演示）</h4></div>
+      <div class="field"><label>供应商</label><select><option>opencode-go（本机 opencode 网关）</option><option>DeepSeek</option><option>自定义 OpenAI 兼容端点</option></select></div>
+      <div class="field"><label>模型</label><select><option>deepseek-v4-flash</option><option>glm-5.x</option></select></div>
+      <div class="field"><label>API Key</label><input type="password" placeholder="已保存（留空保持不变）"></div>
+      <div class="field"><label></label><button class="btn-test ok">✓ 连接成功</button></div>
+    </div>
+
+    <div class="slot-card">
+      <div class="slot-head"><h4>视觉模型（识别题目照片，可选）</h4><button class="slot-toggle">不启用视觉模型</button></div>
+      <div class="field"><label>供应商</label><select><option>opencode-go（本机 opencode 网关）</option></select></div>
+      <div class="field"><label>模型</label><select><option>minimax-m3（视觉）</option></select></div>
+      <div class="field"><label>API Key</label><input type="password" placeholder="已保存（留空保持不变）"></div>
+      <div class="field"><label></label><button class="btn-test">测试连接</button></div>
+    </div>
+
+    <div class="setup-foot">
+      <button class="btn-ghost">取消</button>
+      <button class="btn-solid">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ======== 原型查看器 ======== -->
+<div class="viewer">
+  <b>原型 v1</b>
+  <button data-s="demo" class="on">有演示</button>
+  <button data-s="empty">空态</button>
+  <button data-s="fold">折叠</button>
+  <button data-s="setup">设置页</button>
+</div>
+
+<script>
+const btn = (s) => document.querySelector(`.viewer button[data-s="${s}"]`);
+const browseEl = document.getElementById('browse');
+const browseHandle = document.getElementById('browseHandle');
+const setBrowseCollapsed = (c) => {
+  browseEl.classList.toggle('collapsed', c);
+  browseHandle.style.display = c ? 'flex' : 'none';
+  browseHandle.textContent = c ? '▶' : '◀';
+  document.querySelector('.btn-browse-collapse').textContent = c ? '▶' : '◀';
+};
+const setState = (s) => {
+  document.body.dataset.state = s;
+  document.querySelectorAll('.viewer button').forEach(b => b.classList.toggle('on', b.dataset.s === s));
+  const ws = document.getElementById('workspace');
+  const chat = document.getElementById('chat');
+  const mask = document.getElementById('setupMask');
+  const welcome = document.getElementById('welcome');
+  const demoMsgs = document.getElementById('demoMsgs');
+  const emptyBig = document.getElementById('previewEmpty');
+  const demoScene = document.getElementById('demoScene');
+  const browseList = document.getElementById('browseList');
+  const browseEmpty = document.getElementById('browseEmpty');
+  const browseCount = document.querySelector('.browse-head .count');
+  chat.classList.toggle('collapsed', s === 'fold');
+  mask.classList.toggle('show', s === 'setup');
+  welcome.style.display = s === 'empty' ? '' : 'none';
+  demoMsgs.style.display = s === 'empty' ? 'none' : '';
+  emptyBig.style.display = s === 'empty' ? '' : 'none';
+  demoScene.style.display = s === 'empty' ? 'none' : '';
+  browseList.style.display = s === 'empty' ? 'none' : '';
+  browseEmpty.style.display = s === 'empty' ? '' : 'none';
+  browseCount.textContent = s === 'empty' ? '0' : '5';
+  // 折叠态：聊天按钮变 ▶
+  document.querySelector('.btn-collapse').textContent = s === 'fold' ? '▶' : '◀';
+};
+document.querySelectorAll('.viewer button').forEach(b =>
+  b.addEventListener('click', () => setState(b.dataset.s))
+);
+// 浏览窗口收缩/展开（手柄 + 头部按钮）
+setBrowseCollapsed(false);
+document.querySelector('.btn-browse-collapse').addEventListener('click', () => setBrowseCollapsed(!browseEl.classList.contains('collapsed')));
+browseHandle.addEventListener('click', () => setBrowseCollapsed(!browseEl.classList.contains('collapsed')));
+</script>
+</body>
+</html>
