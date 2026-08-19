@@ -114,9 +114,26 @@ input, textarea, select { font-family: inherit; }
 .browse {
   width: 208px; min-width: 208px; display: flex; flex-direction: column;
   background: var(--bg); border-right: 1px solid var(--line-soft);
-  transition: width .24s ease, opacity .2s ease, min-width .24s ease; flex-shrink: 0;
+  transition: width .24s ease; flex-shrink: 0; overflow: hidden;
 }
-.browse.collapsed { width: 0; min-width: 0; opacity: 0; overflow: hidden; border-right: none; }
+.browse.collapsed { width: 40px; min-width: 40px; }
+.browse.collapsed .browse-head, .browse.collapsed .browse-list { display: none; }
+/* 收起态窄图标栏（Activity Bar 风） */
+.browse-rail {
+  display: none; flex: 1; flex-direction: column; align-items: center;
+  padding-top: 10px; gap: 6px;
+}
+.browse.collapsed .browse-rail { display: flex; }
+.browse-rail .rail-btn {
+  width: 30px; height: 30px; border: none; background: transparent; color: var(--ink-3);
+  border-radius: var(--r-md); cursor: pointer; font-size: 15px;
+  display: flex; align-items: center; justify-content: center;
+}
+.browse-rail .rail-btn:hover { background: var(--primary-soft); color: var(--primary); }
+.browse-rail .rail-label {
+  writing-mode: vertical-rl; font-size: var(--fs-10); color: var(--ink-3);
+  letter-spacing: .2em; margin-top: 4px; user-select: none;
+}
 .browse-head {
   height: 40px; display: flex; align-items: center; gap: 6px;
   padding: 0 8px 0 14px; flex-shrink: 0;
@@ -381,6 +398,10 @@ input, textarea, select { font-family: inherit; }
       </div>
     </div>
     <div class="browse-empty" id="browseEmpty" style="display:none">还没有演示 — 生成后自动出现在这里</div>
+    <div class="browse-rail">
+      <button class="rail-btn" title="展开演示列表" id="railBtn">☰</button>
+      <span class="rail-label">演示</span>
+    </div>
   </section>
 
   <!-- 聊天面板 -->
@@ -506,7 +527,6 @@ const browseEl = document.getElementById('browse');
 const browseToggle = document.getElementById('btnBrowseToggle');
 const setBrowseCollapsed = (c) => {
   browseEl.classList.toggle('collapsed', c);
-  document.querySelector('.btn-browse-collapse').textContent = c ? '▶' : '◀';
   browseToggle.classList.toggle('on', !c);
   browseToggle.title = c ? '显示演示列表' : '隐藏演示列表';
 };
@@ -542,6 +562,7 @@ document.querySelectorAll('.viewer button').forEach(b =>
 setBrowseCollapsed(false);
 document.querySelector('.btn-browse-collapse').addEventListener('click', () => setBrowseCollapsed(!browseEl.classList.contains('collapsed')));
 browseToggle.addEventListener('click', () => setBrowseCollapsed(!browseEl.classList.contains('collapsed')));
+document.getElementById('railBtn').addEventListener('click', () => setBrowseCollapsed(false));
 </script>
 </body>
 </html>
