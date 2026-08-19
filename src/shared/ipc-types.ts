@@ -21,6 +21,12 @@ export interface ChatHistoryEntry {
   text: string
 }
 
+/** 聊天图片载荷（base64 数据，无 data: 前缀） */
+export interface ImagePayload {
+  data: string
+  mimeType: string
+}
+
 import type { ModelSlotConfig, SaveSettingsPayload, SettingsView } from './settings-types'
 
 /** preload 暴露给渲染层的 API 形状（contextBridge） */
@@ -37,8 +43,8 @@ export interface RendererApi {
     remove: (file: string) => Promise<WorkspaceSnapshot>
   }
   chat: {
-    /** 向某演示的 agent 会话发送消息；file 为 null 表示新会话。返回会话 key（事件匹配用） */
-    send: (file: string | null, text: string) => Promise<{ ok: boolean; key: string }>
+    /** 向某演示的 agent 会话发送消息；file 为 null 表示新会话；images 为聊天图片（OCR 路由）。返回会话 key */
+    send: (file: string | null, text: string, images?: ImagePayload[]) => Promise<{ ok: boolean; key: string }>
     /** 停止当前回合 */
     abort: (file: string) => Promise<{ ok: boolean }>
     /** 会话历史摘要（内存或磁盘恢复，切换演示时显示） */

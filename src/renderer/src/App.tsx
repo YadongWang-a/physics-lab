@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { DemoMeta, RendererApi, WorkspaceSnapshot } from '../../shared/ipc-types'
+import type { DemoMeta, ImagePayload, RendererApi, WorkspaceSnapshot } from '../../shared/ipc-types'
 import { SettingsModal } from './SettingsModal'
 
 declare global {
@@ -48,7 +48,11 @@ const styles: Record<string, React.CSSProperties> = {
   hint: { fontSize: 12, color: '#9ca3af' },
   picker: { padding: '18px 28px', fontSize: 15, border: '1px solid #c9d2dc', borderRadius: 8, background: '#fff', cursor: 'pointer' },
   banner: { background: '#fff7e6', borderBottom: '1px solid #ffd591', padding: '8px 14px', fontSize: 12, color: '#874d00', display: 'flex', gap: 10, alignItems: 'center' },
-  gearBtn: { border: 'none', background: 'transparent', color: '#4b5563', cursor: 'pointer', fontSize: 15, lineHeight: 1 }
+  gearBtn: { border: 'none', background: 'transparent', color: '#4b5563', cursor: 'pointer', fontSize: 15, lineHeight: 1 },
+  attachRow: { display: 'flex', gap: 8, padding: '0 12px', flexWrap: 'wrap' },
+  attachThumb: { position: 'relative', width: 64, height: 64, border: '1px solid #c9d2dc', borderRadius: 6, overflow: 'hidden' },
+  attachImg: { width: '100%', height: '100%', objectFit: 'cover' },
+  attachRemove: { position: 'absolute', top: 2, right: 2, border: 'none', background: 'rgba(0,0,0,0.55)', color: '#fff', borderRadius: 10, width: 16, height: 16, fontSize: 10, lineHeight: '14px', cursor: 'pointer', padding: 0 }
 }
 
 /** 把单条 agent 事件应用为消息变更；返回新的消息列表（未变更返回 null） */
@@ -101,6 +105,10 @@ function applyChatEvent(prev: ChatMessage[], e: unknown, nextId: () => number): 
       const text = ok ? '✅ 自检通过' : `❌ 自检未通过：${detail}`
       return [...prev, { id: nextId(), role: 'tool', text }]
     }
+    case 'ocr_note': {
+      const note = 'text' in ev && typeof ev.text === 'string' ? ev.text : ''
+      return note ? [...prev, { id: nextId(), role: 'tool', text: `📷 ${note}` }] : null
+    }
     default:
       return null
   }
@@ -116,6 +124,8 @@ export function App(): React.JSX.Element {
   const [settingsOpen, setSettingsOpen] = useState(false)
   /** 主模型槽位是否已配置 Key（未配置 → 顶部引导条） */
   const [hasMainKey, setHasMainKey] = useState<boolean | null>(null)
+  /** 待发送的聊天图片（粘贴） */
+  const [images, setImages] = useState<ImagePayload[]>([])
   const msgId = useRef(0)
   const webviewRef = useRef<WebviewElement | null>(null)
   // 当前活跃会话 key：选中演示名，或未选中时新会话的 key（chat.send 返回）
@@ -202,21 +212,33 @@ export function App(): React.JSX.Element {
     }
   }, [])
 
+  const appendImage = useCallback((file: File) => {
+    if (!file.type.startsWith('image/')) return
+    const reader = new FileReader()
+    reader.onload = () => {
+      const data = String(reader.result ?? '').replace(/^data:[^;]+;base64,/, '')
+      setImages((prev) => [...prev, { data, mimeType: file.type }])
+    }
+    reader.readAsDataURL(file)
+  }, [])
+
   const send = useCallback(async () => {
     const text = input.trim()
-    if (!text || streaming) return
+    if ((!text && images.length === 0) || streaming) return
     setInput('')
+    const payload = [...images]
+    setImages([])
     msgId.current += 1
-    setMessages((prev) => [...prev, { id: msgId.current, role: 'user', text }])
+    setMessages((prev) => [...prev, { id: msgId.current, role: 'user', text: text || '（图片）' }])
     setStreaming(true)
     try {
-      const { key } = await window.api!.chat.send(selected, text)
+      const { key } = await window.api!.chat.send(selected, text, payload)
       activeKeyRef.current = key
     } catch (err) {
       append({ role: 'error', text: `发送失败：${err instanceof Error ? err.message : String(err)}` })
       setStreaming(false)
     }
-  }, [input, selected, streaming, append])
+  }, [input, selected, streaming, append, images])
 
   const stop = useCallback(async () => {
     const key = activeKeyRef.current ?? selected
@@ -250,8 +272,8 @@ export function App(): React.JSX.Element {
   }
 
   const selectedDemo = ws.demos.find((d) => d.file === selected) ?? null
-  const canSend = !streaming && input.trim().length > 0
-  const inputPlaceholder = selectedDemo ? '输入物理题或修改要求…' : '输入物理题，生成一个新演示…'
+  const canSend = !streaming && (input.trim().length > 0 || images.length > 0)
+  const inputPlaceholder = selectedDemo ? '输入物理题或修改要求（可粘贴题目图片）…' : '输入物理题，生成一个新演示（可粘贴题目图片）…'
 
   return (
     <div style={styles.layout}>
@@ -338,6 +360,22 @@ export function App(): React.JSX.Element {
             </div>
           ))}
         </div>
+        {images.length > 0 && (
+          <div style={styles.attachRow}>
+            {images.map((img, idx) => (
+              <div key={idx} style={styles.attachThumb}>
+                <img src={`data:${img.mimeType};base64,${img.data}`} alt="" style={styles.attachImg} />
+                <button
+                  style={styles.attachRemove}
+                  title="移除图片"
+                  onClick={() => setImages((prev) => prev.filter((_, i) => i !== idx))}
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
         <div style={styles.chatInputRow}>
           <textarea
             style={styles.chatInput}
@@ -345,6 +383,10 @@ export function App(): React.JSX.Element {
             value={input}
             placeholder={inputPlaceholder}
             onChange={(e) => setInput(e.target.value)}
+            onPaste={(e) => {
+              const files = Array.from(e.clipboardData.files)
+              for (const f of files) appendImage(f)
+            }}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault()

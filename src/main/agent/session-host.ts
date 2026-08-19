@@ -1,6 +1,7 @@
 import { join } from 'node:path'
 import { existsSync } from 'node:fs'
 import { SessionManager } from '@earendil-works/pi-coding-agent'
+import type { ImageContent } from '@earendil-works/pi-ai'
 import { createPhysicsSession, SKILL_SYSTEM_PROMPT, type PhysicsSession } from './agent-runner'
 import type { ModelSlotConfig } from '../../shared/settings-types'
 import type { ChatHistoryEntry } from '../../shared/ipc-types'
@@ -76,10 +77,10 @@ export class SessionHost {
     return { key, ps }
   }
 
-  async prompt(key: string, text: string): Promise<void> {
+  async prompt(key: string, text: string, images?: ImageContent[]): Promise<void> {
     const entry = this.sessions.get(key)
     if (!entry) throw new Error(`会话未创建: ${key}`)
-    await entry.ps.session.prompt(text)
+    await entry.ps.session.prompt(text, { images })
   }
 
   async abort(key: string): Promise<void> {

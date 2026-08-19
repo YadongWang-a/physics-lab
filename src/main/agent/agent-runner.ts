@@ -71,6 +71,8 @@ export interface PhysicsSession {
   skills: string[]
   /** 实际注入的系统提示（验证 skill 常驻触发） */
   systemPrompt?: string
+  /** 主模型输入能力（'text' | 'image'[]）—— OCR 路由判定用 */
+  modelInput: readonly string[]
   /** 释放会话（停止 agent、清理订阅） */
   dispose(): void
 }
@@ -148,6 +150,7 @@ export async function createPhysicsSession(options: PhysicsAgentOptions): Promis
     session,
     skills,
     systemPrompt: resourceLoader.getSystemPrompt(),
+    modelInput: model.input,
     dispose: () => session.dispose()
   }
 }

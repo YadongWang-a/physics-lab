@@ -4,7 +4,9 @@ import { tmpdir } from 'node:os'
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, renameSync, watch, writeFileSync, type FSWatcher } from 'node:fs'
 import { createPhysicsSession } from './agent/agent-runner'
 import { ModelRegistry, ModelRuntime } from '@earendil-works/pi-coding-agent'
+import type { ImageContent } from '@earendil-works/pi-ai'
 import { applySlotToRuntime, listProviderModels } from './agent/provider-config'
+import { extractImageText, routeDecision, type ImagePayload } from './agent/vision-extract'
 import { toSlotView, type ModelSlotConfig, type SaveSettingsPayload, type SettingsView } from '../shared/settings-types'
 import { loadEnvFile } from '../shared/load-env'
 import { isInsufficientBalance } from '../shared/balance'
@@ -98,29 +100,71 @@ function registerWorkspaceIpc(): void {
   })
 
   // ---- chat：每演示一个 agent 会话，事件流经 chat:event 推送 ----
-  ipcMain.handle('chat:send', async (event, file: string | null, text: string) => {
-    if (!currentWs) throw new Error('尚未选择工作目录')
-    const host = ensureSessionHost()
-    if (file) stoppedKeys.delete(file)
-    const { key } = await host.getSession(currentWs.dirname, file, (e) => {
-      broadcast('chat:event', { file: key, event: e })
-      if ((e as { type?: string }).type !== 'agent_settled') return
-      // 新会话：先绑定生成的新 HTML，再自动自检
-      if (!file) {
-        const created = finalizeNewSession(`${key}.jsonl`)
-        if (created) void autoCheckDemo(host, currentWs!.dirname, created, key)
-      } else {
-        void autoCheckDemo(host, currentWs!.dirname, file, key)
-      }
-    })
-    host.prompt(key, text).catch((err: unknown) => {
-      broadcast('chat:event', {
-        file: key,
-        event: { type: 'chat_error', message: err instanceof Error ? err.message : String(err) }
+  ipcMain.handle(
+    'chat:send',
+    async (event, file: string | null, text: string, images?: ImagePayload[]) => {
+      if (!currentWs) throw new Error('尚未选择工作目录')
+      const host = ensureSessionHost()
+      if (file) stoppedKeys.delete(file)
+      const { key, ps } = await host.getSession(currentWs.dirname, file, (e) => {
+        broadcast('chat:event', { file: key, event: e })
+        if ((e as { type?: string }).type !== 'agent_settled') return
+        // 新会话：先绑定生成的新 HTML，再自动自检
+        if (!file) {
+          const created = finalizeNewSession(`${key}.jsonl`)
+          if (created) void autoCheckDemo(host, currentWs!.dirname, created, key)
+        } else {
+          void autoCheckDemo(host, currentWs!.dirname, file, key)
+        }
       })
-    })
-    return { ok: true, key }
-  })
+
+      // OCR 通道路由（ticket 06）：主模型视觉直通 / 视觉模型转文本 / 明确不可用
+      let promptText = text
+      let promptImages: ImageContent[] | undefined
+      if (images && images.length > 0) {
+        const s = settings?.load()
+        const kind = routeDecision(ps.modelInput, Boolean(s?.vision))
+        if (kind === 'direct') {
+          promptImages = images.map((i) => ({ type: 'image', data: i.data, mimeType: i.mimeType }))
+          broadcast('chat:event', { file: key, event: { type: 'ocr_note', text: `已发送 ${images.length} 张图片（主模型支持视觉，直通识别）` } })
+        } else if (kind === 'extract' && s?.vision) {
+          broadcast('chat:event', { file: key, event: { type: 'ocr_note', text: `正在用视觉模型识别 ${images.length} 张图片…` } })
+          try {
+            const extracted = await extractImageText({
+              authPath: join(app.getPath('userData'), 'agent', 'auth.json'),
+              slot: s.vision,
+              images
+            })
+            promptText = `${text}\n\n【题目图片内容（视觉模型识别）】\n${extracted}`
+            broadcast('chat:event', { file: key, event: { type: 'ocr_note', text: '图片已由视觉模型识别为文字，进入对话' } })
+          } catch (err) {
+            broadcast('chat:event', {
+              file: key,
+              event: {
+                type: 'chat_error',
+                message: `图片识别失败：${err instanceof Error ? err.message : String(err)}`
+              }
+            })
+            return { ok: false, key }
+          }
+        } else {
+          broadcast('chat:event', {
+            file: key,
+            event: { type: 'chat_error', message: '当前无法识别图片：主模型不支持视觉，且未配置视觉模型（请在设置中配置）' }
+          })
+          return { ok: false, key }
+        }
+      }
+
+      host.prompt(key, promptText, promptImages).catch((err: unknown) => {
+        broadcast('chat:event', {
+          file: key,
+          event: { type: 'chat_error', message: err instanceof Error ? err.message : String(err) }
+        })
+      })
+      return { ok: true, key }
+    }
+  )
 
   ipcMain.handle('chat:abort', async (_event, file: string) => {
     stoppedKeys.add(file)
@@ -395,11 +439,24 @@ async function smokeWorkspace(): Promise<void> {
       testBtn: [...document.querySelectorAll('button')].some((b) => b.textContent?.includes('测试连接'))
     }))()`
   )
+  // 聊天贴图入口（ticket 06）：占位符提示可粘贴图片
+  const pasteHint = await win.webContents.executeJavaScript(
+    `(() => {
+      const ta = document.querySelector('textarea')
+      return ta ? ta.placeholder.includes('图片') : false
+    })()`
+  )
   console.log(
-    `[smoke-workspace] demo items=${state.count}; dir shown=${state.dirShown}; webview=${state.webview}; settings modal=${settingsUi.modal}`
+    `[smoke-workspace] demo items=${state.count}; dir shown=${state.dirShown}; webview=${state.webview}; settings modal=${settingsUi.modal}; paste hint=${pasteHint}`
   )
   const ok =
-    state.count === 1 && state.dirShown && state.webview && settingsUi.modal && settingsUi.providerSelects >= 2 && settingsUi.testBtn
+    state.count === 1 &&
+    state.dirShown &&
+    state.webview &&
+    settingsUi.modal &&
+    settingsUi.providerSelects >= 2 &&
+    settingsUi.testBtn &&
+    pasteHint
   app.exit(ok ? 0 : 1)
 }
 
@@ -472,6 +529,46 @@ async function smokeSettings(): Promise<void> {
   app.exit(test.ok ? 0 : 1)
 }
 
+/**
+ * OCR 冒烟（ticket 06 验收）：
+ *   electron-vite dev -- --smoke-ocr
+ * 真实 Key：从 opencode-go 目录挑一个支持视觉的模型，用 1×1 PNG 走 extractImageText。
+ * 无 Key 则 SKIP；目录无视觉模型则 FAIL（配置问题）。
+ */
+async function smokeOcr(): Promise<void> {
+  const authPath = join(app.getPath('userData'), 'agent', 'auth.json')
+  if (!process.env.OPENCODE_API_KEY) {
+    console.log('[smoke-ocr] SKIP (无 OPENCODE_API_KEY)')
+    app.exit(0)
+    return
+  }
+  const runtime = await ModelRuntime.create({ authPath, refreshOnCreate: false })
+  await applySlotToRuntime(runtime, {
+    provider: 'opencode-go',
+    modelId: 'unused',
+    apiKey: process.env.OPENCODE_API_KEY
+  })
+  await runtime.refresh()
+  const visionModel = runtime.getModels('opencode-go').find((m) => m.input.includes('image'))
+  if (!visionModel) {
+    console.log('[smoke-ocr] FAIL (opencode-go 目录无视觉模型)')
+    app.exit(1)
+    return
+  }
+  // 1×1 透明 PNG（base64）
+  const png =
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='
+  const text = await extractImageText({
+    authPath,
+    slot: { provider: 'opencode-go', modelId: visionModel.id, apiKey: process.env.OPENCODE_API_KEY },
+    images: [{ data: png, mimeType: 'image/png' }]
+  })
+  const ok = text.trim().length > 0
+  console.log(`[smoke-ocr] vision model=${visionModel.id}; extracted=${JSON.stringify(text.slice(0, 80))}`)
+  console.log(`[smoke-ocr] ${ok ? 'PASS' : 'FAIL'}`)
+  app.exit(ok ? 0 : 1)
+}
+
 app.whenReady().then(async () => {
   // 冒烟模式隔离 userData：不污染真实 settings.json（恢复上次工作目录）
   if (process.argv.some((a) => a.startsWith('--smoke'))) {
@@ -517,6 +614,13 @@ app.whenReady().then(async () => {
   if (process.argv.includes('--smoke-settings')) {
     await smokeSettings().catch((err) => {
       console.error('[smoke-settings] FAIL', err)
+      app.exit(1)
+    })
+    return
+  }
+  if (process.argv.includes('--smoke-ocr')) {
+    await smokeOcr().catch((err) => {
+      console.error('[smoke-ocr] FAIL', err)
       app.exit(1)
     })
     return

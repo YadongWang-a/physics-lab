@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { ChatHistoryEntry, RendererApi, WorkspaceSnapshot } from '../shared/ipc-types'
+import type { ChatHistoryEntry, ImagePayload, RendererApi, WorkspaceSnapshot } from '../shared/ipc-types'
 import type { ModelSlotConfig, SaveSettingsPayload, SettingsView } from '../shared/settings-types'
 
 const api: RendererApi = {
@@ -12,8 +12,8 @@ const api: RendererApi = {
       ipcRenderer.invoke('workspace:remove', file)
   },
   chat: {
-    send: (file: string | null, text: string): Promise<{ ok: boolean; key: string }> =>
-      ipcRenderer.invoke('chat:send', file, text),
+    send: (file: string | null, text: string, images?: ImagePayload[]): Promise<{ ok: boolean; key: string }> =>
+      ipcRenderer.invoke('chat:send', file, text, images),
     abort: (file: string): Promise<{ ok: boolean }> => ipcRenderer.invoke('chat:abort', file),
     history: (file: string): Promise<ChatHistoryEntry[]> => ipcRenderer.invoke('chat:history', file),
     onEvent: (cb) => {
