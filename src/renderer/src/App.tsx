@@ -58,7 +58,7 @@ const styles: Record<string, React.CSSProperties> = {
   sendBtn: { border: 'none', background: 'var(--pl-primary)', color: 'var(--pl-primary-foreground)', borderRadius: 10, width: 36, height: 34, cursor: 'pointer', fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center' },
   sendBtnDisabled: { opacity: 0.45, cursor: 'default' },
   stopBtn: { border: '1px solid var(--pl-border)', background: 'var(--pl-card)', color: 'var(--pl-state-error)', borderRadius: 8, padding: '0 14px', cursor: 'pointer', fontSize: 12.5 },
-  chatToggle: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, borderRadius: 6, background: 'var(--pl-muted)', border: '1px solid var(--pl-border)', color: 'var(--pl-muted-foreground)', cursor: 'pointer', fontSize: 10 },
+  chatToggle: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: '50%', background: 'var(--pl-card)', border: '1px solid var(--pl-border)', color: 'var(--pl-muted-foreground)', cursor: 'pointer', fontSize: 11, boxShadow: 'var(--pl-shadow-2)', flexShrink: 0, padding: 0, lineHeight: 1 },
   // ---- 预览 ----
   preview: { flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--pl-background)', minWidth: 320 },
   previewHeader: { height: 40, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 14px', borderBottom: '1px solid var(--pl-border)', fontSize: 13, fontWeight: 600, background: 'var(--pl-card)' },
@@ -492,16 +492,7 @@ export function App(): React.JSX.Element {
           </section>
         )}
 
-        {/* 聊天收/展切换（previewHeader 内，避开 webview 命中区） */}
-        {!presenting && (
-          <button
-            style={styles.chatToggle}
-            title={chatCollapsed ? '展开对话' : '收起对话'}
-            onClick={() => setChatCollapsed((c) => !c)}
-          >
-            {chatCollapsed ? '▶' : '◀'}
-          </button>
-        )}
+        {/* 聊天收/展按钮在 previewHeader 内（webview 区域之外，保证可点） */}
 
         <section style={presenting ? styles.presentStage : styles.preview}>
           {presenting ? (
@@ -513,7 +504,17 @@ export function App(): React.JSX.Element {
             </div>
           ) : (
             <div style={styles.previewHeader}>
-              <span>{selectedDemo ? selectedDemo.title : '预览'}</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <button
+                  style={styles.chatToggle}
+                  className="icon-btn"
+                  title={chatCollapsed ? '展开对话' : '收起对话'}
+                  onClick={() => setChatCollapsed((c) => !c)}
+                >
+                  {chatCollapsed ? '▶' : '◀'}
+                </button>
+                <span>{selectedDemo ? selectedDemo.title : '预览'}</span>
+              </span>
               {selectedDemo && (
                 <button style={styles.presentBtn} onClick={enterPresent}>
                   演示
