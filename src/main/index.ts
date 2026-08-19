@@ -331,7 +331,25 @@ function createWindow(): void {
     }
   })
 
-  win.on('ready-to-show', () => win.show())
+  console.log(`[window] created; id=${win.id}`)
+  win.on('ready-to-show', () => {
+    console.log(`[window] ready-to-show → show`)
+    win.show()
+  })
+  // 兜底：ready-to-show 未触发（无框窗口偶发）时强制显示
+  win.webContents.on('did-finish-load', () => {
+    if (!win.isVisible()) {
+      console.log(`[window] did-finish-load 兜底 show（ready-to-show 未触发）`)
+      win.show()
+    }
+  })
+  win.on('show', () => console.log(`[window] shown`))
+  win.webContents.on('render-process-gone', (_e, details) => {
+    console.log(`[window] render-process-gone: ${details.reason}`)
+  })
+  win.webContents.on('console-message', (_e, _level, message) => {
+    console.log(`[renderer] ${message}`)
+  })
   win.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
     return { action: 'deny' }
