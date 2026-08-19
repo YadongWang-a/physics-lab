@@ -130,6 +130,7 @@ input, textarea, select { font-family: inherit; }
   display: flex; align-items: center; justify-content: center;
 }
 .browse-rail .rail-btn:hover { background: var(--primary-soft); color: var(--primary); }
+.browse-rail .rail-btn.on { background: var(--primary-soft); color: var(--primary); }
 .browse-rail .rail-label {
   writing-mode: vertical-rl; font-size: var(--fs-10); color: var(--ink-3);
   letter-spacing: .2em; margin-top: 4px; user-select: none;
@@ -400,6 +401,7 @@ input, textarea, select { font-family: inherit; }
     <div class="browse-empty" id="browseEmpty" style="display:none">还没有演示 — 生成后自动出现在这里</div>
     <div class="browse-rail">
       <button class="rail-btn" title="展开演示列表" id="railBtn">☰</button>
+      <button class="rail-btn" title="展开对话" id="railChatBtn">💬</button>
       <span class="rail-label">演示</span>
     </div>
   </section>
@@ -525,16 +527,22 @@ input, textarea, select { font-family: inherit; }
 const btn = (s) => document.querySelector(`.viewer button[data-s="${s}"]`);
 const browseEl = document.getElementById('browse');
 const browseToggle = document.getElementById('btnBrowseToggle');
+const chatEl = document.getElementById('chat');
 const setBrowseCollapsed = (c) => {
   browseEl.classList.toggle('collapsed', c);
   browseToggle.classList.toggle('on', !c);
   browseToggle.title = c ? '显示演示列表' : '隐藏演示列表';
+  document.getElementById('railBtn').classList.toggle('on', !c);
+};
+const setChatCollapsed2 = (c) => {
+  chatEl.classList.toggle('collapsed', c);
+  document.querySelector('.btn-collapse').textContent = c ? '▶' : '◀';
+  document.getElementById('railChatBtn').classList.toggle('on', !c);
 };
 const setState = (s) => {
   document.body.dataset.state = s;
   document.querySelectorAll('.viewer button').forEach(b => b.classList.toggle('on', b.dataset.s === s));
   const ws = document.getElementById('workspace');
-  const chat = document.getElementById('chat');
   const mask = document.getElementById('setupMask');
   const welcome = document.getElementById('welcome');
   const demoMsgs = document.getElementById('demoMsgs');
@@ -543,7 +551,7 @@ const setState = (s) => {
   const browseList = document.getElementById('browseList');
   const browseEmpty = document.getElementById('browseEmpty');
   const browseCount = document.querySelector('.browse-head .count');
-  chat.classList.toggle('collapsed', s === 'fold');
+  chatEl.classList.toggle('collapsed', s === 'fold');
   mask.classList.toggle('show', s === 'setup');
   welcome.style.display = s === 'empty' ? '' : 'none';
   demoMsgs.style.display = s === 'empty' ? 'none' : '';
@@ -552,17 +560,22 @@ const setState = (s) => {
   browseList.style.display = s === 'empty' ? 'none' : '';
   browseEmpty.style.display = s === 'empty' ? '' : 'none';
   browseCount.textContent = s === 'empty' ? '0' : '5';
-  // 折叠态：聊天按钮变 ▶
+  // 折叠态：聊天按钮变 ▶（rail 图标同步）
   document.querySelector('.btn-collapse').textContent = s === 'fold' ? '▶' : '◀';
+  document.getElementById('railChatBtn').classList.toggle('on', s !== 'fold');
 };
 document.querySelectorAll('.viewer button').forEach(b =>
   b.addEventListener('click', () => setState(b.dataset.s))
 );
-// 浏览窗口收缩/展开（头部按钮 + 标题栏按钮）
+// 浏览窗口收缩/展开（头部按钮 + 标题栏按钮 + 窄栏按钮）
 setBrowseCollapsed(false);
 document.querySelector('.btn-browse-collapse').addEventListener('click', () => setBrowseCollapsed(!browseEl.classList.contains('collapsed')));
 browseToggle.addEventListener('click', () => setBrowseCollapsed(!browseEl.classList.contains('collapsed')));
-document.getElementById('railBtn').addEventListener('click', () => setBrowseCollapsed(false));
+document.getElementById('railBtn').addEventListener('click', () => setBrowseCollapsed(!browseEl.classList.contains('collapsed')));
+// 聊天面板（窄栏 💬 按钮 + 预览标题栏 ◀/▶）
+setChatCollapsed2(false);
+document.getElementById('railChatBtn').addEventListener('click', () => setChatCollapsed2(!chatEl.classList.contains('collapsed')));
+document.querySelector('.btn-collapse').addEventListener('click', () => setChatCollapsed2(!chatEl.classList.contains('collapsed')));
 </script>
 </body>
 </html>
