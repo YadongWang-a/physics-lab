@@ -315,9 +315,13 @@ function finalizeNewSession(pendingSessionFile: string): string | null {
 
 function createWindow(): void {
   const win = new BrowserWindow({
-    width: 1200,
-    height: 800,
+    width: 1440,
+    height: 900,
+    minWidth: 960,
+    minHeight: 600,
     show: false,
+    // 无框窗口 + 自绘标题栏（参考 physics-lab-main 界面语言）
+    frame: false,
     webPreferences: {
       preload: join(__dirname, '../preload/index.cjs'),
       sandbox: true,
@@ -331,6 +335,20 @@ function createWindow(): void {
   win.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
     return { action: 'deny' }
+  })
+
+  // 自绘标题栏窗口控制（无框窗口）
+  ipcMain.handle('window:minimize', (event) => {
+    BrowserWindow.fromWebContents(event.sender)?.minimize()
+  })
+  ipcMain.handle('window:toggle-maximize', (event) => {
+    const win2 = BrowserWindow.fromWebContents(event.sender)
+    if (!win2) return
+    if (win2.isMaximized()) win2.unmaximize()
+    else win2.maximize()
+  })
+  ipcMain.handle('window:close', (event) => {
+    BrowserWindow.fromWebContents(event.sender)?.close()
   })
 
   // electron-vite 开发/生产加载约定
@@ -421,6 +439,12 @@ async function smokeWorkspace(): Promise<void> {
   await delay(1500)
   const [win] = BrowserWindow.getAllWindows()
   if (!win) throw new Error('窗口未创建')
+  win.webContents.on('console-message', (_e, _level, message) => {
+    console.log(`[renderer-console] ${message}`)
+  })
+  win.webContents.on('render-process-gone', (_e, details) => {
+    console.log(`[renderer-gone] ${details.reason}`)
+  })
   // 轮询等待渲染层完成列表渲染（dev 首载 vite transform 耗时不定）；单次原子查询
   const deadline = Date.now() + 45000
   let state = { count: 0, dirShown: false, webview: false }
@@ -453,6 +477,15 @@ async function smokeWorkspace(): Promise<void> {
       return ta ? ta.placeholder.includes('图片') : false
     })()`
   )
+  // 新布局（UI 重做）：标题栏 + 窗口控制 + 标签页 + 状态栏
+  const chrome = await win.webContents.executeJavaScript(
+    `(() => ({
+      titlebar: !!document.querySelector('[class*="titlebar-drag"]'),
+      winControls: ['最小化', '最大化', '关闭'].every((t) => [...document.querySelectorAll('button')].some((b) => b.title === t)),
+      tabs: document.querySelectorAll('[data-demo-item]').length,
+      statusbar: document.body.innerText.includes('就绪')
+    }))()`
+  )
   // 演示模式（ticket 07）：点「演示」→ 全屏覆盖层出现；点「退出演示」→ 恢复编辑态
   await win.webContents.executeJavaScript(
     `[...document.querySelectorAll('button')].find((b) => b.textContent === '演示')?.click()`
@@ -476,7 +509,7 @@ async function smokeWorkspace(): Promise<void> {
     }))()`
   )
   console.log(
-    `[smoke-workspace] demo items=${state.count}; dir shown=${state.dirShown}; webview=${state.webview}; settings modal=${settingsUi.modal}; paste hint=${pasteHint}; present on=${presentOn.stage && presentOn.exitBtn && presentOn.chatHidden}; present off=${presentOff.chatBack && presentOff.presentGone}`
+    `[smoke-workspace] demo items=${state.count}; dir shown=${state.dirShown}; webview=${state.webview}; settings modal=${settingsUi.modal}; paste hint=${pasteHint}; present on=${presentOn.stage && presentOn.exitBtn && presentOn.chatHidden}; present off=${presentOff.chatBack && presentOff.presentGone}; chrome=${chrome.titlebar && chrome.winControls && chrome.tabs === 1 && chrome.statusbar}`
   )
   const ok =
     state.count === 1 &&
@@ -490,7 +523,11 @@ async function smokeWorkspace(): Promise<void> {
     presentOn.exitBtn &&
     presentOn.chatHidden &&
     presentOff.chatBack &&
-    presentOff.presentGone
+    presentOff.presentGone &&
+    chrome.titlebar &&
+    chrome.winControls &&
+    chrome.tabs === 1 &&
+    chrome.statusbar
   app.exit(ok ? 0 : 1)
 }
 

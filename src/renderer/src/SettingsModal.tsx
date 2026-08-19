@@ -10,24 +10,24 @@ import {
 } from '../../shared/settings-types'
 
 const styles: Record<string, React.CSSProperties> = {
-  overlay: { position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 },
-  modal: { width: 560, maxHeight: '86vh', overflowY: 'auto', background: '#fff', borderRadius: 10, boxShadow: '0 12px 40px rgba(0,0,0,0.25)', padding: 20 },
+  overlay: { position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.45)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 },
+  modal: { width: 560, maxHeight: '86vh', overflowY: 'auto', background: 'var(--pl-card)', borderRadius: 'var(--pl-radius-lg)', boxShadow: 'var(--pl-shadow-3)', padding: 20, border: '1px solid var(--pl-border)' },
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
   title: { fontSize: 15, fontWeight: 600, margin: 0 },
-  card: { border: '1px solid #e2e5ea', borderRadius: 8, padding: 14, marginBottom: 12 },
+  card: { border: '1px solid var(--pl-border)', borderRadius: 'var(--pl-radius-md)', padding: 14, marginBottom: 12, background: 'var(--pl-background)' },
   cardTitle: { fontSize: 13, fontWeight: 600, marginBottom: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
   row: { display: 'flex', gap: 8, marginBottom: 8, alignItems: 'center' },
-  label: { fontSize: 12, color: '#374151', width: 84, flexShrink: 0 },
-  input: { flex: 1, border: '1px solid #c9d2dc', borderRadius: 6, padding: '6px 8px', fontSize: 12, fontFamily: 'inherit' },
-  select: { border: '1px solid #c9d2dc', borderRadius: 6, padding: '6px 8px', fontSize: 12, background: '#fff', fontFamily: 'inherit' },
-  hint: { fontSize: 11, color: '#9ca3af', margin: '4px 0 10px' },
-  testBtn: { border: '1px solid #c9d2dc', background: '#fff', borderRadius: 6, padding: '4px 10px', fontSize: 12, cursor: 'pointer' },
-  testOk: { fontSize: 12, color: '#067647' },
-  testFail: { fontSize: 12, color: '#b42318', wordBreak: 'break-all' },
+  label: { fontSize: 12, color: 'var(--pl-ink-2)', width: 84, flexShrink: 0 },
+  input: { flex: 1, border: '1px solid var(--pl-border)', borderRadius: 'var(--pl-radius-sm)', padding: '6px 8px', fontSize: 12, fontFamily: 'inherit', background: 'var(--pl-input)', color: 'var(--pl-foreground)', outline: 'none' },
+  select: { border: '1px solid var(--pl-border)', borderRadius: 'var(--pl-radius-sm)', padding: '6px 8px', fontSize: 12, background: 'var(--pl-input)', fontFamily: 'inherit', color: 'var(--pl-foreground)' },
+  hint: { fontSize: 11, color: 'var(--pl-muted-foreground)', margin: '4px 0 10px', lineHeight: 1.6 },
+  testBtn: { border: '1px solid var(--pl-border)', background: 'var(--pl-card)', borderRadius: 'var(--pl-radius-sm)', padding: '4px 10px', fontSize: 12, cursor: 'pointer', color: 'var(--pl-foreground)' },
+  testOk: { fontSize: 12, color: 'var(--pl-state-success)' },
+  testFail: { fontSize: 12, color: 'var(--pl-state-error)', wordBreak: 'break-all' },
   footer: { display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 6 },
-  saveBtn: { border: 'none', background: '#2f6fd0', color: '#fff', borderRadius: 6, padding: '7px 18px', cursor: 'pointer', fontSize: 13 },
-  cancelBtn: { border: '1px solid #c9d2dc', background: '#fff', borderRadius: 6, padding: '7px 16px', cursor: 'pointer', fontSize: 13 },
-  switchBtn: { border: '1px solid #c9d2dc', background: '#fff', borderRadius: 6, padding: '3px 8px', fontSize: 11, cursor: 'pointer' }
+  saveBtn: { border: 'none', background: 'var(--pl-primary)', color: 'var(--pl-primary-foreground)', borderRadius: 'var(--pl-radius-sm)', padding: '7px 18px', cursor: 'pointer', fontSize: 13 },
+  cancelBtn: { border: '1px solid var(--pl-border)', background: 'var(--pl-card)', borderRadius: 'var(--pl-radius-sm)', padding: '7px 16px', cursor: 'pointer', fontSize: 13, color: 'var(--pl-foreground)' },
+  switchBtn: { border: '1px solid var(--pl-border)', background: 'var(--pl-card)', borderRadius: 'var(--pl-radius-sm)', padding: '3px 8px', fontSize: 11, cursor: 'pointer', color: 'var(--pl-foreground)' }
 }
 
 interface SlotFormState {

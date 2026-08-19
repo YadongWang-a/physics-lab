@@ -22,41 +22,66 @@ interface WebviewElement extends HTMLElement {
 }
 
 const styles: Record<string, React.CSSProperties> = {
-  layout: { display: 'flex', height: '100vh', fontFamily: 'system-ui, "Microsoft YaHei", sans-serif' },
-  sidebar: { width: 240, borderRight: '1px solid #e2e5ea', display: 'flex', flexDirection: 'column', background: '#f7f8fa', minWidth: 200 },
-  sidebarHeader: { padding: '12px 14px', borderBottom: '1px solid #e2e5ea' },
-  dirPath: { fontSize: 11, color: '#6b7280', wordBreak: 'break-all', marginTop: 6 },
-  demoList: { flex: 1, overflowY: 'auto', padding: 8 },
-  demoItem: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px', borderRadius: 6, cursor: 'pointer', gap: 8 },
-  demoItemActive: { background: '#e8edf5' },
-  demoTitle: { fontSize: 13, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-  deleteBtn: { border: 'none', background: 'transparent', color: '#9ca3af', cursor: 'pointer', fontSize: 13 },
-  chat: { flex: 1, display: 'flex', flexDirection: 'column', borderRight: '1px solid #e2e5ea', minWidth: 320, background: '#fff' },
-  chatHeader: { padding: '10px 14px', borderBottom: '1px solid #e2e5ea', fontSize: 13, fontWeight: 600, display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
-  chatBody: { flex: 1, overflowY: 'auto', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 10 },
-  msgUser: { alignSelf: 'flex-end', background: '#2f6fd0', color: '#fff', padding: '8px 12px', borderRadius: 10, maxWidth: '85%', whiteSpace: 'pre-wrap', fontSize: 13 },
-  msgAssistant: { alignSelf: 'flex-start', background: '#f2f4f7', padding: '8px 12px', borderRadius: 10, maxWidth: '85%', whiteSpace: 'pre-wrap', fontSize: 13 },
-  msgTool: { alignSelf: 'flex-start', color: '#6b7280', fontSize: 12, fontFamily: 'Consolas, monospace', whiteSpace: 'pre-wrap' },
-  msgError: { alignSelf: 'flex-start', color: '#b42318', fontSize: 12, whiteSpace: 'pre-wrap' },
-  chatInputRow: { display: 'flex', gap: 8, padding: 12, borderTop: '1px solid #e2e5ea' },
-  chatInput: { flex: 1, resize: 'none', border: '1px solid #c9d2dc', borderRadius: 8, padding: '8px 10px', fontSize: 13, fontFamily: 'inherit' },
-  sendBtn: { border: 'none', background: '#2f6fd0', color: '#fff', borderRadius: 8, padding: '0 16px', cursor: 'pointer', fontSize: 13 },
-  stopBtn: { border: '1px solid #c9d2dc', background: '#fff', color: '#b42318', borderRadius: 8, padding: '0 16px', cursor: 'pointer', fontSize: 13 },
-  preview: { flex: 1.2, display: 'flex', flexDirection: 'column', minWidth: 360, background: '#fafbfc' },
-  previewHeader: { padding: '10px 14px', borderBottom: '1px solid #e2e5ea', fontSize: 13, fontWeight: 600 },
+  layout: { display: 'flex', flexDirection: 'column', height: '100vh', fontFamily: 'var(--pl-font-sans)', background: 'var(--pl-background)', color: 'var(--pl-foreground)' },
+  // ---- 无框窗口标题栏 ----
+  titlebar: { height: 44, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 8px 0 14px', borderBottom: '1px solid var(--pl-border)', background: 'var(--pl-card)', userSelect: 'none' },
+  brand: { display: 'flex', alignItems: 'center', gap: 10 },
+  brandLogo: { width: 26, height: 26, borderRadius: 6, background: 'var(--pl-primary)', color: 'var(--pl-primary-foreground)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14 },
+  brandName: { fontSize: 14, fontWeight: 600, letterSpacing: '-0.01em' },
+  titlebarRight: { display: 'flex', alignItems: 'center', gap: 8 },
+  iconBtn: { border: 'none', background: 'transparent', color: 'var(--pl-muted-foreground)', cursor: 'pointer', borderRadius: 6, padding: '6px 10px', fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 6 },
+  iconBtnHover: { background: 'var(--pl-muted)', color: 'var(--pl-foreground)' },
+  providerBadge: { display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 6, background: 'var(--pl-muted)', fontSize: 12 },
+  dot: { width: 8, height: 8, borderRadius: '50%' },
+  winBtn: { width: 36, height: 34, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: 'none', color: 'var(--pl-muted-foreground)', cursor: 'pointer', borderRadius: 6 },
+  // ---- 标签页栏 ----
+  tabbar: { height: 38, flexShrink: 0, display: 'flex', alignItems: 'flex-end', gap: 2, padding: '0 8px', borderBottom: '1px solid var(--pl-border)', background: 'var(--pl-card)', overflowX: 'auto' },
+  tab: { position: 'relative', height: 30, display: 'inline-flex', alignItems: 'center', gap: 6, padding: '0 6px 0 12px', fontSize: 13, color: 'var(--pl-muted-foreground)', border: '1px solid transparent', borderBottom: 'none', borderRadius: '7px 7px 0 0', cursor: 'pointer', background: 'transparent', maxWidth: 200, flexShrink: 0 },
+  tabActive: { color: 'var(--pl-foreground)', background: 'var(--pl-background)', borderColor: 'var(--pl-border)' },
+  tabBarTop: { position: 'absolute', left: -1, right: -1, top: -1, height: 2, background: 'var(--pl-primary)', borderRadius: '2px 2px 0 0' },
+  tabTitle: { flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  tabClose: { border: 'none', background: 'transparent', color: 'var(--pl-muted-foreground)', cursor: 'pointer', fontSize: 13, borderRadius: 4, width: 20, height: 20, lineHeight: '20px', padding: 0 },
+  tabNew: { width: 28, height: 30, marginBottom: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--pl-muted-foreground)', borderRadius: '7px 7px 0 0', cursor: 'pointer', flexShrink: 0, border: 'none', background: 'transparent', fontSize: 16 },
+  // ---- 工作台 ----
+  workspace: { flex: 1, display: 'flex', overflow: 'hidden', position: 'relative' },
+  chat: { width: 420, minWidth: 320, maxWidth: '50%', display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--pl-border)', background: 'var(--pl-background)', transition: 'width 240ms ease, opacity 200ms ease, min-width 240ms ease' },
+  chatCollapsed: { width: 0, minWidth: 0, opacity: 0, overflow: 'hidden', borderRight: 'none' },
+  chatBody: { flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: 14 },
+  msgUser: { alignSelf: 'flex-end', background: 'var(--pl-primary)', color: 'var(--pl-primary-foreground)', padding: '9px 13px', borderRadius: '12px 12px 3px 12px', maxWidth: '85%', whiteSpace: 'pre-wrap', fontSize: 13.5, lineHeight: 1.6, boxShadow: 'var(--pl-shadow-1)' },
+  msgAssistant: { alignSelf: 'flex-start', background: 'var(--pl-card)', border: '1px solid var(--pl-border)', padding: '9px 13px', borderRadius: '12px 12px 12px 3px', maxWidth: '85%', whiteSpace: 'pre-wrap', fontSize: 13.5, lineHeight: 1.6, boxShadow: 'var(--pl-shadow-1)' },
+  msgTool: { alignSelf: 'flex-start', color: 'var(--pl-muted-foreground)', fontSize: 12, fontFamily: 'var(--pl-font-mono)', whiteSpace: 'pre-wrap', paddingLeft: 4 },
+  msgError: { alignSelf: 'flex-start', color: 'var(--pl-state-error)', fontSize: 12.5, whiteSpace: 'pre-wrap' },
+  inputCard: { border: '1px solid var(--pl-border)', borderRadius: 16, background: 'var(--pl-card)', overflow: 'hidden', boxShadow: 'var(--pl-shadow-1)', margin: '0 16px 12px' },
+  chatInput: { width: '100%', resize: 'none', border: 'none', outline: 'none', background: 'transparent', padding: '12px 14px 4px', fontSize: 13.5, lineHeight: 1.6, fontFamily: 'inherit', color: 'var(--pl-foreground)', maxHeight: 128 },
+  inputFooter: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px 8px' },
+  inputHint: { fontSize: 11, color: 'var(--pl-muted-foreground)', paddingLeft: 4 },
+  sendBtn: { border: 'none', background: 'var(--pl-primary)', color: 'var(--pl-primary-foreground)', borderRadius: 10, width: 36, height: 34, cursor: 'pointer', fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  sendBtnDisabled: { opacity: 0.45, cursor: 'default' },
+  stopBtn: { border: '1px solid var(--pl-border)', background: 'var(--pl-card)', color: 'var(--pl-state-error)', borderRadius: 8, padding: '0 14px', cursor: 'pointer', fontSize: 12.5 },
+  chatToggle: { position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', zIndex: 10, width: 28, height: 28, borderRadius: '50%', background: 'var(--pl-card)', border: '1px solid var(--pl-border)', color: 'var(--pl-muted-foreground)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, boxShadow: 'var(--pl-shadow-2)' },
+  // ---- 预览 ----
+  preview: { flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--pl-background)', minWidth: 320 },
+  previewHeader: { height: 40, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 14px', borderBottom: '1px solid var(--pl-border)', fontSize: 13, fontWeight: 600, background: 'var(--pl-card)' },
   previewBody: { flex: 1, position: 'relative' },
-  hint: { fontSize: 12, color: '#9ca3af' },
-  picker: { padding: '18px 28px', fontSize: 15, border: '1px solid #c9d2dc', borderRadius: 8, background: '#fff', cursor: 'pointer' },
-  banner: { background: '#fff7e6', borderBottom: '1px solid #ffd591', padding: '8px 14px', fontSize: 12, color: '#874d00', display: 'flex', gap: 10, alignItems: 'center' },
-  gearBtn: { border: 'none', background: 'transparent', color: '#4b5563', cursor: 'pointer', fontSize: 15, lineHeight: 1 },
-  attachRow: { display: 'flex', gap: 8, padding: '0 12px', flexWrap: 'wrap' },
-  attachThumb: { position: 'relative', width: 64, height: 64, border: '1px solid #c9d2dc', borderRadius: 6, overflow: 'hidden' },
-  attachImg: { width: '100%', height: '100%', objectFit: 'cover' },
-  attachRemove: { position: 'absolute', top: 2, right: 2, border: 'none', background: 'rgba(0,0,0,0.55)', color: '#fff', borderRadius: 10, width: 16, height: 16, fontSize: 10, lineHeight: '14px', cursor: 'pointer', padding: 0 },
-  presentBtn: { border: '1px solid #c9d2dc', background: '#fff', borderRadius: 6, padding: '3px 10px', fontSize: 12, cursor: 'pointer', marginLeft: 8 },
+  previewEmpty: { position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, background: 'var(--pl-background)', zIndex: 10 },
+  previewEmptyIcon: { width: 56, height: 56, borderRadius: '50%', background: 'rgba(37,99,235,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, color: 'var(--pl-primary)' },
+  presentBtn: { border: '1px solid var(--pl-border)', background: 'var(--pl-muted)', color: 'var(--pl-foreground)', borderRadius: 6, padding: '4px 12px', fontSize: 12.5, cursor: 'pointer' },
+  refreshBtn: { position: 'absolute', top: 10, right: 10, zIndex: 20, width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--pl-card)', border: '1px solid var(--pl-border)', borderRadius: 7, color: 'var(--pl-muted-foreground)', cursor: 'pointer', boxShadow: 'var(--pl-shadow-1)' },
+  // ---- 状态栏 ----
+  statusbar: { height: 28, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 14px', borderTop: '1px solid var(--pl-border)', background: 'var(--pl-card)', fontSize: 12, color: 'var(--pl-muted-foreground)' },
+  statusItem: { display: 'flex', alignItems: 'center', gap: 6 },
+  // ---- 演示模式 ----
   presentStage: { position: 'fixed', inset: 0, zIndex: 50, background: '#000', display: 'flex', flexDirection: 'column' },
   presentHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 16px', background: 'rgba(0,0,0,0.75)', color: '#fff', fontSize: 13 },
-  presentExit: { border: '1px solid rgba(255,255,255,0.4)', background: 'transparent', color: '#fff', borderRadius: 6, padding: '4px 14px', cursor: 'pointer', fontSize: 13 }
+  presentExit: { border: '1px solid rgba(255,255,255,0.4)', background: 'transparent', color: '#fff', borderRadius: 6, padding: '4px 14px', cursor: 'pointer', fontSize: 13 },
+  // ---- 其他 ----
+  banner: { background: '#fff7e6', borderBottom: '1px solid #ffd591', padding: '8px 14px', fontSize: 12, color: '#874d00', display: 'flex', gap: 10, alignItems: 'center' },
+  attachRow: { display: 'flex', gap: 8, padding: '0 16px', flexWrap: 'wrap', marginTop: -4 },
+  attachThumb: { position: 'relative', width: 60, height: 60, border: '1px solid var(--pl-border)', borderRadius: 8, overflow: 'hidden' },
+  attachImg: { width: '100%', height: '100%', objectFit: 'cover' },
+  attachRemove: { position: 'absolute', top: 2, right: 2, border: 'none', background: 'rgba(0,0,0,0.55)', color: '#fff', borderRadius: 10, width: 16, height: 16, fontSize: 10, lineHeight: '14px', cursor: 'pointer', padding: 0 },
+  picker: { padding: '16px 26px', fontSize: 14, border: '1px solid var(--pl-border)', borderRadius: 8, background: 'var(--pl-card)', cursor: 'pointer', boxShadow: 'var(--pl-shadow-1)' },
+  hint: { fontSize: 12, color: 'var(--pl-muted-foreground)' }
 }
 
 /** 把单条 agent 事件应用为消息变更；返回新的消息列表（未变更返回 null） */
@@ -132,6 +157,8 @@ export function App(): React.JSX.Element {
   const [images, setImages] = useState<ImagePayload[]>([])
   /** 演示模式（ticket 07）：全屏展示当前演示 */
   const [presenting, setPresenting] = useState(false)
+  /** 聊天面板折叠（参考 physics-lab-main 界面交互） */
+  const [chatCollapsed, setChatCollapsed] = useState(false)
   const msgId = useRef(0)
   const webviewRef = useRef<WebviewElement | null>(null)
   // 当前活跃会话 key：选中演示名，或未选中时新会话的 key（chat.send 返回）
@@ -216,6 +243,14 @@ export function App(): React.JSX.Element {
       msgId.current += 1
       setMessages((prev) => [...prev, { id: msgId.current, role: h.role, text: h.text }])
     }
+  }, [])
+
+  const onNewTab = useCallback(() => {
+    setSelected(null)
+    activeKeyRef.current = null
+    setStreaming(false)
+    setMessages([])
+    msgId.current = 0
   }, [])
 
   const appendImage = useCallback((file: File) => {
@@ -303,46 +338,61 @@ export function App(): React.JSX.Element {
 
   return (
     <div style={styles.layout}>
+      {/* 标题栏（无框窗口拖拽区） */}
+      <header style={styles.titlebar} className="titlebar-drag">
+        <div style={styles.brand}>
+          <div style={styles.brandLogo}>⚗</div>
+          <span style={styles.brandName}>物理演示生成器</span>
+        </div>
+        <div style={styles.titlebarRight} className="titlebar-no-drag">
+          <button style={styles.iconBtn} className="icon-btn" title="模型设置" onClick={() => setSettingsOpen(true)}>
+            ⚙ 设置
+          </button>
+          <div style={styles.providerBadge}>
+            <span style={{ ...styles.dot, background: hasMainKey ? 'var(--pl-state-success)' : 'var(--pl-state-warning)' }} />
+            <span>{hasMainKey ? '模型已配置' : '未配置 Key'}</span>
+          </div>
+          <div style={{ width: 1, height: 18, background: 'var(--pl-border)', margin: '0 4px' }} />
+          <button style={styles.winBtn} className="win-btn" title="最小化" onClick={() => window.api?.window.minimize()}>
+            ─
+          </button>
+          <button style={styles.winBtn} className="win-btn" title="最大化" onClick={() => window.api?.window.toggleMaximize()}>
+            □
+          </button>
+          <button style={styles.winBtn} className="win-btn win-close" title="关闭" onClick={() => window.api?.window.close()}>
+            ✕
+          </button>
+        </div>
+      </header>
+
       {hasMainKey === false && (
         <div style={styles.banner}>
           <span>尚未配置主模型 API Key，无法生成演示。</span>
-          <button style={{ ...styles.gearBtn, color: '#874d00', fontWeight: 600 }} onClick={() => setSettingsOpen(true)}>
+          <button style={{ ...styles.iconBtn, color: '#874d00', fontWeight: 600 }} className="icon-btn" onClick={() => setSettingsOpen(true)}>
             去设置 →
           </button>
         </div>
       )}
+
+      {/* 会话标签页栏 */}
       {!presenting && (
-        <aside style={styles.sidebar}>
-          <div style={styles.sidebarHeader}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <strong style={{ fontSize: 13 }}>演示列表</strong>
-              <button style={styles.gearBtn} title="模型设置" onClick={() => setSettingsOpen(true)}>
-                ⚙
-              </button>
-            </div>
-            <div style={styles.dirPath}>{ws.dir}</div>
-          <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
-            <button onClick={() => window.api?.workspace.choose().then((s) => s && setWs(s))} style={{ fontSize: 12, cursor: 'pointer' }}>
-              更换目录
-            </button>
-            <button onClick={refresh} style={{ fontSize: 12, cursor: 'pointer' }}>
-              刷新
-            </button>
-          </div>
-        </div>
-        <div style={styles.demoList}>
-          {ws.demos.length === 0 && <div style={{ padding: 14, fontSize: 12, color: '#9ca3af' }}>还没有演示，在聊天区输入一道物理题开始生成。</div>}
+        <div style={styles.tabbar} className="no-scrollbar">
+          <button style={styles.tabNew} className="tab-new" title="新建演示" onClick={onNewTab}>
+            +
+          </button>
           {ws.demos.map((d) => (
             <div
               key={d.file}
               data-demo-item
-              style={selected === d.file ? { ...styles.demoItem, ...styles.demoItemActive } : styles.demoItem}
+              style={selected === d.file ? { ...styles.tab, ...styles.tabActive } : styles.tab}
               title={d.file}
               onClick={() => selectDemo(d.file)}
             >
-              <span style={styles.demoTitle}>{d.title}</span>
+              {selected === d.file && <span style={styles.tabBarTop} />}
+              <span style={styles.tabTitle}>{d.title}</span>
               <button
-                style={styles.deleteBtn}
+                style={styles.tabClose}
+                className="tab-close"
                 onClick={(e) => {
                   e.stopPropagation()
                   removeDemo(d)
@@ -352,117 +402,166 @@ export function App(): React.JSX.Element {
               </button>
             </div>
           ))}
+          {ws.demos.length === 0 && (
+            <span style={{ ...styles.hint, alignSelf: 'center', padding: '0 10px 4px' }}>
+              还没有演示 — 在聊天区输入一道物理题开始生成
+            </span>
+          )}
         </div>
-      </aside>
       )}
 
-      {!presenting && (
-        <section style={styles.chat}>
-          <div style={styles.chatHeader}>
-            <span>{selectedDemo ? selectedDemo.title : '新演示'}</span>
-            {streaming && (
-              <button style={styles.stopBtn} onClick={stop}>
-                停止
-              </button>
-            )}
-          </div>
-          <div style={styles.chatBody}>
-          {messages.length === 0 && (
-            <div style={styles.hint}>
-              {selectedDemo ? '输入修改要求，或描述新的物理过程。' : '输入一道物理题或物理过程的描述，生成交互式演示。'}
-            </div>
-          )}
-          {messages.map((m) => (
-            <div
-              key={m.id}
-              style={
-                m.role === 'user'
-                  ? styles.msgUser
-                  : m.role === 'assistant'
-                    ? styles.msgAssistant
-                    : m.role === 'error'
-                      ? styles.msgError
-                      : styles.msgTool
-              }
-            >
-              {m.text}
-            </div>
-          ))}
-        </div>
-        {images.length > 0 && (
-          <div style={styles.attachRow}>
-            {images.map((img, idx) => (
-              <div key={idx} style={styles.attachThumb}>
-                <img src={`data:${img.mimeType};base64,${img.data}`} alt="" style={styles.attachImg} />
-                <button
-                  style={styles.attachRemove}
-                  title="移除图片"
-                  onClick={() => setImages((prev) => prev.filter((_, i) => i !== idx))}
+      {/* 工作台 */}
+      <section style={styles.workspace}>
+        {!presenting && (
+          <section style={chatCollapsed ? { ...styles.chat, ...styles.chatCollapsed } : styles.chat}>
+            <div style={styles.chatBody}>
+              {messages.length === 0 && (
+                <div style={styles.hint}>
+                  {selectedDemo ? '输入修改要求，或描述新的物理过程。' : '输入一道物理题或物理过程的描述，生成交互式演示。'}
+                </div>
+              )}
+              {messages.map((m) => (
+                <div
+                  key={m.id}
+                  style={
+                    m.role === 'user'
+                      ? styles.msgUser
+                      : m.role === 'assistant'
+                        ? styles.msgAssistant
+                        : m.role === 'error'
+                          ? styles.msgError
+                          : styles.msgTool
+                  }
                 >
-                  ✕
-                </button>
+                  {m.text}
+                </div>
+              ))}
+            </div>
+            {images.length > 0 && (
+              <div style={styles.attachRow}>
+                {images.map((img, idx) => (
+                  <div key={idx} style={styles.attachThumb}>
+                    <img src={`data:${img.mimeType};base64,${img.data}`} alt="" style={styles.attachImg} />
+                    <button
+                      style={styles.attachRemove}
+                      title="移除图片"
+                      onClick={() => setImages((prev) => prev.filter((_, i) => i !== idx))}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            )}
+            <div style={styles.inputCard}>
+              <textarea
+                style={styles.chatInput}
+                rows={2}
+                value={input}
+                placeholder={inputPlaceholder}
+                onChange={(e) => setInput(e.target.value)}
+                onPaste={(e) => {
+                  const files = Array.from(e.clipboardData.files)
+                  for (const f of files) appendImage(f)
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault()
+                    if (canSend) send()
+                  }
+                }}
+              />
+              <div style={styles.inputFooter}>
+                <span style={styles.inputHint}>Shift + Enter 换行</span>
+                {streaming ? (
+                  <button style={styles.stopBtn} onClick={stop}>
+                    停止
+                  </button>
+                ) : (
+                  <button
+                    style={canSend ? styles.sendBtn : { ...styles.sendBtn, ...styles.sendBtnDisabled }}
+                    onClick={send}
+                    disabled={!canSend}
+                    title="发送"
+                  >
+                    ↑
+                  </button>
+                )}
+              </div>
+            </div>
+          </section>
         )}
-        <div style={styles.chatInputRow}>
-          <textarea
-            style={styles.chatInput}
-            rows={2}
-            value={input}
-            placeholder={inputPlaceholder}
-            onChange={(e) => setInput(e.target.value)}
-            onPaste={(e) => {
-              const files = Array.from(e.clipboardData.files)
-              for (const f of files) appendImage(f)
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault()
-                if (canSend) send()
-              }
-            }}
-          />
-          <button style={styles.sendBtn} onClick={send} disabled={!canSend}>
-            发送
-          </button>
-        </div>
-        </section>
-      )}
 
-      <section style={presenting ? styles.presentStage : styles.preview}>
-        {presenting ? (
-          <div style={styles.presentHeader}>
-            <span>{selectedDemo?.title ?? ''}（演示模式 · 空格暂停/继续，R 重置）</span>
-            <button style={styles.presentExit} onClick={exitPresent}>
-              退出演示（Esc）
-            </button>
-          </div>
-        ) : (
-          <div style={styles.previewHeader}>
-            {selectedDemo ? selectedDemo.title : '预览'}
-            {selectedDemo && (
-              <button style={styles.presentBtn} onClick={enterPresent}>
-                演示
+        {/* 聊天收/展切换（Chat 与 Preview 边界） */}
+        {!presenting && (
+          <button
+            style={chatCollapsed ? { ...styles.chatToggle, left: 0 } : styles.chatToggle}
+            title={chatCollapsed ? '展开对话' : '收起对话'}
+            onClick={() => setChatCollapsed((c) => !c)}
+          >
+            {chatCollapsed ? '▶' : '◀'}
+          </button>
+        )}
+
+        <section style={presenting ? styles.presentStage : styles.preview}>
+          {presenting ? (
+            <div style={styles.presentHeader}>
+              <span>{selectedDemo?.title ?? ''}（演示模式 · 空格暂停/继续，R 重置）</span>
+              <button style={styles.presentExit} onClick={exitPresent}>
+                退出演示（Esc）
               </button>
+            </div>
+          ) : (
+            <div style={styles.previewHeader}>
+              <span>{selectedDemo ? selectedDemo.title : '预览'}</span>
+              {selectedDemo && (
+                <button style={styles.presentBtn} onClick={enterPresent}>
+                  演示
+                </button>
+              )}
+            </div>
+          )}
+          <div style={styles.previewBody}>
+            {selectedDemo ? (
+              <>
+                <button style={styles.refreshBtn} title="刷新预览" onClick={() => webviewRef.current?.reload()}>
+                  ⟳
+                </button>
+                <webview
+                  ref={(el) => {
+                    webviewRef.current = el as WebviewElement | null
+                  }}
+                  src={'file://' + encodeURI(ws.dir.replace(/\\/g, '/') + '/' + selectedDemo.file)}
+                  style={{ width: '100%', height: '100%', border: 'none' }}
+                  partition="persist:preview"
+                />
+              </>
+            ) : (
+              <div style={styles.previewEmpty}>
+                <div style={styles.previewEmptyIcon}>▶</div>
+                <p style={{ fontSize: 14, fontWeight: 500, margin: 0 }}>演示生成后在此加载</p>
+                <p style={styles.hint}>输入一道物理题，或从上方标签页选择已有演示</p>
+              </div>
             )}
           </div>
-        )}
-        <div style={styles.previewBody}>
-          {selectedDemo ? (
-            <webview
-              ref={(el) => {
-                webviewRef.current = el as WebviewElement | null
-              }}
-              src={'file://' + encodeURI(ws.dir.replace(/\\/g, '/') + '/' + selectedDemo.file)}
-              style={{ width: '100%', height: '100%', border: 'none' }}
-              partition="persist:preview"
-            />
-          ) : (
-            <div style={{ padding: 24, color: '#9ca3af' }}>生成演示后在此预览</div>
-          )}
-        </div>
+        </section>
       </section>
+
+      {/* 状态栏 */}
+      {!presenting && (
+        <footer style={styles.statusbar}>
+          <div style={styles.statusItem}>
+            <span style={{ fontSize: 11 }}>📁</span>
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 480 }}>{ws.dir}</span>
+          </div>
+          <div style={styles.statusItem}>
+            <span>{selectedDemo ? selectedDemo.title : '未选择演示'}</span>
+            <span style={{ width: 1, height: 12, background: 'var(--pl-border)', margin: '0 6px' }} />
+            <span>{streaming ? '生成中…' : '就绪'}</span>
+          </div>
+        </footer>
+      )}
+
       {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
     </div>
   )

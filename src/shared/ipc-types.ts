@@ -61,6 +61,10 @@ export interface RendererApi {
   window: {
     /** 主窗口全屏/退出全屏（演示模式投影用） */
     setFullscreen: (flag: boolean) => Promise<void>
+    /** 无框窗口：最小化 / 最大化切换 / 关闭 */
+    minimize: () => Promise<void>
+    toggleMaximize: () => Promise<void>
+    close: () => Promise<void>
   }
   settings: {
     /** 当前设置视图（不含明文 Key） */

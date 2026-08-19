@@ -1,0 +1,105 @@
+/* 物理演示生成器 — Design Tokens（参考 physics-lab-main 界面语言，浅色唯一） */
+
+:root {
+  /* 语义色板 */
+  --pl-background: #f8fafc;
+  --pl-foreground: #0f172a;
+
+  --pl-card: #ffffff;
+  --pl-card-foreground: #0f172a;
+
+  --pl-primary: #2563eb;
+  --pl-primary-foreground: #ffffff;
+
+  --pl-muted: #f1f5f9;
+  --pl-muted-foreground: #64748b;
+
+  --pl-border: #e2e8f0;
+  --pl-input: #ffffff;
+  --pl-ring: #0ea5e9;
+
+  /* 圆角 */
+  --pl-radius-sm: 4px;
+  --pl-radius-md: 8px;
+  --pl-radius-lg: 12px;
+  --pl-radius-xl: 16px;
+
+  /* 语义状态 */
+  --pl-state-success: #22c55e;
+  --pl-state-warning: #f59e0b;
+  --pl-state-error: #ef4444;
+  --pl-state-info: #0ea5e9;
+
+  /* 文字层级 */
+  --pl-ink: #0f172a;
+  --pl-ink-2: #475569;
+  --pl-ink-3: #64748b;
+
+  /* 阴影 */
+  --pl-shadow-1: 0 1px 2px rgba(15, 23, 42, 0.05), 0 1px 1px rgba(15, 23, 42, 0.05);
+  --pl-shadow-2: 0 8px 24px -8px rgba(15, 23, 42, 0.12);
+  --pl-shadow-3: 0 24px 60px -20px rgba(15, 23, 42, 0.18);
+
+  /* 字体 */
+  --pl-font-sans: "Inter", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --pl-font-mono: "JetBrains Mono", "SF Mono", "Fira Code", "Consolas", monospace;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--pl-font-sans);
+  background: var(--pl-background);
+  color: var(--pl-foreground);
+  overflow: hidden;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* 无框窗口标题栏拖拽区 */
+.titlebar-drag {
+  -webkit-app-region: drag;
+}
+.titlebar-no-drag {
+  -webkit-app-region: no-drag;
+}
+
+/* 隐藏滚动条（列表区） */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* 无框窗口控制按钮 hover */
+.win-btn:hover {
+  background: var(--pl-muted);
+  color: var(--pl-foreground);
+}
+.win-close:hover {
+  background: var(--pl-state-error);
+  color: #fff;
+}
+.icon-btn:hover {
+  background: var(--pl-muted);
+  color: var(--pl-foreground);
+}
+.tab-close:hover {
+  background: var(--pl-muted);
+  color: var(--pl-foreground);
+}
+.tab-new:hover {
+  background: var(--pl-muted);
+  color: var(--pl-foreground);
+}

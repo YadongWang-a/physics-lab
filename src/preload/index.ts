@@ -35,7 +35,10 @@ const api: RendererApi = {
     }
   },
   window: {
-    setFullscreen: (flag: boolean): Promise<void> => ipcRenderer.invoke('window:set-fullscreen', flag)
+    setFullscreen: (flag: boolean): Promise<void> => ipcRenderer.invoke('window:set-fullscreen', flag),
+    minimize: (): Promise<void> => ipcRenderer.invoke('window:minimize'),
+    toggleMaximize: (): Promise<void> => ipcRenderer.invoke('window:toggle-maximize'),
+    close: (): Promise<void> => ipcRenderer.invoke('window:close')
   },
   settings: {
     get: (): Promise<SettingsView> => ipcRenderer.invoke('settings:get'),
