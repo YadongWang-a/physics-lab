@@ -5,7 +5,7 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, renameSync, watch, wri
 import { createPhysicsSession } from './agent/agent-runner'
 import { ModelRegistry, ModelRuntime } from '@earendil-works/pi-coding-agent'
 import { applySlotToRuntime, listProviderModels } from './agent/provider-config'
-import type { ModelSlotConfig, SaveSettingsPayload, SettingsView } from '../shared/settings-types'
+import { toSlotView, type ModelSlotConfig, type SaveSettingsPayload, type SettingsView } from '../shared/settings-types'
 import { loadEnvFile } from '../shared/load-env'
 import { isInsufficientBalance } from '../shared/balance'
 import type { WorkspaceSnapshot } from '../shared/ipc-types'
@@ -139,8 +139,8 @@ function registerWorkspaceIpc(): void {
 function settingsView(): SettingsView {
   const s = settings?.load() ?? {}
   return {
-    main: s.main ? { ...s.main, hasApiKey: Boolean(s.main.apiKey) } : null,
-    vision: s.vision ? { ...s.vision, hasApiKey: Boolean(s.vision.apiKey) } : null
+    main: toSlotView(s.main),
+    vision: toSlotView(s.vision)
   }
 }
 

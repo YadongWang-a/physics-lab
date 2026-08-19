@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { mkdtempSync, readFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { SettingsStore, type SettingsCipher } from '../src/main/workspace/app-settings'
-import type { AppSettings } from '../src/shared/settings-types'
+import { toSlotView, type AppSettings } from '../src/shared/settings-types'
 
 /** 确定性 fake：base64 反转（仅测试用；真实路径为 safeStorage/DPAPI） */
 const fakeCipher: SettingsCipher = {
@@ -77,8 +77,14 @@ describe('SettingsStore：双槽位加密存储', () => {
   it('损坏的 settings.json → 空设置（不抛）', () => {
     const dir = mkdtempSync(join(tmpdir(), 'settings-test-'))
     const path = join(dir, 'settings.json')
-    const { writeFileSync } = require('node:fs') as typeof import('node:fs')
     writeFileSync(path, '{not json', 'utf8')
     expect(SettingsStore.at(dir, fakeCipher).load()).toEqual({})
+  })
+
+  it('toSlotView 剥离明文 Key（渲染层安全边界回归）', () => {
+    const view = toSlotView({ provider: 'opencode-go', modelId: 'deepseek-v4-flash', apiKey: 'sk-secret' })
+    expect(view).not.toHaveProperty('apiKey')
+    expect(view?.hasApiKey).toBe(true)
+    expect(toSlotView(undefined)).toBeNull()
   })
 })

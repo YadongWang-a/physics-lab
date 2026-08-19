@@ -41,10 +41,14 @@ interface SlotFormState {
 
 function initForm(view: ModelSlotView | null): SlotFormState {
   const base = view
-    ? { ...view }
+    ? { provider: view.provider, modelId: view.modelId, baseUrl: view.baseUrl, api: view.api, customModels: view.customModels }
     : { ...DEFAULT_MAIN_SLOT }
-  delete (base as { hasApiKey?: boolean }).hasApiKey
-  return { slot: base as ModelSlotConfig, keyInput: '', models: [], testResult: null, testing: false }
+  const slot: ModelSlotConfig = base
+  // custom 端点：modelId 缺省时跟随第一个模型名
+  if (slot.provider === CUSTOM_PROVIDER_ID && !slot.modelId && slot.customModels && slot.customModels.length > 0) {
+    slot.modelId = slot.customModels[0]!
+  }
+  return { slot, keyInput: '', models: [], testResult: null, testing: false }
 }
 
 /** 供应商切换 → 动态拉模型列表（custom 手动填） */
@@ -140,6 +144,8 @@ export function SettingsModal(props: { onClose: () => void }): React.JSX.Element
         </div>
         <p style={styles.hint}>
           API Key 经系统加密（DPAPI）保存，不会明文落盘；测试只发送一条最小请求。保存后当前会话将按新配置重建。
+          <br />
+          申请 Key：opencode（opencode.ai/account）或 DeepSeek（platform.deepseek.com）注册后在控制台创建；Key 形如 sk-…。
         </p>
 
         <SlotCard
@@ -252,16 +258,36 @@ function SlotCard(props: {
               style={styles.input}
               value={slot.customModels?.join(', ') ?? ''}
               placeholder="qwen-max, qwen-turbo（逗号分隔）"
-              onChange={(e) =>
-                onChange({
-                  customModels: e.target.value
-                    .split(',')
-                    .map((s) => s.trim())
-                    .filter(Boolean)
-                })
-              }
+              onChange={(e) => {
+                const models = e.target.value
+                  .split(',')
+                  .map((s) => s.trim())
+                  .filter(Boolean)
+                const next: Partial<ModelSlotConfig> = { customModels: models }
+                // 当前所选模型被删除/清空 → modelId 跟随第一个
+                if (!slot.modelId || !models.includes(slot.modelId)) {
+                  next.modelId = models[0] ?? ''
+                }
+                onChange(next)
+              }}
             />
           </div>
+          {slot.customModels && slot.customModels.length > 0 && (
+            <div style={styles.row}>
+              <span style={styles.label}>使用模型</span>
+              <select
+                style={{ ...styles.select, flex: 1 }}
+                value={slot.modelId}
+                onChange={(e) => onChange({ modelId: e.target.value })}
+              >
+                {slot.customModels.map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </>
       ) : (
         <div style={styles.row}>

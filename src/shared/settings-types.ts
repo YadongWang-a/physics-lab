@@ -60,3 +60,13 @@ export const PROVIDER_LABELS: Record<SlotProvider, string> = {
   deepseek: 'DeepSeek',
   custom: '自定义 OpenAI 兼容端点'
 }
+
+/**
+ * 槽位 → 渲染层视图：剥离明文 Key（安全边界：渲染层永不接触明文）。
+ * 主进程 settings:get / settings:save 返回值必经此转换。
+ */
+export function toSlotView(slot: ModelSlotConfig | undefined): ModelSlotView | null {
+  if (!slot) return null
+  const { apiKey, ...rest } = slot
+  return { ...rest, hasApiKey: Boolean(apiKey) }
+}

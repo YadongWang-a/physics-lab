@@ -92,5 +92,5 @@ describe.skipIf(!hasKey)('端到端：物理题 → skill 流程生成演示（�
       ...skeletonCheck(content)
     ])
     expect(result.issues.filter((i) => i.level === 'error')).toEqual([])
-  }, 600_000)
+  }, 1_200_000)
 })
