@@ -107,34 +107,29 @@ input, textarea, select { font-family: inherit; }
   width: 38px; height: 34px; border: none; background: transparent; color: var(--ink-3);
   font-size: 13px; cursor: pointer; border-radius: var(--r-sm);
 }
-.win-btn:hover { background: var(--bg); color: var(--ink); }
-.win-btn.close:hover { background: var(--error); color: #fff; }
+/* ================= 工作台 ================= */
+.workspace { display: flex; height: calc(100vh - 46px); position: relative; }
 
-/* ================= 浏览窗口（工作空间演示列表，可收缩） ================= */
-.browse {
-  width: 208px; min-width: 208px; display: flex; flex-direction: column;
-  background: var(--bg); border-right: 1px solid var(--line-soft);
-  transition: width .24s ease; flex-shrink: 0; overflow: hidden;
+/* 窄图标栏（常驻最左，Activity Bar） */
+.rail {
+  width: 40px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center;
+  padding-top: 10px; gap: 6px; background: var(--bg-deep); border-right: 1px solid var(--line-soft);
 }
-.browse.collapsed { width: 40px; min-width: 40px; }
-.browse.collapsed .browse-head, .browse.collapsed .browse-list { display: none; }
-/* 收起态窄图标栏（Activity Bar 风） */
-.browse-rail {
-  display: none; flex: 1; flex-direction: column; align-items: center;
-  padding-top: 10px; gap: 6px;
-}
-.browse.collapsed .browse-rail { display: flex; }
-.browse-rail .rail-btn {
+.rail .rail-btn {
   width: 30px; height: 30px; border: none; background: transparent; color: var(--ink-3);
   border-radius: var(--r-md); cursor: pointer; font-size: 15px;
   display: flex; align-items: center; justify-content: center;
 }
-.browse-rail .rail-btn:hover { background: var(--primary-soft); color: var(--primary); }
-.browse-rail .rail-btn.on { background: var(--primary-soft); color: var(--primary); }
-.browse-rail .rail-label {
-  writing-mode: vertical-rl; font-size: var(--fs-10); color: var(--ink-3);
-  letter-spacing: .2em; margin-top: 4px; user-select: none;
+.rail .rail-btn:hover { background: var(--card); color: var(--primary); }
+.rail .rail-btn.on { background: var(--bg); color: var(--primary); border: 1px solid var(--line); }
+
+/* 浏览窗口（工作空间演示列表，窄栏 ☰ 控制） */
+.browse {
+  width: 208px; min-width: 208px; display: flex; flex-direction: column;
+  background: var(--bg); border-right: 1px solid var(--line-soft);
+  transition: width .24s ease, opacity .2s ease, min-width .24s ease; flex-shrink: 0; overflow: hidden;
 }
+.browse.collapsed { width: 0; min-width: 0; opacity: 0; border-right: none; }
 .browse-head {
   height: 40px; display: flex; align-items: center; gap: 6px;
   padding: 0 8px 0 14px; flex-shrink: 0;
@@ -248,12 +243,6 @@ input, textarea, select { font-family: inherit; }
 .preview-toolbar {
   height: 40px; display: flex; align-items: center; gap: 10px; padding: 0 12px; flex-shrink: 0;
 }
-.btn-collapse {
-  width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--line);
-  background: var(--card); color: var(--ink-2); cursor: pointer; font-size: 10px;
-  display: flex; align-items: center; justify-content: center; box-shadow: var(--s-1);
-}
-.btn-collapse:hover { background: var(--bg-deep); color: var(--ink); }
 .preview-actions { margin-left: auto; display: flex; gap: 8px; }
 .preview-actions button {
   border: 1px solid var(--line); background: var(--card); color: var(--ink-2);
@@ -354,8 +343,6 @@ input, textarea, select { font-family: inherit; }
     <span class="brand-name">物理演示生成器</span>
   </div>
   <div class="titlebar-right">
-    <button class="icon-btn" id="btnBrowseToggle" title="演示列表">☰ 演示</button>
-    <div class="win-divider"></div>
     <button class="icon-btn">⚙ 设置</button>
     <div class="badge"><span class="dot"></span>模型已配置</div>
     <div class="win-divider"></div>
@@ -368,13 +355,18 @@ input, textarea, select { font-family: inherit; }
 <!-- ======== 工作台 ======== -->
 <section class="workspace" id="workspace">
 
-  <!-- 浏览窗口（工作空间演示列表，可收缩） -->
+  <!-- 窄图标栏（常驻：☰ 演示列表 / 💬 聊天，唯一收起/展开入口） -->
+  <div class="rail">
+    <button class="rail-btn on" title="演示列表" id="railBtn">☰</button>
+    <button class="rail-btn on" title="聊天" id="railChatBtn">💬</button>
+  </div>
+
+  <!-- 浏览窗口（工作空间演示列表） -->
   <section class="browse" id="browse">
     <div class="browse-head">
       <span class="title">演示</span>
       <span class="count">5</span>
       <button title="刷新">⟲</button>
-      <button class="btn-browse-collapse" title="收起浏览">◀</button>
     </div>
     <div class="browse-list" id="browseList">
       <div class="browse-item active">
@@ -399,11 +391,6 @@ input, textarea, select { font-family: inherit; }
       </div>
     </div>
     <div class="browse-empty" id="browseEmpty" style="display:none">还没有演示 — 生成后自动出现在这里</div>
-    <div class="browse-rail">
-      <button class="rail-btn" title="展开演示列表" id="railBtn">☰</button>
-      <button class="rail-btn" title="展开对话" id="railChatBtn">💬</button>
-      <span class="rail-label">演示</span>
-    </div>
   </section>
 
   <!-- 聊天面板 -->
@@ -459,7 +446,6 @@ input, textarea, select { font-family: inherit; }
   <!-- 预览舞台 -->
   <section class="preview">
     <div class="preview-toolbar">
-      <button class="btn-collapse" title="收起对话">◀</button>
       <div class="preview-actions">
         <button>⟳ 刷新</button>
         <button class="primary">▶ 演示</button>
@@ -526,23 +512,20 @@ input, textarea, select { font-family: inherit; }
 <script>
 const btn = (s) => document.querySelector(`.viewer button[data-s="${s}"]`);
 const browseEl = document.getElementById('browse');
-const browseToggle = document.getElementById('btnBrowseToggle');
 const chatEl = document.getElementById('chat');
+const railBtn = document.getElementById('railBtn');
+const railChatBtn = document.getElementById('railChatBtn');
 const setBrowseCollapsed = (c) => {
   browseEl.classList.toggle('collapsed', c);
-  browseToggle.classList.toggle('on', !c);
-  browseToggle.title = c ? '显示演示列表' : '隐藏演示列表';
-  document.getElementById('railBtn').classList.toggle('on', !c);
+  railBtn.classList.toggle('on', !c);
 };
 const setChatCollapsed2 = (c) => {
   chatEl.classList.toggle('collapsed', c);
-  document.querySelector('.btn-collapse').textContent = c ? '▶' : '◀';
-  document.getElementById('railChatBtn').classList.toggle('on', !c);
+  railChatBtn.classList.toggle('on', !c);
 };
 const setState = (s) => {
   document.body.dataset.state = s;
   document.querySelectorAll('.viewer button').forEach(b => b.classList.toggle('on', b.dataset.s === s));
-  const ws = document.getElementById('workspace');
   const mask = document.getElementById('setupMask');
   const welcome = document.getElementById('welcome');
   const demoMsgs = document.getElementById('demoMsgs');
@@ -560,22 +543,16 @@ const setState = (s) => {
   browseList.style.display = s === 'empty' ? 'none' : '';
   browseEmpty.style.display = s === 'empty' ? '' : 'none';
   browseCount.textContent = s === 'empty' ? '0' : '5';
-  // 折叠态：聊天按钮变 ▶（rail 图标同步）
-  document.querySelector('.btn-collapse').textContent = s === 'fold' ? '▶' : '◀';
-  document.getElementById('railChatBtn').classList.toggle('on', s !== 'fold');
+  railChatBtn.classList.toggle('on', s !== 'fold');
 };
 document.querySelectorAll('.viewer button').forEach(b =>
   b.addEventListener('click', () => setState(b.dataset.s))
 );
-// 浏览窗口收缩/展开（头部按钮 + 标题栏按钮 + 窄栏按钮）
+// 窄栏唯一入口：☰ toggle 浏览，💬 toggle 聊天（行为一致）
 setBrowseCollapsed(false);
-document.querySelector('.btn-browse-collapse').addEventListener('click', () => setBrowseCollapsed(!browseEl.classList.contains('collapsed')));
-browseToggle.addEventListener('click', () => setBrowseCollapsed(!browseEl.classList.contains('collapsed')));
-document.getElementById('railBtn').addEventListener('click', () => setBrowseCollapsed(!browseEl.classList.contains('collapsed')));
-// 聊天面板（窄栏 💬 按钮 + 预览标题栏 ◀/▶）
 setChatCollapsed2(false);
-document.getElementById('railChatBtn').addEventListener('click', () => setChatCollapsed2(!chatEl.classList.contains('collapsed')));
-document.querySelector('.btn-collapse').addEventListener('click', () => setChatCollapsed2(!chatEl.classList.contains('collapsed')));
+railBtn.addEventListener('click', () => setBrowseCollapsed(!browseEl.classList.contains('collapsed')));
+railChatBtn.addEventListener('click', () => setChatCollapsed2(!chatEl.classList.contains('collapsed')));
 </script>
 </body>
 </html>
