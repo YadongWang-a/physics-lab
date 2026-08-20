@@ -13,12 +13,12 @@
 
 :root {
   /* 色板（主色保留 #2563eb） */
-  --bg: #f1f5f9;            /* 舞台灰（比参考项目 #f8fafc 深一档，衬白卡） */
-  --bg-deep: #e8edf3;       /* 更深层背景（标签页底部） */
+  --bg: #f8fafc;            /* 框架外最浅灰（舞台） */
+  --bg-deep: #f1f5f9;       /* 框架灰（标题栏/窄栏/输入区，main --pl-muted） */
   --card: #ffffff;
   --ink: #0f172a;
   --ink-2: #475569;
-  --ink-3: #94a3b8;
+  --ink-3: #64748b;         /* 次文字（main --pl-muted-foreground，4.9:1 达标） */
   --primary: #2563eb;
   --primary-soft: #e8f0fe;  /* user 消息/选中态浅蓝 */
   --primary-deep: #1d4ed8;  /* hover 主色 */
@@ -82,7 +82,7 @@ input, textarea, select { font-family: inherit; }
 /* ================= 无框标题栏 ================= */
 .titlebar {
   height: 46px; display: flex; align-items: center; justify-content: space-between;
-  padding: 0 10px 0 16px; background: var(--card);
+  padding: 0 10px 0 16px; background: var(--bg-deep); border-bottom: 1px solid var(--line);
   -webkit-app-region: drag; user-select: none; position: relative; z-index: 20;
 }
 .brand { display: flex; align-items: center; gap: 10px; }
@@ -113,7 +113,7 @@ input, textarea, select { font-family: inherit; }
 /* 窄图标栏（常驻最左，Activity Bar） */
 .rail {
   width: 40px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center;
-  padding-top: 10px; gap: 6px; background: #e2e8f0; border-right: 1px solid var(--line);
+  padding-top: 10px; gap: 6px; background: var(--bg-deep); border-right: 1px solid var(--line);
 }
 .rail .rail-btn {
   width: 30px; height: 30px; border: none; background: transparent; color: var(--ink-3);
@@ -177,7 +177,7 @@ input, textarea, select { font-family: inherit; }
 /* ---- 聊天面板（去气泡 Linear 风格）---- */
 .chat {
   width: 400px; min-width: 320px; display: flex; flex-direction: column;
-  background: var(--bg); transition: width .24s ease, opacity .2s ease, min-width .24s ease; border-right: 1px solid var(--line);
+  background: var(--card); transition: width .24s ease, opacity .2s ease, min-width .24s ease; border-right: 1px solid var(--line);
 }
 .chat.collapsed { width: 0; min-width: 0; opacity: 0; overflow: hidden; }
 .chat-scroll { flex: 1; overflow-y: auto; padding: var(--sp-6) var(--sp-5); display: flex; flex-direction: column; gap: var(--sp-5); }
@@ -206,8 +206,8 @@ input, textarea, select { font-family: inherit; }
 
 /* 输入区 */
 .input-card {
-  margin: 0 var(--sp-4) var(--sp-4); border: 1px solid var(--line);
-  border-radius: var(--r-xl); background: var(--card); box-shadow: var(--s-1);
+  margin: 0; border-top: 1px solid var(--line); border-radius: 0;
+  background: var(--bg-deep); box-shadow: none; padding: var(--sp-3) var(--sp-4) var(--sp-4);
 }
 .input-card:focus-within { border-color: rgba(37,99,235,.4); box-shadow: 0 0 0 3px rgba(37,99,235,.08); }
 .input-card textarea {
@@ -228,7 +228,7 @@ input, textarea, select { font-family: inherit; }
   border: 1px solid var(--line); background: var(--card); color: var(--error);
   border-radius: var(--r-md); padding: 6px 14px; font-size: 12.5px; cursor: pointer;
 }
-.attach-row { display: flex; gap: 8px; padding: 0 var(--sp-4) var(--sp-2); flex-wrap: wrap; }
+  .attach-row { display: flex; gap: 8px; padding: var(--sp-3) var(--sp-4) var(--sp-2); flex-wrap: wrap; background: var(--bg-deep); }
 .attach-thumb { position: relative; width: 58px; height: 58px; border: 1px solid var(--line); border-radius: var(--r-md); overflow: hidden; background: var(--bg); }
 .attach-thumb::after { content: "图"; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--ink-3); font-size: 12px; }
 .attach-x { position: absolute; top: 3px; right: 3px; width: 16px; height: 16px; border: none; border-radius: 50%; background: rgba(15,23,42,.55); color: #fff; font-size: 9px; cursor: pointer; line-height: 1; }
@@ -245,7 +245,7 @@ input, textarea, select { font-family: inherit; }
 .chat-welcome .examples button:hover { border-color: rgba(37,99,235,.4); color: var(--ink); }
 
 /* ---- 预览舞台（白卡浮浅灰）---- */
-  .preview { flex: 1; display: flex; flex-direction: column; background: #f8fafc; min-width: 0; position: relative; }
+  .preview { flex: 1; display: flex; flex-direction: column; background: var(--card); min-width: 0; position: relative; }
 .preview-toolbar {
   height: 40px; display: flex; align-items: center; gap: 10px; padding: 0 12px; flex-shrink: 0;
 }
