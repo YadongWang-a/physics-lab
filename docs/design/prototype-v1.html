@@ -141,6 +141,14 @@ input, textarea, select { font-family: inherit; }
   border-radius: 6px; cursor: pointer; font-size: 12px; display: inline-flex; align-items: center; justify-content: center;
 }
 .browse-head button:hover { background: var(--bg-deep); color: var(--ink); }
+.browse-new-bar { padding: 6px 8px 4px; flex-shrink: 0; }
+.browse-new {
+  width: 100%; display: flex; align-items: center; justify-content: center; gap: 6px;
+  border: 1px dashed var(--line); background: var(--card); color: var(--primary);
+  border-radius: var(--r-md); padding: 7px; font-size: var(--fs-12); font-weight: 500; cursor: pointer;
+  transition: background .15s, border-color .15s;
+}
+.browse-new:hover { background: var(--primary-soft); border-color: var(--primary); }
 .browse-list { flex: 1; overflow-y: auto; padding: 2px 8px 12px; display: flex; flex-direction: column; gap: 2px; }
 .browse-item {
   display: flex; align-items: center; gap: 9px; padding: 7px 8px;
@@ -368,6 +376,9 @@ input, textarea, select { font-family: inherit; }
       <span class="count">5</span>
       <button title="刷新">⟲</button>
     </div>
+    <div class="browse-new-bar">
+      <button class="browse-new" id="browseNew">＋ 新建演示</button>
+    </div>
     <div class="browse-list" id="browseList">
       <div class="browse-item active">
         <div class="browse-thumb"><div class="mini-line"></div><div class="mini-ball"></div></div>
@@ -435,7 +446,7 @@ input, textarea, select { font-family: inherit; }
     </div>
 
     <div class="input-card">
-      <textarea rows="2" placeholder="输入物理题或修改要求（可粘贴题目图片）…"></textarea>
+      <textarea rows="2" id="chatInput" placeholder="输入物理题或修改要求（可粘贴题目图片）…"></textarea>
       <div class="input-foot">
         <span class="input-hint">Shift + Enter 换行</span>
         <button class="btn-send" disabled>↑</button>
@@ -553,6 +564,15 @@ setBrowseCollapsed(false);
 setChatCollapsed2(false);
 railBtn.addEventListener('click', () => setBrowseCollapsed(!browseEl.classList.contains('collapsed')));
 railChatBtn.addEventListener('click', () => setChatCollapsed2(!chatEl.classList.contains('collapsed')));
+// 新建演示：展开聊天 + 聚焦输入（生成由对话驱动）
+const newDemo = () => {
+  setChatCollapsed2(false);
+  document.getElementById('chatScroll').scrollTop = 0;
+  const ta = document.getElementById('chatInput');
+  ta.value = '';
+  ta.focus();
+};
+document.getElementById('browseNew').addEventListener('click', newDemo);
 </script>
 </body>
 </html>
