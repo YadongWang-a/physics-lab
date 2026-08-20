@@ -69,7 +69,6 @@ export class SessionHost {
       agentDir: this.opts.agentDir,
       mainSlot: this.opts.getMainSlot(),
       sessionFile: `${key}.jsonl`,
-      skillDir: this.opts.skillDir,
       systemPrompt: skillSystemPrompt(this.opts.skillDir)
     })
     ps.session.subscribe((e) => onEvent(e))

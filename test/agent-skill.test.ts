@@ -19,22 +19,15 @@ function makeDirs(): { cwd: string; sessionDir: string; agentDir: string } {
   return { cwd: base, sessionDir: join(base, '.pi-sessions'), agentDir: join(base, '.agent') }
 }
 
-describe('skill 注册（无 Key）', () => {
-  it('physics-lab-skill 被只读注册进会话', async () => {
-    const dirs = makeDirs()
-    const { session, skills, systemPrompt, dispose } = await createPhysicsSession({
-      ...dirs,
-      skillDir: SKILL_DIR,
-      systemPrompt: skillSystemPrompt(SKILL_DIR)
-    })
-    expect(skills).toContain('physics-lab-skill')
-    // 系统提示已常驻注入（skill 默认触发，无"引入"概念；含 SKILL.md 确定路径，agent 无需 find）
-    expect(systemPrompt).toContain(join(SKILL_DIR, 'SKILL.md'))
-    expect(systemPrompt).toContain('完整流程')
-    // skill 内容未被修改（只读注册）：SKILL.md 仍在原目录
-    expect(existsSync(join(SKILL_DIR, 'SKILL.md'))).toBe(true)
-    expect(session.sessionFile).toBeTruthy()
-    dispose()
+describe('内置 skill prompt（无 Key）', () => {
+  it('完整规范直接注入 system prompt，不注册或读取 SKILL.md', () => {
+    const systemPrompt = skillSystemPrompt(SKILL_DIR)
+    expect(systemPrompt).toContain('<physics-lab-skill>')
+    expect(systemPrompt).toContain('生成流程')
+    expect(systemPrompt).toContain('包括新建演示、修改已有 HTML、继续对话')
+    expect(systemPrompt).toContain('drawing.md')
+    expect(systemPrompt).not.toContain('必须用 read 工具读取技能文件')
+    expect(systemPrompt).not.toContain('find/ls')
   })
 })
 
@@ -63,7 +56,6 @@ describe.skipIf(!hasKey)('端到端：物理题 → skill 流程生成演示（�
     seedLibIntoWorkspace(dirs.cwd, SKILL_DIR)
     const { session, dispose } = await createPhysicsSession({
       ...dirs,
-      skillDir: SKILL_DIR,
       systemPrompt: skillSystemPrompt(SKILL_DIR),
       sessionFile: 'free-fall.jsonl'
     })
