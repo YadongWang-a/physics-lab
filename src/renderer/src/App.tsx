@@ -52,6 +52,17 @@ const styles: Record<string, React.CSSProperties> = {
   browseFile: { fontSize: 10, color: 'var(--pl-muted-foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.3 },
   browseEmpty: { padding: '12px 14px', fontSize: 11, color: 'var(--pl-muted-foreground)', lineHeight: 1.6 },
   browseDelete: { position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', width: 18, height: 18, border: 'none', background: 'var(--pl-muted)', color: 'var(--pl-muted-foreground)', borderRadius: 5, fontSize: 10, cursor: 'pointer', lineHeight: 1, display: 'none' },
+  browseFoot: { height: 36, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8, padding: '0 12px', borderTop: '1px solid var(--pl-border)', background: 'var(--pl-muted)' },
+  browseFootIcon: { width: 16, height: 16, color: 'var(--pl-muted-foreground)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  browseFootName: { flex: 1, fontSize: 11, color: 'var(--pl-ink-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'var(--pl-font-mono)' },
+  browseFootClose: { width: 20, height: 20, border: 'none', background: 'transparent', color: 'var(--pl-muted-foreground)', borderRadius: 4, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  welcome: { padding: '16px 0', display: 'flex', flexDirection: 'column', gap: 8 },
+  welcomeKicker: { fontSize: 11, color: 'var(--pl-primary)', fontWeight: 600, letterSpacing: '.08em', textTransform: 'uppercase' },
+  welcomeTitle: { fontSize: 18, fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.3, margin: 0 },
+  welcomeDesc: { fontSize: 13, color: 'var(--pl-ink-2)', lineHeight: 1.7, margin: 0 },
+  welcomeExamples: { display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 },
+  welcomeExampleBtn: { textAlign: 'left', border: '1px solid var(--pl-border)', background: 'var(--pl-card)', color: 'var(--pl-ink-2)', borderRadius: 'var(--pl-radius-md)', padding: '11px 14px', fontSize: 13, cursor: 'pointer', transition: 'all .15s', lineHeight: 1.5 },
+  welcomeExampleHover: { borderColor: 'var(--pl-primary)', color: 'var(--pl-foreground)', background: 'var(--primary-soft)', transform: 'translateX(2px)' },
   // ---- 工作台 ----
   workspace: { flex: 1, display: 'flex', overflow: 'hidden', position: 'relative' },
   chat: { width: 420, minWidth: 320, maxWidth: '50%', display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--pl-border)', background: 'var(--pl-card)', transition: 'width 240ms ease, opacity 200ms ease, min-width 240ms ease' },
@@ -61,8 +72,8 @@ const styles: Record<string, React.CSSProperties> = {
   msgAssistant: { alignSelf: 'flex-start', background: 'transparent', border: 'none', padding: '4px 0', borderRadius: 0, maxWidth: '94%', whiteSpace: 'pre-wrap', fontSize: 13.5, lineHeight: 1.75, boxShadow: 'none' },
   msgTool: { alignSelf: 'flex-start', color: 'var(--pl-muted-foreground)', fontSize: 12, fontFamily: 'var(--pl-font-mono)', whiteSpace: 'pre-wrap', paddingLeft: 4 },
   msgError: { alignSelf: 'flex-start', color: 'var(--pl-state-error)', fontSize: 12.5, whiteSpace: 'pre-wrap' },
-  inputCard: { border: '1px solid var(--pl-border)', borderRadius: 16, background: 'var(--pl-card)', overflow: 'hidden', boxShadow: 'var(--pl-shadow-1)', margin: '0 16px 12px' },
-  chatInput: { width: '100%', resize: 'none', border: 'none', outline: 'none', background: 'transparent', padding: '12px 14px 4px', fontSize: 13.5, lineHeight: 1.6, fontFamily: 'inherit', color: 'var(--pl-foreground)', maxHeight: 128 },
+  inputCard: { margin: '0 16px 12px', background: 'transparent', position: 'relative' },
+  chatInput: { width: '100%', resize: 'none', border: '1px solid var(--pl-border)', background: 'var(--pl-background)', outline: 'none', padding: '12px 14px 4px', fontSize: 13.5, lineHeight: 1.6, fontFamily: 'inherit', color: 'var(--pl-foreground)', maxHeight: 128, borderRadius: 'var(--pl-radius-md)' },
   inputFooter: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px 8px' },
   inputHint: { fontSize: 11, color: 'var(--pl-muted-foreground)', paddingLeft: 4 },
   sendBtn: { border: 'none', background: 'var(--grad-primary)', color: 'var(--pl-primary-foreground)', borderRadius: 10, width: 36, height: 34, cursor: 'pointer', fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(37,99,235,.3)' },
@@ -77,9 +88,6 @@ const styles: Record<string, React.CSSProperties> = {
   previewEmptyIcon: { width: 56, height: 56, borderRadius: '50%', background: 'rgba(37,99,235,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, color: 'var(--pl-primary)' },
   presentBtn: { border: 'none', background: 'var(--grad-primary)', color: 'var(--pl-primary-foreground)', borderRadius: 6, padding: '4px 14px', fontSize: 12.5, cursor: 'pointer', boxShadow: '0 2px 8px rgba(37,99,235,.3)' },
   refreshBtn: { position: 'absolute', top: 10, right: 10, zIndex: 20, width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--pl-card)', border: '1px solid var(--pl-border)', borderRadius: 7, color: 'var(--pl-muted-foreground)', cursor: 'pointer', boxShadow: 'var(--pl-shadow-1)' },
-  // ---- 状态栏 ----
-  statusbar: { height: 28, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 14px', borderTop: '1px solid var(--pl-border)', background: 'var(--pl-card)', fontSize: 12, color: 'var(--pl-muted-foreground)' },
-  statusItem: { display: 'flex', alignItems: 'center', gap: 6 },
   // ---- 演示模式 ----
   presentStage: { position: 'fixed', inset: 0, zIndex: 50, background: '#000', display: 'flex', flexDirection: 'column' },
   presentHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 16px', background: 'rgba(0,0,0,0.75)', color: '#fff', fontSize: 13 },
@@ -409,6 +417,9 @@ export function App(): React.JSX.Element {
               <button style={styles.browseHeadBtn} title="刷新列表" onClick={refresh}>
                 <Icon name="refresh" size={13} />
               </button>
+              <button style={styles.browseHeadBtn} title="切换工作目录" onClick={() => window.api?.workspace.choose().then((s) => s && setWs(s))}>
+                <Icon name="folder" size={14} />
+              </button>
               <button style={styles.browseHeadBtn} title="收起浏览" onClick={() => setBrowseCollapsed(true)}>
                 <Icon name="close" size={12} />
               </button>
@@ -456,31 +467,82 @@ export function App(): React.JSX.Element {
                 </button>
               ))}
             </div>
+            <div style={styles.browseFoot}>
+              <span style={styles.browseFootIcon}><Icon name="folder" size={14} /></span>
+              <span style={styles.browseFootName}>{ws.dir.replace(/\\/g, '/').split('/').slice(-2).join('/')}</span>
+              <button style={styles.browseFootClose} title="关闭工作空间" onClick={() => setWs(null)}>
+                <Icon name="close" size={11} />
+              </button>
+            </div>
           </section>
         )}
 
         {!presenting && (
           <section style={chatCollapsed ? { ...styles.chat, ...styles.chatCollapsed } : styles.chat}>
+            <div style={{ height: 44, flexShrink: 0, display: 'flex', alignItems: 'center', padding: '0 8px', borderBottom: '1px solid var(--pl-border)', gap: 4 }}>
+              <div style={{ flex: 1 }} />
+              <button
+                style={{ width: 28, height: 28, border: 'none', background: 'transparent', color: 'var(--pl-muted-foreground)', borderRadius: 6, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                title="收起对话"
+                onClick={() => setChatCollapsed(true)}
+              >
+                <Icon name="close" size={14} />
+              </button>
+            </div>
             <div style={styles.chatBody}>
               {messages.length === 0 && (
-                <div style={styles.hint}>
-                  {selectedDemo ? '输入修改要求，或描述新的物理过程。' : '输入一道物理题或物理过程的描述，生成交互式演示。'}
+                <div style={styles.welcome}>
+                  <div style={styles.welcomeKicker}>物理演示生成器</div>
+                  <h2 style={styles.welcomeTitle}>输入一道物理题，开始生成</h2>
+                  <p style={styles.welcomeDesc}>支持文字描述或粘贴题目照片。agent 会按流程推导、生成交互演示并自动自检。</p>
+                  <div style={styles.welcomeExamples}>
+                    {['一个小球从 5m 高处自由落体，求落地时间', '两个小球弹性碰撞，质量 1:2', '绳环从高处下落（物理过程，无需答案）'].map((ex) => (
+                      <button
+                        key={ex}
+                        style={styles.welcomeExampleBtn}
+                        className="icon-btn"
+                        onMouseEnter={(e) => Object.assign(e.currentTarget.style, styles.welcomeExampleHover)}
+                        onMouseLeave={(e) => Object.assign(e.currentTarget.style, styles.welcomeExampleBtn)}
+                        onClick={() => setInput(ex)}
+                      >
+                        {ex}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
               {messages.map((m) => (
-                <div
-                  key={m.id}
-                  style={
-                    m.role === 'user'
-                      ? styles.msgUser
-                      : m.role === 'assistant'
-                        ? styles.msgAssistant
-                        : m.role === 'error'
-                          ? styles.msgError
-                          : styles.msgTool
-                  }
-                >
-                  {m.text}
+                <div key={m.id}>
+                  {m.role === 'assistant' && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, fontSize: 11, color: 'var(--pl-muted-foreground)' }}>
+                      <span
+                        style={{
+                          width: 20, height: 20, borderRadius: 6, background: 'var(--grad-primary)', color: '#fff',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 1px 4px rgba(37,99,235,.3)'
+                        }}
+                      >
+                        <Icon name="flask" size={12} />
+                      </span>
+                      <span style={{ fontWeight: 600, color: 'var(--pl-ink-2)' }}>物理助手</span>
+                      <span style={{ fontSize: 10, padding: '1px 7px', borderRadius: 999, background: 'var(--pl-muted)', color: 'var(--pl-muted-foreground)' }}>
+                        {m.streaming ? '生成中' : '完成'}
+                      </span>
+                    </div>
+                  )}
+                  <div
+                    style={
+                      m.role === 'user'
+                        ? styles.msgUser
+                        : m.role === 'assistant'
+                          ? styles.msgAssistant
+                          : m.role === 'error'
+                            ? styles.msgError
+                            : styles.msgTool
+                    }
+                  >
+                    {m.role === 'tool' && m.streaming && <span className="app-tool-spinner" style={{ display: 'inline-block', width: 12, height: 12, marginRight: 8, verticalAlign: '-2px', border: '2px solid var(--pl-border)', borderTopColor: 'var(--pl-primary)', borderRadius: '50%', animation: 'spin .7s linear infinite' }} />}
+                    {m.text}
+                  </div>
                 </div>
               ))}
             </div>
@@ -554,6 +616,12 @@ export function App(): React.JSX.Element {
             <div style={styles.previewHeader}>
               <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <span>{selectedDemo ? selectedDemo.title : '预览'}</span>
+                {selectedDemo && (
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 11, fontWeight: 400, color: 'var(--pl-muted-foreground)' }}>
+                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--pl-state-success)', boxShadow: '0 0 6px rgba(16,185,129,.6)', animation: 'pulse-dot 2s ease-in-out infinite' }} />
+                    实时预览
+                  </span>
+                )}
               </span>
               {selectedDemo && (
                 <button style={styles.presentBtn} onClick={enterPresent}>
@@ -563,6 +631,11 @@ export function App(): React.JSX.Element {
             </div>
           )}
           <div style={styles.previewBody} className="app-preview-body">
+            {streaming && (
+              <div className="app-gen-skeleton">
+                <div className="blk" /><div className="blk" /><div className="blk" />
+              </div>
+            )}
             {selectedDemo ? (
               <>
                 <button style={styles.refreshBtn} title="刷新预览" onClick={() => webviewRef.current?.reload()}>
@@ -587,21 +660,6 @@ export function App(): React.JSX.Element {
           </div>
         </section>
       </section>
-
-      {/* 状态栏 */}
-      {!presenting && (
-        <footer style={styles.statusbar}>
-          <div style={styles.statusItem}>
-            <span style={{ fontSize: 11 }}><Icon name="folder" size={13} /></span>
-            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 480 }}>{ws.dir}</span>
-          </div>
-          <div style={styles.statusItem}>
-            <span>{selectedDemo ? selectedDemo.title : '未选择演示'}</span>
-            <span style={{ width: 1, height: 12, background: 'var(--pl-border)', margin: '0 6px' }} />
-            <span>{streaming ? '生成中…' : '就绪'}</span>
-          </div>
-        </footer>
-      )}
 
       {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
     </div>

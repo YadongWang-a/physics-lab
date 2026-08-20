@@ -10,11 +10,12 @@ import {
 } from '../../shared/settings-types'
 
 const styles: Record<string, React.CSSProperties> = {
-  overlay: { position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.45)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 },
-  modal: { width: 560, maxHeight: '86vh', overflowY: 'auto', background: 'var(--pl-card)', borderRadius: 'var(--pl-radius-lg)', boxShadow: 'var(--pl-shadow-3)', padding: 20, border: '1px solid var(--pl-border)' },
-  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
-  title: { fontSize: 15, fontWeight: 600, margin: 0 },
-  card: { border: '1px solid var(--pl-border)', borderRadius: 'var(--pl-radius-md)', padding: 14, marginBottom: 12, background: 'var(--pl-background)' },
+  overlay: { position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.5)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 },
+  modal: { width: 580, maxHeight: '86vh', overflowY: 'auto', background: 'var(--pl-card)', borderRadius: 'var(--pl-radius-xl)', boxShadow: 'var(--pl-shadow-3)', padding: 28, border: '1px solid var(--pl-border)' },
+  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, gap: 14 },
+  headerLogo: { width: 34, height: 34, borderRadius: 10, background: 'var(--grad-primary)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(37,99,235,.35)', flexShrink: 0 },
+  title: { fontSize: 18, fontWeight: 700, letterSpacing: '-0.01em', margin: 0 },
+  card: { border: '1px solid var(--pl-border)', borderRadius: 'var(--pl-radius-lg)', padding: 18, marginBottom: 16, background: 'var(--pl-card)' },
   cardTitle: { fontSize: 13, fontWeight: 600, marginBottom: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
   row: { display: 'flex', gap: 8, marginBottom: 8, alignItems: 'center' },
   label: { fontSize: 12, color: 'var(--pl-ink-2)', width: 84, flexShrink: 0 },
@@ -137,7 +138,10 @@ export function SettingsModal(props: { onClose: () => void }): React.JSX.Element
     <div style={styles.overlay} onClick={props.onClose}>
       <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
         <div style={styles.header}>
-          <h3 style={styles.title}>模型设置</h3>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={styles.headerLogo}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.8 3h10.4a2 2 0 0 0 1.8-3l-5-9V3" /></svg></div>
+            <h3 style={styles.title}>模型设置</h3>
+          </div>
           <button style={styles.cancelBtn} onClick={props.onClose}>
             关闭
           </button>
