@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { existsSync, mkdtempSync, readdirSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { createPhysicsSession, SKILL_SYSTEM_PROMPT } from '../src/main/agent/agent-runner'
+import { createPhysicsSession, skillSystemPrompt } from '../src/main/agent/agent-runner'
 import { seedLibIntoWorkspace } from '../src/main/workspace/lib-seed'
 import { collectIssues, idCrossCheck, skeletonCheck, syntaxCheck } from '../src/main/agent/check-demo/static-check'
 
@@ -25,11 +25,11 @@ describe('skill 注册（无 Key）', () => {
     const { session, skills, systemPrompt, dispose } = await createPhysicsSession({
       ...dirs,
       skillDir: SKILL_DIR,
-      systemPrompt: SKILL_SYSTEM_PROMPT
+      systemPrompt: skillSystemPrompt(SKILL_DIR)
     })
     expect(skills).toContain('physics-lab-skill')
-    // 系统提示已常驻注入（skill 默认触发，无"引入"概念）
-    expect(systemPrompt).toContain('physics-lab-skill')
+    // 系统提示已常驻注入（skill 默认触发，无"引入"概念；含 SKILL.md 确定路径，agent 无需 find）
+    expect(systemPrompt).toContain(join(SKILL_DIR, 'SKILL.md'))
     expect(systemPrompt).toContain('完整流程')
     // skill 内容未被修改（只读注册）：SKILL.md 仍在原目录
     expect(existsSync(join(SKILL_DIR, 'SKILL.md'))).toBe(true)
@@ -64,7 +64,7 @@ describe.skipIf(!hasKey)('端到端：物理题 → skill 流程生成演示（�
     const { session, dispose } = await createPhysicsSession({
       ...dirs,
       skillDir: SKILL_DIR,
-      systemPrompt: SKILL_SYSTEM_PROMPT,
+      systemPrompt: skillSystemPrompt(SKILL_DIR),
       sessionFile: 'free-fall.jsonl'
     })
     try {

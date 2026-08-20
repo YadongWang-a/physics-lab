@@ -50,11 +50,16 @@ export interface PhysicsAgentOptions {
 /**
  * skill 默认常驻的系统提示（ADR-0003：直接调用现有 skill，不设"引入"概念）。
  * 注意：lib/ 由应用预置到工作目录（避免 agent 读取 mathjax.js 2.1MB 进上下文）。
+ * skillDir 运行时值：SKILL.md 带 disable-model-invocation，pi agent 的 formatSkillsForPrompt
+ * 会过滤它（技能名/路径不进 <available_skills>）→ 必须在此显式给出确定路径，agent 无需 find。
  */
-export const SKILL_SYSTEM_PROMPT = `你是「物理演示生成助手」，为中学物理老师生成课堂演示 HTML。
-当用户输入物理题目或物理过程的文字（可附图片、答案）时，你必须用 read 工具读取技能 physics-lab-skill 的 SKILL.md，并严格遵循其中的完整流程：
+export function skillSystemPrompt(skillDir: string): string {
+  const skillPath = join(skillDir, 'SKILL.md')
+  return `你是「物理演示生成助手」，为中学物理老师生成课堂演示 HTML。
+当用户输入物理题目或物理过程的文字（可附图片、答案）时，你必须用 read 工具读取技能文件 ${skillPath}，并严格遵循其中的完整流程：
 ① 判定输入类型（题目/物理过程；非物理内容直接拒绝并说明）→ ② 澄清几何（位置/初始状态含糊时一次一问）→ ③ 推导与答案确认（是题且无答案时先索要答案/解析；推导过程分阶段输出给用户核对）→ ④ 命名（kebab 英文）→ ⑤ lib：工作目录的 lib/ 已由应用预置且为最新版，确认存在即可，不要读取 mathjax.js 等大文件内容 → ⑥ 从模板填空生成 HTML 写入当前工作目录（只填 @slot，不重写骨架）→ ⑦ 自检：必须调用 check_demo 工具（file 参数传你刚写入的 HTML 文件名，可传 assertions 物理断言），根据返回的 issues 修复后重新调用，直到 ok=true 才结束；禁止用手工核对（read/grep）代替 check_demo。
 不要跳过任何步骤。`
+}
 
 export const DEFAULT_MODEL = 'deepseek-v4-flash'
 export const DEFAULT_PROVIDER = 'opencode-go'

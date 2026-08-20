@@ -2,7 +2,7 @@ import { join } from 'node:path'
 import { existsSync } from 'node:fs'
 import { SessionManager } from '@earendil-works/pi-coding-agent'
 import type { ImageContent } from '@earendil-works/pi-ai'
-import { createPhysicsSession, SKILL_SYSTEM_PROMPT, type PhysicsSession } from './agent-runner'
+import { createPhysicsSession, skillSystemPrompt, type PhysicsSession } from './agent-runner'
 import type { ModelSlotConfig } from '../../shared/settings-types'
 import type { ChatHistoryEntry } from '../../shared/ipc-types'
 
@@ -70,7 +70,7 @@ export class SessionHost {
       mainSlot: this.opts.getMainSlot(),
       sessionFile: `${key}.jsonl`,
       skillDir: this.opts.skillDir,
-      systemPrompt: SKILL_SYSTEM_PROMPT
+      systemPrompt: skillSystemPrompt(this.opts.skillDir)
     })
     ps.session.subscribe((e) => onEvent(e))
     this.sessions.set(key, { ps, workspaceDir })
