@@ -24,9 +24,9 @@ interface WebviewElement extends HTMLElement {
 const styles: Record<string, React.CSSProperties> = {
   layout: { display: 'flex', flexDirection: 'column', height: '100vh', fontFamily: 'var(--pl-font-sans)', background: 'var(--pl-background)', color: 'var(--pl-foreground)' },
   // ---- 无框窗口标题栏 ----
-  titlebar: { height: 44, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 8px 0 14px', borderBottom: '1px solid var(--pl-border)', background: 'var(--pl-card)', userSelect: 'none' },
+  titlebar: { height: 44, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 8px 0 14px', borderBottom: '1px solid var(--pl-border)', background: 'rgba(255,255,255,.72)', backdropFilter: 'blur(20px) saturate(180%)', WebkitBackdropFilter: 'blur(20px) saturate(180%)', userSelect: 'none' },
   brand: { display: 'flex', alignItems: 'center', gap: 10 },
-  brandLogo: { width: 26, height: 26, borderRadius: 6, background: 'var(--pl-primary)', color: 'var(--pl-primary-foreground)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14 },
+  brandLogo: { width: 26, height: 26, borderRadius: 6, background: 'var(--grad-primary)', color: 'var(--pl-primary-foreground)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, boxShadow: '0 2px 8px rgba(37,99,235,.35)' },
   brandName: { fontSize: 14, fontWeight: 600, letterSpacing: '-0.01em' },
   titlebarRight: { display: 'flex', alignItems: 'center', gap: 8 },
   iconBtn: { border: 'none', background: 'transparent', color: 'var(--pl-muted-foreground)', cursor: 'pointer', borderRadius: 6, padding: '6px 10px', fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 6 },
@@ -35,16 +35,16 @@ const styles: Record<string, React.CSSProperties> = {
   dot: { width: 8, height: 8, borderRadius: '50%' },
   winBtn: { width: 36, height: 34, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: 'none', color: 'var(--pl-muted-foreground)', cursor: 'pointer', borderRadius: 6 },
   // ---- 浏览窗口（工作空间演示列表，可收缩；标题栏 ☰ 呼出） ----
-  browse: { width: 208, minWidth: 208, display: 'flex', flexDirection: 'column', background: 'var(--pl-background)', borderRight: '1px solid var(--pl-line-soft, #edf1f6)', flexShrink: 0, transition: 'width 240ms ease, opacity 200ms ease, min-width 240ms ease' },
+  browse: { width: 208, minWidth: 208, display: 'flex', flexDirection: 'column', background: 'var(--pl-card)', borderRight: '1px solid var(--pl-border)', flexShrink: 0, transition: 'width 240ms ease, opacity 200ms ease, min-width 240ms ease' },
   browseCollapsed: { width: 0, minWidth: 0, opacity: 0, overflow: 'hidden', borderRight: 'none' },
   browseHead: { height: 40, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6, padding: '0 8px 0 14px' },
   browseHeadTitle: { fontSize: 12, fontWeight: 600, flex: 1 },
   browseHeadCount: { fontSize: 11, color: 'var(--pl-muted-foreground)', fontWeight: 400 },
   browseHeadBtn: { width: 24, height: 24, border: 'none', background: 'transparent', color: 'var(--pl-muted-foreground)', borderRadius: 6, cursor: 'pointer', fontSize: 12, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' },
   browseList: { flex: 1, overflowY: 'auto', padding: '2px 8px 12px', display: 'flex', flexDirection: 'column', gap: 2 },
-  browseItem: { display: 'flex', alignItems: 'center', gap: 9, padding: '7px 8px', borderRadius: 'var(--pl-radius-md)', cursor: 'pointer', userSelect: 'none', position: 'relative' },
-  browseItemHover: { background: 'var(--pl-card)' },
-  browseItemActive: { background: 'var(--pl-primary-soft, #e8f0fe)' },
+  browseItem: { display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', width: '100%', border: '1px solid transparent', background: 'transparent', font: 'inherit', color: 'inherit', textAlign: 'left', borderRadius: 'var(--pl-radius-md)', cursor: 'pointer', userSelect: 'none', position: 'relative', transition: 'all .12s ease' },
+  browseItemHover: { background: 'var(--pl-muted)' },
+  browseItemActive: { background: 'var(--primary-soft)', borderColor: 'rgba(37,99,235,.2)' },
   browseThumb: { width: 34, height: 26, borderRadius: 5, background: 'var(--pl-card)', border: '1px solid var(--pl-border)', flexShrink: 0, position: 'relative', overflow: 'hidden' },
   browseMeta: { flex: 1, minWidth: 0 },
   browseTitle: { fontSize: 12, color: 'var(--pl-foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.4 },
@@ -54,28 +54,28 @@ const styles: Record<string, React.CSSProperties> = {
   browseDelete: { position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', width: 18, height: 18, border: 'none', background: 'var(--pl-muted)', color: 'var(--pl-muted-foreground)', borderRadius: 5, fontSize: 10, cursor: 'pointer', lineHeight: 1, display: 'none' },
   // ---- 工作台 ----
   workspace: { flex: 1, display: 'flex', overflow: 'hidden', position: 'relative' },
-  chat: { width: 420, minWidth: 320, maxWidth: '50%', display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--pl-border)', background: 'var(--pl-background)', transition: 'width 240ms ease, opacity 200ms ease, min-width 240ms ease' },
+  chat: { width: 420, minWidth: 320, maxWidth: '50%', display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--pl-border)', background: 'var(--pl-card)', transition: 'width 240ms ease, opacity 200ms ease, min-width 240ms ease' },
   chatCollapsed: { width: 0, minWidth: 0, opacity: 0, overflow: 'hidden', borderRight: 'none' },
   chatBody: { flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: 14 },
-  msgUser: { alignSelf: 'flex-end', background: 'var(--pl-primary)', color: 'var(--pl-primary-foreground)', padding: '9px 13px', borderRadius: '12px 12px 3px 12px', maxWidth: '85%', whiteSpace: 'pre-wrap', fontSize: 13.5, lineHeight: 1.6, boxShadow: 'var(--pl-shadow-1)' },
-  msgAssistant: { alignSelf: 'flex-start', background: 'var(--pl-card)', border: '1px solid var(--pl-border)', padding: '9px 13px', borderRadius: '12px 12px 12px 3px', maxWidth: '85%', whiteSpace: 'pre-wrap', fontSize: 13.5, lineHeight: 1.6, boxShadow: 'var(--pl-shadow-1)' },
+  msgUser: { alignSelf: 'flex-end', background: 'var(--grad-primary)', color: 'var(--pl-primary-foreground)', padding: '10px 16px', borderRadius: 'var(--pl-radius-lg) var(--pl-radius-lg) 4px var(--pl-radius-lg)', maxWidth: '88%', whiteSpace: 'pre-wrap', fontSize: 13.5, lineHeight: 1.6, boxShadow: '0 2px 8px rgba(37,99,235,.25)' },
+  msgAssistant: { alignSelf: 'flex-start', background: 'transparent', border: 'none', padding: '4px 0', borderRadius: 0, maxWidth: '94%', whiteSpace: 'pre-wrap', fontSize: 13.5, lineHeight: 1.75, boxShadow: 'none' },
   msgTool: { alignSelf: 'flex-start', color: 'var(--pl-muted-foreground)', fontSize: 12, fontFamily: 'var(--pl-font-mono)', whiteSpace: 'pre-wrap', paddingLeft: 4 },
   msgError: { alignSelf: 'flex-start', color: 'var(--pl-state-error)', fontSize: 12.5, whiteSpace: 'pre-wrap' },
   inputCard: { border: '1px solid var(--pl-border)', borderRadius: 16, background: 'var(--pl-card)', overflow: 'hidden', boxShadow: 'var(--pl-shadow-1)', margin: '0 16px 12px' },
   chatInput: { width: '100%', resize: 'none', border: 'none', outline: 'none', background: 'transparent', padding: '12px 14px 4px', fontSize: 13.5, lineHeight: 1.6, fontFamily: 'inherit', color: 'var(--pl-foreground)', maxHeight: 128 },
   inputFooter: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px 8px' },
   inputHint: { fontSize: 11, color: 'var(--pl-muted-foreground)', paddingLeft: 4 },
-  sendBtn: { border: 'none', background: 'var(--pl-primary)', color: 'var(--pl-primary-foreground)', borderRadius: 10, width: 36, height: 34, cursor: 'pointer', fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  sendBtn: { border: 'none', background: 'var(--grad-primary)', color: 'var(--pl-primary-foreground)', borderRadius: 10, width: 36, height: 34, cursor: 'pointer', fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(37,99,235,.3)' },
   sendBtnDisabled: { opacity: 0.45, cursor: 'default' },
   stopBtn: { border: '1px solid var(--pl-border)', background: 'var(--pl-card)', color: 'var(--pl-state-error)', borderRadius: 8, padding: '0 14px', cursor: 'pointer', fontSize: 12.5 },
   chatToggle: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: '50%', background: 'var(--pl-card)', border: '1px solid var(--pl-border)', color: 'var(--pl-muted-foreground)', cursor: 'pointer', fontSize: 11, boxShadow: 'var(--pl-shadow-2)', flexShrink: 0, padding: 0, lineHeight: 1 },
   // ---- 预览 ----
   preview: { flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--pl-background)', minWidth: 320 },
-  previewHeader: { height: 40, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 14px', borderBottom: '1px solid var(--pl-border)', fontSize: 13, fontWeight: 600, background: 'var(--pl-card)' },
+  previewHeader: { height: 44, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', borderBottom: '1px solid var(--pl-border)', fontSize: 13, fontWeight: 600, background: 'rgba(255,255,255,.72)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' },
   previewBody: { flex: 1, position: 'relative' },
   previewEmpty: { position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, background: 'var(--pl-background)', zIndex: 10 },
   previewEmptyIcon: { width: 56, height: 56, borderRadius: '50%', background: 'rgba(37,99,235,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, color: 'var(--pl-primary)' },
-  presentBtn: { border: '1px solid var(--pl-border)', background: 'var(--pl-muted)', color: 'var(--pl-foreground)', borderRadius: 6, padding: '4px 12px', fontSize: 12.5, cursor: 'pointer' },
+  presentBtn: { border: 'none', background: 'var(--grad-primary)', color: 'var(--pl-primary-foreground)', borderRadius: 6, padding: '4px 14px', fontSize: 12.5, cursor: 'pointer', boxShadow: '0 2px 8px rgba(37,99,235,.3)' },
   refreshBtn: { position: 'absolute', top: 10, right: 10, zIndex: 20, width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--pl-card)', border: '1px solid var(--pl-border)', borderRadius: 7, color: 'var(--pl-muted-foreground)', cursor: 'pointer', boxShadow: 'var(--pl-shadow-1)' },
   // ---- 状态栏 ----
   statusbar: { height: 28, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 14px', borderTop: '1px solid var(--pl-border)', background: 'var(--pl-card)', fontSize: 12, color: 'var(--pl-muted-foreground)' },
@@ -353,20 +353,12 @@ export function App(): React.JSX.Element {
       {/* 标题栏（无框窗口拖拽区） */}
       <header style={styles.titlebar} className="titlebar-drag">
         <div style={styles.brand}>
-          <div style={styles.brandLogo}>⚗</div>
+          <div style={styles.brandLogo}><Icon name="flask" size={15} /></div>
           <span style={styles.brandName}>物理演示生成器</span>
         </div>
         <div style={styles.titlebarRight} className="titlebar-no-drag">
-          <button
-            style={browseCollapsed ? styles.iconBtn : { ...styles.iconBtn, background: 'var(--pl-muted)', color: 'var(--pl-foreground)' }}
-            className="icon-btn"
-            title={browseCollapsed ? '显示演示列表' : '隐藏演示列表'}
-            onClick={() => setBrowseCollapsed((c) => !c)}
-          >
-            ☰ 演示
-          </button>
           <button style={styles.iconBtn} className="icon-btn" title="模型设置" onClick={() => setSettingsOpen(true)}>
-            ⚙ 设置
+            <Icon name="settings" size={14} />
           </button>
           <div style={styles.providerBadge}>
             <span style={{ ...styles.dot, background: hasMainKey ? 'var(--pl-state-success)' : 'var(--pl-state-warning)' }} />
@@ -380,7 +372,7 @@ export function App(): React.JSX.Element {
             □
           </button>
           <button style={styles.winBtn} className="win-btn win-close" title="关闭" onClick={() => window.api?.window.close()}>
-            ✕
+            <Icon name="close" size={14} />
           </button>
         </div>
       </header>
@@ -397,6 +389,17 @@ export function App(): React.JSX.Element {
       {/* 会话标签页栏 */}
       {/* 工作台 */}
       <section style={styles.workspace}>
+        {/* 常驻窄图标栏（v2 原型 Activity Bar） */}
+        {!presenting && (
+          <div className="app-rail">
+            <button className={'app-rail-btn' + (!browseCollapsed ? ' on' : '')} title="演示列表" onClick={() => setBrowseCollapsed(c => !c)}>
+              <Icon name="menu" size={16} />
+            </button>
+            <button className={'app-rail-btn' + (!chatCollapsed ? ' on' : '')} title="对话" onClick={() => setChatCollapsed(c => !c)}>
+              <Icon name="chat" size={16} />
+            </button>
+          </div>
+        )}
         {/* 浏览窗口（工作空间演示列表，可收缩） */}
         {!presenting && !browseCollapsed && (
           <section style={styles.browse}>
@@ -404,10 +407,10 @@ export function App(): React.JSX.Element {
               <span style={styles.browseHeadTitle}>演示</span>
               <span style={styles.browseHeadCount}>{ws.demos.length}</span>
               <button style={styles.browseHeadBtn} title="刷新列表" onClick={refresh}>
-                ⟲
+                <Icon name="refresh" size={13} />
               </button>
               <button style={styles.browseHeadBtn} title="收起浏览" onClick={() => setBrowseCollapsed(true)}>
-                ◀
+                <Icon name="close" size={12} />
               </button>
             </div>
             <div style={styles.browseList} className="no-scrollbar">
@@ -415,8 +418,9 @@ export function App(): React.JSX.Element {
                 <div style={styles.browseEmpty}>还没有演示 — 在聊天区输入一道物理题开始生成</div>
               )}
               {ws.demos.map((d) => (
-                <div
+                <button
                   key={d.file}
+                  type="button"
                   data-demo-item
                   style={selected === d.file ? { ...styles.browseItem, ...styles.browseItemActive } : styles.browseItem}
                   title={d.file}
@@ -429,17 +433,27 @@ export function App(): React.JSX.Element {
                     </div>
                     <div style={styles.browseFile}>{d.file}</div>
                   </div>
-                  <button
+                  <span
+                    role="button"
+                    tabIndex={0}
                     style={styles.browseDelete}
                     title="删除演示"
+                    aria-label={`删除演示 ${d.title}`}
                     onClick={(e) => {
                       e.stopPropagation()
                       removeDemo(d)
                     }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        removeDemo(d)
+                      }
+                    }}
                   >
-                    ✕
-                  </button>
-                </div>
+                    <Icon name="close" size={11} />
+                  </span>
+                </button>
               ))}
             </div>
           </section>
@@ -480,7 +494,7 @@ export function App(): React.JSX.Element {
                       title="移除图片"
                       onClick={() => setImages((prev) => prev.filter((_, i) => i !== idx))}
                     >
-                      ✕
+                      <Icon name="close" size={10} />
                     </button>
                   </div>
                 ))}
@@ -488,6 +502,7 @@ export function App(): React.JSX.Element {
             )}
             <div style={styles.inputCard}>
               <textarea
+                className="app-chat-input"
                 style={styles.chatInput}
                 rows={2}
                 value={input}
@@ -517,7 +532,7 @@ export function App(): React.JSX.Element {
                     disabled={!canSend}
                     title="发送"
                   >
-                    ↑
+                    <Icon name="arrowUp" size={16} />
                   </button>
                 )}
               </div>
@@ -538,28 +553,20 @@ export function App(): React.JSX.Element {
           ) : (
             <div style={styles.previewHeader}>
               <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <button
-                  style={styles.chatToggle}
-                  className="icon-btn"
-                  title={chatCollapsed ? '展开对话' : '收起对话'}
-                  onClick={() => setChatCollapsed((c) => !c)}
-                >
-                  {chatCollapsed ? '▶' : '◀'}
-                </button>
                 <span>{selectedDemo ? selectedDemo.title : '预览'}</span>
               </span>
               {selectedDemo && (
                 <button style={styles.presentBtn} onClick={enterPresent}>
-                  演示
+                  <Icon name="play" size={12} /> 演示
                 </button>
               )}
             </div>
           )}
-          <div style={styles.previewBody}>
+          <div style={styles.previewBody} className="app-preview-body">
             {selectedDemo ? (
               <>
                 <button style={styles.refreshBtn} title="刷新预览" onClick={() => webviewRef.current?.reload()}>
-                  ⟳
+                  <Icon name="refresh" size={13} />
                 </button>
                 <webview
                   ref={(el) => {
@@ -572,7 +579,7 @@ export function App(): React.JSX.Element {
               </>
             ) : (
               <div style={styles.previewEmpty}>
-                <div style={styles.previewEmptyIcon}>▶</div>
+                <div style={styles.previewEmptyIcon}><Icon name="play" size={24} /></div>
                 <p style={{ fontSize: 14, fontWeight: 500, margin: 0 }}>演示生成后在此加载</p>
                 <p style={styles.hint}>输入一道物理题，或从上方标签页选择已有演示</p>
               </div>
@@ -585,7 +592,7 @@ export function App(): React.JSX.Element {
       {!presenting && (
         <footer style={styles.statusbar}>
           <div style={styles.statusItem}>
-            <span style={{ fontSize: 11 }}>📁</span>
+            <span style={{ fontSize: 11 }}><Icon name="folder" size={13} /></span>
             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 480 }}>{ws.dir}</span>
           </div>
           <div style={styles.statusItem}>
@@ -598,5 +605,24 @@ export function App(): React.JSX.Element {
 
       {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
     </div>
+  )
+}
+
+const ICONS: Record<string, React.ReactNode> = {
+  flask: <path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.8 3h10.4a2 2 0 0 0 1.8-3l-5-9V3" />,
+  menu: <path d="M3 6h18M3 12h18M3 18h18" />,
+  chat: <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />,
+  settings: <><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1h.09a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" /></>,
+  close: <path d="M6 6l12 12M18 6L6 18" />,
+  refresh: <><path d="M21 12a9 9 0 1 1-3-6.7L21 8" /><path d="M21 3v5h-5" /></>,
+  play: <path d="M8 5v14l11-7z" />,
+  arrowUp: <><path d="M12 19V5" /><path d="M5 12l7-7 7 7" /></>,
+  folder: <><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" /></>,
+}
+function Icon({ name, size = 16 }: { name: string; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      {ICONS[name]}
+    </svg>
   )
 }

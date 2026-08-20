@@ -103,3 +103,57 @@ body {
   background: var(--pl-muted);
   color: var(--pl-foreground);
 }
+:root {
+  --primary-soft: #e8f0fe;
+  --primary-glow: rgba(37, 99, 235, .18);
+  --grad-primary: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
+  --grad-primary-hover: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%);
+}
+
+/* 常驻窄图标栏（Activity Bar，v2 原型） */
+.app-rail {
+  width: 44px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center;
+  padding-top: 12px; gap: 4px; background: var(--pl-card); border-right: 1px solid var(--pl-border);
+}
+.app-rail-btn {
+  width: 32px; height: 32px; border: none; background: transparent; color: var(--pl-muted-foreground);
+  border-radius: var(--pl-radius-md); cursor: pointer; font-size: 15px;
+  display: flex; align-items: center; justify-content: center; transition: all .15s ease; position: relative;
+}
+.app-rail-btn:hover { background: var(--pl-muted); color: var(--pl-primary); }
+.app-rail-btn.on { background: var(--primary-soft); color: var(--pl-primary); }
+.app-rail-btn.on::before {
+  content: ''; position: absolute; left: -6px; top: 50%; transform: translateY(-50%);
+  width: 3px; height: 18px; border-radius: 0 3px 3px 0; background: var(--grad-primary);
+}
+
+/* 全局焦点环（v2 审计） */
+:focus-visible { outline: 2px solid var(--pl-primary); outline-offset: 2px; }
+
+/* 减少动效（v2 审计） */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+}
+
+.app-preview-body {
+  background: radial-gradient(ellipse at 50% 20%, #ffffff 0%, #f1f5f9 80%);
+  overflow: hidden;
+}
+.app-preview-body::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(rgba(15,23,42,.03) 1px, transparent 1px), linear-gradient(90deg, rgba(15,23,42,.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+}
+.app-chat-input {
+  transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
+}
+.app-chat-input:focus {
+  border-color: var(--pl-primary) !important;
+  background: var(--pl-card) !important;
+  box-shadow: 0 0 0 3px var(--primary-glow);
+}
+.browse-item:hover .browseDelete,
+.browse-item:focus-within .browseDelete { display: flex !important; align-items: center; justify-content: center; }
