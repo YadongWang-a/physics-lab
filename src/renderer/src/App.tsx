@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Markdown } from './Markdown'
 import { SettingsModal } from './SettingsModal'
+import { friendlyErrorMessage } from '../../shared/errors'
 import type { DemoMeta, ImagePayload, RendererApi, WorkspaceSnapshot } from '../../shared/ipc-types'
 
 declare global {
@@ -71,8 +72,7 @@ const styles: Record<string, React.CSSProperties> = {
   chatBody: { flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: 14 },
   msgUser: { alignSelf: 'flex-end', textAlign: 'right', background: 'var(--pl-muted)', color: 'var(--pl-ink)', padding: '10px 16px', borderRadius: 'var(--pl-radius-lg) var(--pl-radius-lg) 4px var(--pl-radius-lg)', maxWidth: '88%', whiteSpace: 'pre-wrap', fontSize: 13.5, lineHeight: 1.6, boxShadow: '0 1px 2px rgba(15,23,42,.10)' },
   msgAssistant: { alignSelf: 'flex-start', background: 'transparent', border: 'none', padding: '4px 0', borderRadius: 0, maxWidth: '94%', whiteSpace: 'normal', fontSize: 13.5, lineHeight: 1.75, boxShadow: 'none' },
-  msgTool: { alignSelf: 'flex-start', color: 'var(--pl-muted-foreground)', fontSize: 12, fontFamily: 'var(--pl-font-mono)', whiteSpace: 'pre-wrap', paddingLeft: 4 },
-  msgError: { alignSelf: 'flex-start', color: 'var(--pl-state-error)', fontSize: 12.5, whiteSpace: 'pre-wrap' },
+  msgError: { alignSelf: 'flex-start', maxWidth: '94%', whiteSpace: 'pre-wrap', fontSize: 12.5, lineHeight: 1.6, color: 'var(--pl-state-error)', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 'var(--pl-radius-md)', padding: '10px 12px' },
   inputCard: { margin: '0 16px 12px', background: 'transparent', position: 'relative' },
   chatInput: { width: '100%', resize: 'none', border: '1px solid var(--pl-border)', background: 'var(--pl-background)', outline: 'none', padding: '12px 14px 4px', fontSize: 13.5, lineHeight: 1.6, fontFamily: 'inherit', color: 'var(--pl-foreground)', maxHeight: 128, borderRadius: 'var(--pl-radius-md)' },
   inputFooter: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px 8px' },
@@ -301,7 +301,7 @@ export function App(): React.JSX.Element {
       const { key } = await window.api!.chat.send(selected, text, payload)
       activeKeyRef.current = key
     } catch (err) {
-      append({ role: 'error', text: `发送失败：${err instanceof Error ? err.message : String(err)}` })
+      append({ role: 'error', text: friendlyErrorMessage(err) })
       setStreaming(false)
     }
   }, [input, selected, streaming, append, images])

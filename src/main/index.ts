@@ -8,6 +8,7 @@ import type { ImageContent } from '@earendil-works/pi-ai'
 import { applySlotToRuntime, listProviderModels } from './agent/provider-config'
 import { extractImageText, routeDecision, type ImagePayload } from './agent/vision-extract'
 import { toSlotView, type ModelSlotConfig, type SaveSettingsPayload, type SettingsView } from '../shared/settings-types'
+import { friendlyErrorMessage } from '../shared/errors'
 import { loadEnvFile } from '../shared/load-env'
 import { isInsufficientBalance } from '../shared/balance'
 import type { WorkspaceSnapshot } from '../shared/ipc-types'
@@ -136,13 +137,12 @@ function registerWorkspaceIpc(): void {
               images
             })
             promptText = `${text}\n\n【题目图片内容（视觉模型识别）】\n${extracted}`
-            broadcast('chat:event', { file: key, event: { type: 'ocr_note', text: '图片已由视觉模型识别为文字，进入对话' } })
           } catch (err) {
             broadcast('chat:event', {
               file: key,
               event: {
                 type: 'chat_error',
-                message: `图片识别失败：${err instanceof Error ? err.message : String(err)}`
+                message: `图片识别失败：${friendlyErrorMessage(err)}`
               }
             })
             return { ok: false, key }
@@ -155,11 +155,10 @@ function registerWorkspaceIpc(): void {
           return { ok: false, key }
         }
       }
-
       host.prompt(key, promptText, promptImages).catch((err: unknown) => {
         broadcast('chat:event', {
           file: key,
-          event: { type: 'chat_error', message: err instanceof Error ? err.message : String(err) }
+          event: { type: 'chat_error', message: friendlyErrorMessage(err) }
         })
       })
       return { ok: true, key }
