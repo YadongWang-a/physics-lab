@@ -146,11 +146,6 @@ export function SettingsModal(props: { onClose: () => void }): React.JSX.Element
             关闭
           </button>
         </div>
-        <p style={styles.hint}>
-          API Key 经系统加密（DPAPI）保存，不会明文落盘；测试只发送一条最小请求。保存后当前会话将按新配置重建。
-          <br />
-          申请 Key：opencode（opencode.ai/account）或 DeepSeek（platform.deepseek.com）注册后在控制台创建；Key 形如 sk-…。
-        </p>
 
         <SlotCard
           title="主模型（生成演示）"
