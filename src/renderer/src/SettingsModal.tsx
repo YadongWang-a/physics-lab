@@ -142,8 +142,8 @@ export function SettingsModal(props: { onClose: () => void }): React.JSX.Element
             <div style={styles.headerLogo}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.8 3h10.4a2 2 0 0 0 1.8-3l-5-9V3" /></svg></div>
             <h3 style={styles.title}>模型设置</h3>
           </div>
-          <button style={styles.cancelBtn} onClick={props.onClose}>
-            关闭
+          <button className="icon-btn" title="关闭" aria-label="关闭" onClick={props.onClose}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
           </button>
         </div>
 
