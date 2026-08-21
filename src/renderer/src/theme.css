@@ -169,3 +169,6 @@ body {
 @keyframes shimmer { 0%,100% { opacity: .5; } 50% { opacity: 1; } }
 @keyframes pulse-dot { 0%,100% { opacity: 1; } 50% { opacity: .4; } }
 @keyframes spin { to { transform: rotate(360deg); } }
+/* 聊天内生成中态（v2 原型） */
+@keyframes pulse-ring { 0% { box-shadow: 0 0 0 0 rgba(245,158,11,.5); } 70% { box-shadow: 0 0 0 6px rgba(245,158,11,0); } 100% { box-shadow: 0 0 0 0 rgba(245,158,11,0); } }
+@keyframes gen-slide { 0% { transform: translateX(-100%); } 100% { transform: translateX(260%); } }

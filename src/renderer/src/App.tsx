@@ -494,7 +494,7 @@ export function App(): React.JSX.Element {
                 <div style={styles.welcome}>
                   <div style={styles.welcomeKicker}>物理演示生成器</div>
                   <h2 style={styles.welcomeTitle}>输入一道物理题，开始生成</h2>
-                  <p style={styles.welcomeDesc}>支持文字描述或粘贴题目照片。agent 会按流程推导、生成交互演示并自动自检。</p>
+                  <p style={styles.welcomeDesc}>支持文字描述或粘贴题目照片。AI 会按流程推导、生成交互演示并自动自检。</p>
                   <div style={styles.welcomeExamples}>
                     {['一个小球从 5m 高处自由落体，求落地时间', '两个小球弹性碰撞，质量 1:2', '绳环从高处下落（物理过程，无需答案）'].map((ex) => (
                       <button
@@ -511,22 +511,23 @@ export function App(): React.JSX.Element {
                   </div>
                 </div>
               )}
-              {messages.map((m) => (
+              {messages.map((m, idx) => {
+                const priorAssistant = messages.slice(0, idx).filter((x) => x.role === 'assistant').length
+                const tag = m.role === 'assistant' ? (m.streaming ? '生成中' : priorAssistant > 0 ? '修改' : '推导') : null
+                return (
                 <div key={m.id}>
+                  {idx > 0 && (
+                    <div style={{ alignSelf: 'center', width: '50%', height: 1, margin: '4px 0', background: 'linear-gradient(to right, transparent, var(--pl-border), transparent)' }} />
+                  )}
                   {m.role === 'assistant' && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, fontSize: 11, color: 'var(--pl-muted-foreground)' }}>
-                      <span
-                        style={{
-                          width: 20, height: 20, borderRadius: 6, background: 'var(--grad-primary)', color: '#fff',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 1px 4px rgba(37,99,235,.3)'
-                        }}
-                      >
+                      <span style={{ width: 20, height: 20, borderRadius: 6, background: 'var(--grad-primary)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 1px 4px rgba(37,99,235,.3)' }}>
                         <Icon name="flask" size={12} />
                       </span>
                       <span style={{ fontWeight: 600, color: 'var(--pl-ink-2)' }}>物理助手</span>
-                      <span style={{ fontSize: 10, padding: '1px 7px', borderRadius: 999, background: 'var(--pl-muted)', color: 'var(--pl-muted-foreground)' }}>
-                        {m.streaming ? '生成中' : '完成'}
-                      </span>
+                      {tag && (
+                        <span style={{ fontSize: 10, padding: '1px 7px', borderRadius: 999, background: 'var(--pl-muted)', color: 'var(--pl-muted-foreground)' }}>{tag}</span>
+                      )}
                     </div>
                   )}
                   <div
@@ -544,7 +545,22 @@ export function App(): React.JSX.Element {
                     {m.text}
                   </div>
                 </div>
-              ))}
+                )
+              })}
+              {streaming && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '4px 0' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, color: 'var(--pl-ink-2)' }}>
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--pl-state-warning)', animation: 'pulse-ring 1.6s ease-out infinite' }} />
+                    <span>生成中 · AI 推导物理过程…</span>
+                  </div>
+                  <div style={{ height: 3, borderRadius: 2, background: 'var(--pl-muted)', overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: '40%', borderRadius: 2, background: 'var(--grad-primary)', animation: 'gen-slide 1.2s ease-in-out infinite' }} />
+                  </div>
+                  <button style={{ alignSelf: 'flex-start', border: '1px solid var(--pl-border)', background: 'var(--pl-card)', color: 'var(--pl-state-error)', borderRadius: 8, padding: '4px 14px', cursor: 'pointer', fontSize: 12.5 }} onClick={stop}>
+                    ■ 停止生成
+                  </button>
+                </div>
+              )}
             </div>
             {images.length > 0 && (
               <div style={styles.attachRow}>
