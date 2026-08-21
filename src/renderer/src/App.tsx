@@ -68,7 +68,7 @@ const styles: Record<string, React.CSSProperties> = {
   chat: { width: 420, minWidth: 320, maxWidth: '50%', display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--pl-border)', background: 'var(--pl-card)', transition: 'width 240ms ease, opacity 200ms ease, min-width 240ms ease' },
   chatCollapsed: { width: 0, minWidth: 0, opacity: 0, overflow: 'hidden', borderRight: 'none' },
   chatBody: { flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: 14 },
-  msgUser: { alignSelf: 'flex-end', background: 'var(--grad-primary)', color: 'var(--pl-primary-foreground)', padding: '10px 16px', borderRadius: 'var(--pl-radius-lg) var(--pl-radius-lg) 4px var(--pl-radius-lg)', maxWidth: '88%', whiteSpace: 'pre-wrap', fontSize: 13.5, lineHeight: 1.6, boxShadow: '0 2px 8px rgba(37,99,235,.25)' },
+  msgUser: { alignSelf: 'flex-end', textAlign: 'right', background: 'var(--grad-primary)', color: 'var(--pl-primary-foreground)', padding: '10px 16px', borderRadius: 'var(--pl-radius-lg) var(--pl-radius-lg) 4px var(--pl-radius-lg)', maxWidth: '88%', whiteSpace: 'pre-wrap', fontSize: 13.5, lineHeight: 1.6, boxShadow: '0 2px 8px rgba(37,99,235,.25)' },
   msgAssistant: { alignSelf: 'flex-start', background: 'transparent', border: 'none', padding: '4px 0', borderRadius: 0, maxWidth: '94%', whiteSpace: 'pre-wrap', fontSize: 13.5, lineHeight: 1.75, boxShadow: 'none' },
   msgTool: { alignSelf: 'flex-start', color: 'var(--pl-muted-foreground)', fontSize: 12, fontFamily: 'var(--pl-font-mono)', whiteSpace: 'pre-wrap', paddingLeft: 4 },
   msgError: { alignSelf: 'flex-start', color: 'var(--pl-state-error)', fontSize: 12.5, whiteSpace: 'pre-wrap' },
@@ -515,7 +515,7 @@ export function App(): React.JSX.Element {
                 const priorAssistant = messages.slice(0, idx).filter((x) => x.role === 'assistant').length
                 const tag = m.role === 'assistant' ? (m.streaming ? '生成中' : priorAssistant > 0 ? '修改' : '推导') : null
                 return (
-                <div key={m.id}>
+                <div key={m.id} style={{ display: 'flex', flexDirection: 'column' }}>
                   {idx > 0 && (
                     <div style={{ alignSelf: 'center', width: '50%', height: 1, margin: '4px 0', background: 'linear-gradient(to right, transparent, var(--pl-border), transparent)' }} />
                   )}
