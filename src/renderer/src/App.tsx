@@ -215,7 +215,11 @@ export function App(): React.JSX.Element {
         typeof event === 'object' && event !== null && (event as { type?: string }).type === 'agent_settled'
       const errored =
         typeof event === 'object' && event !== null && (event as { type?: string }).type === 'chat_error'
-      if (settled || errored) setStreaming(false)
+      if (settled || errored) {
+        setStreaming(false)
+        // 清空每条消息的 streaming 标记，助手状态标签由「生成中」切回「推导/修改」
+        setMessages((prev) => prev.map((m) => (m.streaming ? { ...m, streaming: false } : m)))
+      }
     })
     const offPreview = window.api?.preview.onChanged(({ file }) => {
       if (file === selectedRef.current) {
