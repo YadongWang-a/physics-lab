@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { DemoMeta, ImagePayload, RendererApi, WorkspaceSnapshot } from '../../shared/ipc-types'
+import { Markdown } from './Markdown'
 import { SettingsModal } from './SettingsModal'
+import type { DemoMeta, ImagePayload, RendererApi, WorkspaceSnapshot } from '../../shared/ipc-types'
 
 declare global {
   interface Window {
@@ -69,7 +70,7 @@ const styles: Record<string, React.CSSProperties> = {
   chatCollapsed: { width: 0, minWidth: 0, opacity: 0, overflow: 'hidden', borderRight: 'none' },
   chatBody: { flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: 14 },
   msgUser: { alignSelf: 'flex-end', textAlign: 'right', background: 'var(--pl-muted)', color: 'var(--pl-ink)', padding: '10px 16px', borderRadius: 'var(--pl-radius-lg) var(--pl-radius-lg) 4px var(--pl-radius-lg)', maxWidth: '88%', whiteSpace: 'pre-wrap', fontSize: 13.5, lineHeight: 1.6, boxShadow: '0 1px 2px rgba(15,23,42,.10)' },
-  msgAssistant: { alignSelf: 'flex-start', background: 'transparent', border: 'none', padding: '4px 0', borderRadius: 0, maxWidth: '94%', whiteSpace: 'pre-wrap', fontSize: 13.5, lineHeight: 1.75, boxShadow: 'none' },
+  msgAssistant: { alignSelf: 'flex-start', background: 'transparent', border: 'none', padding: '4px 0', borderRadius: 0, maxWidth: '94%', whiteSpace: 'normal', fontSize: 13.5, lineHeight: 1.75, boxShadow: 'none' },
   msgTool: { alignSelf: 'flex-start', color: 'var(--pl-muted-foreground)', fontSize: 12, fontFamily: 'var(--pl-font-mono)', whiteSpace: 'pre-wrap', paddingLeft: 4 },
   msgError: { alignSelf: 'flex-start', color: 'var(--pl-state-error)', fontSize: 12.5, whiteSpace: 'pre-wrap' },
   inputCard: { margin: '0 16px 12px', background: 'transparent', position: 'relative' },
@@ -546,7 +547,7 @@ export function App(): React.JSX.Element {
                     }
                   >
                     {m.role === 'tool' && m.streaming && <span className="app-tool-spinner" style={{ display: 'inline-block', width: 12, height: 12, marginRight: 8, verticalAlign: '-2px', border: '2px solid var(--pl-border)', borderTopColor: 'var(--pl-primary)', borderRadius: '50%', animation: 'spin .7s linear infinite' }} />}
-                    {m.text}
+                    {m.role === 'assistant' ? <Markdown text={m.text} /> : m.text}
                   </div>
                 </div>
                 )
