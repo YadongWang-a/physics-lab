@@ -1,0 +1,210 @@
+/* 物理演示生成器 — Design Tokens（参考 physics-lab-main 界面语言，浅色唯一） */
+
+:root {
+  /* 语义色板 */
+  --pl-background: #f8fafc;
+  --pl-foreground: #0f172a;
+
+  --pl-card: #ffffff;
+  --pl-card-foreground: #0f172a;
+
+  --pl-primary: #2563eb;
+  --pl-primary-foreground: #ffffff;
+
+  --pl-muted: #f1f5f9;
+  --pl-muted-foreground: #64748b;
+
+  --pl-border: #e2e8f0;
+  --pl-input: #ffffff;
+  --pl-ring: #0ea5e9;
+
+  /* 圆角 */
+  --pl-radius-sm: 4px;
+  --pl-radius-md: 8px;
+  --pl-radius-lg: 12px;
+  --pl-radius-xl: 16px;
+
+  /* 语义状态 */
+  --pl-state-success: #22c55e;
+  --pl-state-warning: #f59e0b;
+  --pl-state-error: #ef4444;
+  --pl-state-info: #0ea5e9;
+
+  /* 文字层级 */
+  --pl-ink: #0f172a;
+  --pl-ink-2: #475569;
+  --pl-ink-3: #64748b;
+
+  /* 阴影 */
+  --pl-shadow-1: 0 1px 2px rgba(15, 23, 42, 0.05), 0 1px 1px rgba(15, 23, 42, 0.05);
+  --pl-shadow-2: 0 8px 24px -8px rgba(15, 23, 42, 0.12);
+  --pl-shadow-3: 0 24px 60px -20px rgba(15, 23, 42, 0.18);
+
+  /* 字体 */
+  --pl-font-sans: "Inter", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --pl-font-mono: "JetBrains Mono", "SF Mono", "Fira Code", "Consolas", monospace;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--pl-font-sans);
+  background: var(--pl-background);
+  color: var(--pl-foreground);
+  overflow: hidden;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* 无框窗口标题栏拖拽区 */
+.titlebar-drag {
+  -webkit-app-region: drag;
+}
+.titlebar-no-drag {
+  -webkit-app-region: no-drag;
+}
+
+/* 隐藏滚动条（列表区） */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* 无框窗口控制按钮 hover */
+.win-btn:hover {
+  background: var(--pl-muted);
+  color: var(--pl-foreground);
+}
+.win-close:hover {
+  background: var(--pl-state-error);
+  color: #fff;
+}
+.icon-btn:hover {
+  background: var(--pl-muted);
+  color: var(--pl-foreground);
+}
+.tab-close:hover {
+  background: var(--pl-muted);
+  color: var(--pl-foreground);
+}
+.tab-new:hover {
+  background: var(--pl-muted);
+  color: var(--pl-foreground);
+}
+:root {
+  --primary-soft: #e8f0fe;
+  --primary-glow: rgba(37, 99, 235, .18);
+  --grad-primary: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
+  --grad-primary-hover: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%);
+}
+
+/* 常驻窄图标栏（Activity Bar，v2 原型） */
+.app-rail {
+  width: 44px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center;
+  padding-top: 12px; gap: 4px; background: var(--pl-card); border-right: 1px solid var(--pl-border);
+}
+.app-rail-btn {
+  width: 32px; height: 32px; border: none; background: transparent; color: var(--pl-muted-foreground);
+  border-radius: var(--pl-radius-md); cursor: pointer; font-size: 15px;
+  display: flex; align-items: center; justify-content: center; transition: all .15s ease; position: relative;
+}
+.app-rail-btn:hover { background: var(--pl-muted); color: var(--pl-primary); }
+.app-rail-btn.on { background: var(--primary-soft); color: var(--pl-primary); }
+.app-rail-btn.on::before {
+  content: ''; position: absolute; left: -6px; top: 50%; transform: translateY(-50%);
+  width: 3px; height: 18px; border-radius: 0 3px 3px 0; background: var(--grad-primary);
+}
+
+/* 全局焦点环（v2 审计） */
+:focus-visible { outline: 2px solid var(--pl-primary); outline-offset: 2px; }
+
+/* 减少动效（v2 审计） */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+}
+
+.app-preview-body {
+  background: radial-gradient(ellipse at 50% 20%, #ffffff 0%, #f1f5f9 80%);
+  overflow: hidden;
+}
+.app-preview-body::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(rgba(15,23,42,.03) 1px, transparent 1px), linear-gradient(90deg, rgba(15,23,42,.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+}
+.app-chat-input {
+  transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
+}
+.app-chat-input:focus {
+  border-color: var(--pl-primary) !important;
+  background: var(--pl-card) !important;
+  box-shadow: 0 0 0 3px var(--primary-glow);
+}
+.browse-item:hover .browseDelete,
+.browse-item:focus-within .browseDelete { display: flex !important; align-items: center; justify-content: center; }
+
+/* 生成中态：预览骨架屏（v2 原型） */
+.app-gen-skeleton {
+  position: absolute; inset: 0; z-index: 5; display: flex; align-items: center; justify-content: center; gap: 10px;
+  background: radial-gradient(ellipse at 50% 20%, #ffffff 0%, #f1f5f9 80%);
+}
+.app-gen-skeleton .blk { width: 120px; height: 80px; border-radius: var(--pl-radius-lg); background: var(--pl-muted); animation: shimmer 1.3s ease-in-out infinite; }
+.app-gen-skeleton .blk:nth-child(2) { animation-delay: .2s; }
+.app-gen-skeleton .blk:nth-child(3) { animation-delay: .4s; }
+@keyframes shimmer { 0%,100% { opacity: .5; } 50% { opacity: 1; } }
+@keyframes pulse-dot { 0%,100% { opacity: 1; } 50% { opacity: .4; } }
+@keyframes spin { to { transform: rotate(360deg); } }
+/* 聊天内生成中态（v2 原型） */
+@keyframes pulse-ring { 0% { box-shadow: 0 0 0 0 rgba(245,158,11,.5); } 70% { box-shadow: 0 0 0 6px rgba(245,158,11,0); } 100% { box-shadow: 0 0 0 0 rgba(245,158,11,0); } }
+@keyframes gen-slide { 0% { transform: translateX(-100%); } 100% { transform: translateX(260%); } }
+/* 助手消息 markdown 渲染（GFM + KaTeX） */
+.md { font-size: 13.5px; line-height: 1.75; color: var(--pl-ink); word-break: break-word; }
+.md > :first-child { margin-top: 0; }
+.md > :last-child { margin-bottom: 0; }
+.md p { margin: 0 0 10px; }
+.md h1, .md h2, .md h3 { margin: 14px 0 8px; line-height: 1.3; font-weight: 700; letter-spacing: -0.01em; }
+.md h1 { font-size: 18px; }
+.md h2 { font-size: 16px; }
+.md h3 { font-size: 14.5px; }
+.md ul, .md ol { margin: 0 0 10px; padding-left: 22px; }
+.md li { margin: 4px 0; }
+.md li > p { margin: 0; }
+.md a { color: var(--pl-primary); text-decoration: underline; }
+.md strong { font-weight: 700; color: var(--pl-ink); }
+.md em { font-style: italic; }
+.md blockquote { margin: 0 0 10px; padding: 4px 12px; border-left: 3px solid var(--pl-border); color: var(--pl-ink-2); background: var(--pl-muted); border-radius: 0 6px 6px 0; }
+.md code {
+  font-family: var(--pl-font-mono); font-size: 12.5px;
+  background: var(--pl-muted); border: 1px solid var(--pl-border);
+  border-radius: 5px; padding: 1px 6px; color: var(--pl-ink);
+}
+.md pre {
+  margin: 0 0 10px; padding: 12px 14px; overflow-x: auto;
+  background: #0f172a; border-radius: var(--pl-radius-md);
+}
+.md pre code { background: transparent; border: none; padding: 0; color: #e2e8f0; font-size: 12.5px; }
+.md table { border-collapse: collapse; margin: 0 0 10px; font-size: 12.5px; display: block; max-width: 100%; overflow-x: auto; }
+.md th, .md td { border: 1px solid var(--pl-border); padding: 6px 10px; text-align: left; }
+.md th { background: var(--pl-muted); font-weight: 600; }
+.md hr { border: none; border-top: 1px solid var(--pl-border); margin: 12px 0; }
+/* 溢出兜底：图片限宽、行内公式可滚动（pre/表格已在上方处理） */
+.md img { max-width: 100%; height: auto; border-radius: 6px; }
+.md .katex { display: inline-block; max-width: 100%; overflow-x: auto; overflow-y: hidden; }
+/* KaTeX 公式在浅色聊天区内保持可读 */
+.md .katex { color: var(--pl-ink); font-size: 1.02em; }
+.md .katex-display { margin: 10px 0; overflow-x: auto; overflow-y: hidden; }

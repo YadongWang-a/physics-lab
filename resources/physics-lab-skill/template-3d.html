@@ -1,0 +1,252 @@
+<!-- physics-lab-skill: <标题> -->
+<!--
+  使用: 复制本文件为 <英文-kebab>.html, 替换所有 @slot 标记处。
+  骨架(非 @slot)已可运行, 勿改: fitCanvas/resize/project3/viewParams/w2s/
+  drawScene 外壳(ctx.save+applyViewport+restore)/render(SC.syncRun)/startLoop/
+  拖拽旋转(camAz/camEl)/setupScene 调用(panDrag:false)。
+  与 2D 模板的差别: 3D 伪投影(方位角/俯仰角+透视), 屏幕空间绘制(px, 助手 scale 传 1),
+  拖拽=旋转相机(非平移), 平移只能用按钮。3D 相机中心与场景几何是 @slot。
+  .mpop 弹层(问题/推导/答案)无内容时整段删除(「解析」标签自动隐藏)。
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>标题</title>
+<meta name="demo-mode" content="dynamic">
+<script>
+  window.addEventListener("message", function(e){
+    var d=e.data; if(!d||d.cmd!=="present")return;
+    document.body.classList.toggle("present", !!d.value);
+  });
+</script>
+<!-- 若含 LaTeX 公式, 取消注释 MathJax 块(同 2D 模板) -->
+<link rel="stylesheet" href="lib/common.css">
+<style>
+  /* @slot:css-vars -- 3D 面颜色等, 浅色 */
+  :root{
+    --canvas-grid:rgba(0,0,0,.04); --canvas-dim-txt:#6b7280; --canvas-txt:#1a1e2e;
+    --canvas-ball-hi:#a0c4ff; --canvas-ball-lo:#2f6fd0; --canvas-ball-stroke:#27599f; --canvas-ball-txt:#ffffff;
+    --face-top-fill:rgba(47,111,208,.08); --face-top-stroke:rgba(47,111,208,.3);
+    /* @slot: 更多面颜色(top/bot/hi/front/back)按需加 */
+  }
+  .grid{display:grid;grid-template-columns:2.8fr 1fr;gap:14px}
+  @media(max-width:1100px){.grid{grid-template-columns:1fr}}
+  .btn.on{background:var(--blue);color:#fff;border-color:var(--blue)}
+  /* @slot:page-css */
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="head-row">
+    <div>
+      <h1>标题</h1>
+    </div>
+  </div>
+
+  <!-- @slot:topbar -- 状态/模式切换 seg, 例(无则整段删):
+  <div class="topbar" style="gap:8px">
+    <div class="seg" id="stateSeg">
+      <button class="on" data-m="a">状态A</button>
+      <button data-m="b">状态B</button>
+    </div>
+  </div>
+  -->
+
+  <div class="grid">
+
+    <!-- ====== 场景卡片 ====== -->
+    <div class="card">
+      <!-- 操作按钮 + 图例栏 + 三视图(可选) 由 setupScene 注入 -->
+      <canvas id="scene" height="520"></canvas>
+      <div class="phase" id="phase">● 准备就绪</div>
+      <!-- @slot:scene-extras -->
+    </div>
+
+    <!-- ====== 右侧卡片 · 参数 + 读数(判定/答案在 .mpop 弹层) ====== -->
+    <div class="card">
+      <h2>参数调整</h2>
+      <div class="controls">
+        <!-- @slot:controls -->
+      </div>
+      <h2 style="margin-top:12px">实时读数</h2>
+      <div class="readouts">
+        <!-- @slot:readouts -->
+      </div>
+      <!-- 判定卡/答案卡在下方 .mpop 弹层(问题/推导/答案三节) -->
+    </div>
+  </div>
+
+  <!-- ====== 问题/推导/答案 弹层(画布右缘「解析」标签打开; 无内容则整段删) ====== -->
+  <div class="mpop" id="mpop">
+    <div class="mpop-back"></div>
+    <div class="mpop-panel" role="dialog" aria-modal="true">
+      <div class="sec"><button type="button" class="vhead" aria-expanded="true">问题 <span class="vcaret">▾</span></button>
+        <div class="sec-body"><div class="prob"><!-- @slot:prob -- 题面转述 --></div></div></div>
+      <div class="sec"><button type="button" class="vhead" aria-expanded="true">推导 <span class="vcaret">▾</span></button>
+        <div class="sec-body"><div class="verdict" id="verdict"></div></div></div>
+      <div class="sec"><button type="button" class="vhead" aria-expanded="true">答案 <span class="vcaret">▾</span></button>
+        <div class="sec-body"><div class="ans" id="ans"><!-- @slot:ans -- 参考答案/选项核对 --></div></div></div>
+    </div>
+  </div>
+
+  <div class="foot"><!-- @slot:footer -- 模型假设(按题写) · --> 3D 伪投影 · 拖拽旋转视角 · 滚轮/按钮缩放 · 方向按钮平移 · 空格暂停 / R 重置 · 双击此 HTML 即可离线运行</div>
+</div>
+
+<script src="lib/common.js"></script>
+<script>
+"use strict";
+/* ---------- 状态 ---------- */
+const S = { g:9.81, speed:1, view:'front', camAz:0, camEl:1.35,
+            t:0, running:false, last:null };
+/* @slot:state -- 按题增删(物理参数/物体状态等) */
+const VP = { zoom:1, panX:0, panY:0 };
+
+/* ---------- 颜色(一次缓存, 用法见 drawing.md; 3D 屏幕空间绘制, 助手 scale 传 1) ---------- */
+const C = palette();
+
+/* ---------- 物理函数 ---------- */
+/* @slot:physics -- 受力分析/运动学函数(保守力系用 Velocity Verlet 半步), 例:
+function accel(){ return -k*(S.x-S.x0)/m; }
+*/
+function step(h){
+  /* @slot:step-body -- 物理推进(h 秒), 例:
+  const a=accel(); S.vx+=a*h/2; S.x+=S.vx*h; S.vx+=accel()*h/2; S.t+=h; */
+}
+
+/* ---------- 画布 ---------- */
+const sceneC = $('scene');
+let scene = fitCanvas(sceneC);
+window.addEventListener('resize', function(){ scene = fitCanvas(sceneC); VLock = null; });
+
+/* ---------- 3D 伪投影 ---------- */
+function curCam(){ return {az:S.camAz, el:S.camEl}; }
+function project3(x,y,z){
+  const c=curCam(), az=c.az, el=c.el;
+  /* @slot:cam-center -- 相机中心, 按场景几何定 */
+  const Cx=0, Cy=0, Cz=0;
+  let x0=x-Cx, y0=y-Cy, z0=z-Cz;
+  /* az = 轨道方位角, 绕世界竖直轴 y(左右拖拽 → 水平环绕);
+     el = 俯仰角, 绕水平 X 轴(上下拖拽 → 垂直俯仰)。
+     el≈0 → 俯视(横 x 纵 z), el≈π/2 → 正对 x-y 竖直面。 */
+  const ca=Math.cos(az),sa=Math.sin(az);
+  let X=x0*ca+z0*sa, Y=y0, Z2=-x0*sa+z0*ca;
+  const ce=Math.cos(el),se=Math.sin(el);
+  let Z=Y*se+Z2*ce, D=Y*ce-Z2*se;
+  const persp=1/(1+D*0.04);
+  return {x:X*persp, y:Z*persp, d:D};
+}
+/* 视图预设(主/俯/侧): 主=正对 x-y 面(el 大), 俯=上方(el 小), 侧=绕竖直轴转 90°(az=π/2)后正对 */
+function viewDefaults(v){
+  if (v==='top')   return {az:0, el:0.10};
+  if (v==='side')  return {az:Math.PI/2, el:1.5708};
+  return {az:0, el:1.35};
+}
+function viewParams(){
+  const {w,h}=scene;
+  /* @slot:proj-bounds -- 投影点范围(用于 fit), 按场景几何算各角点投影后取 min/max */
+  const pts=[[0,0,0],[1,0,0],[1,1,0],[0,1,0]];
+  let minX=1e9,maxX=-1e9,minY=1e9,maxY=-1e9;
+  pts.forEach(function(p){const pr=project3(p[0],p[1],p[2]);
+    minX=Math.min(minX,pr.x);maxX=Math.max(maxX,pr.x);minY=Math.min(minY,pr.y);maxY=Math.max(maxY,pr.y);});
+  const bw=maxX-minX||1, bh=maxY-minY||1;
+  const pad3=54;
+  const sx=(w-2*pad3)/bw, sy=(h-2*pad3)/bh;
+  const s=Math.min(sx,sy)*0.92;
+  const pcx=(minX+maxX)/2, pcy=(minY+maxY)/2;
+  return {s,cx:w/2,cy:h/2,pcx,pcy,w,h};
+}
+/* 拖拽期间锁定视口 fit(VLock): 旋转中 s/pcx/pcy 不变 → 旋转轴不漂移、松手不跳变。
+   三视图切换与窗口 resize 时置 null 重新 fit。 */
+let VLock = null;
+/* 世界(u,v)->屏幕 (u,v 为场景平面坐标; @slot: 决定 u,v->X,Y,Z 的映射) */
+function w2s(u,v){
+  const V=VLock || viewParams();
+  /* @slot:world-to-3d -- u,v -> X,Y,Z, 例斜面: X=u*cos(th), Y=v, Z=u*sin(th) */
+  const X=u, Y=v, Z=0;
+  const p=project3(X,Y,Z);
+  return {x:V.cx+(p.x-V.pcx)*V.s, y:V.cy-(p.y-V.pcy)*V.s};
+}
+
+/* ---------- 场景绘制 ---------- */
+function drawScene(){
+  const {ctx,w,h}=scene;
+  ctx.clearRect(0,0,w,h);
+  ctx.save();
+  applyViewport(ctx,w,h,VP);
+  /* @slot:drawScene -- 屏幕空间(px): 坐标经 w2s(u,v) 投影, 半径/字号/线宽直接 px;
+      助手调用 scale 传 1 或不传(无世界变换, 与 2D 的 scale=V.s 不同)。例:
+      const sA=w2s(S.A.u, S.A.v);                       // 场景平面坐标 (u,v) -> 屏幕
+      poly(ctx, [w2s(0,0), w2s(1,0), w2s(1,1), w2s(0,1)],
+           {fill:'rgba(47,111,208,.08)', stroke:'rgba(47,111,208,.3)'});
+      ball(ctx, sA.x, sA.y, 10, {hi:'#ffffff', lo:C.ballLo, st:C.ballLo, lw:1.5, scale:1});
+      traj(ctx, S.traj.map(function(p){return w2s(p.u,p.v);}), {color:C.traj, lw:1.5});
+      ctx.font='10px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText('甲', sA.x, sA.y);                    // 单段细体标签手写 fillText
+      */
+  ctx.restore();
+}
+
+/* ---------- 主循环: lib startLoop(dt≤0.05 限幅 ×S.speed + 子步积分内置, 各页不手写 frame) ----------
+   见文件尾 startLoop(S,{sub,step,render}) 调用; sub=0/省略 = 每帧单步(解析); mode:'xxx' 时仅 S.mode===mode 推进。 */
+
+function render(){
+  drawScene();
+  /* @slot:readouts-update */
+  /* @slot:phase */
+  SC.syncRun();
+}
+
+/* ---------- 控件绑定 ---------- */
+/* @slot:bind */
+
+/* ---------- 场景标准件 ---------- */
+const SC = setupScene({
+  canvas: sceneC, vp: VP, state: S, render: render,
+  resetFn: function(){ /* @slot:reset */ },
+  runLabel: '▶ 运行',
+  panDrag: false,                /* 3D: 拖拽留给旋转相机, 平移用按钮 */
+  legend: [                      /* @slot:legend — 无可切换量传 null; 键对应 S.show.xxx */
+    {k:'forces', label:'受力',  color:'#2f6fd0'},
+    {k:'traj',   label:'轨迹',  color:'#36d6e7'}
+  ],
+  onBeforeRun: function(){ /* @slot:beforeRun */ },
+  /* @slot:extraActions -- 三视图 seg, 有则传:
+  extraActions: '<div class="seg" id="viewSeg"><button class="on" data-v="front">主视图</button><button data-v="top">俯视图</button><button data-v="side">侧视图</button></div>'
+  并在下方绑 #viewSeg(见 incline-baffle.html)
+  */
+});
+
+/* 三视图切换 (viewSeg 由 setupScene 的 extraActions 注入, 绑定须在 setupScene 之后) */
+document.querySelectorAll('#viewSeg button').forEach(function(b){ b.addEventListener('click', function(){
+  document.querySelectorAll('#viewSeg button').forEach(function(x){ x.classList.toggle('on', x===b); });
+  S.view = b.dataset.v;
+  const d = viewDefaults(S.view); S.camAz = d.az; S.camEl = d.el;
+  VLock = null;                       /* 视角切换 → 重新 fit */
+  render();
+}); });
+
+/* ---------- 临界状态(有则填, 无则删) ---------- */
+/* @slot:criticals -- criticals()/setState()/顶栏按钮 onclick */
+
+/* ---------- 3D 拖拽旋转 (轨道: 左右=水平环绕 az, 上下=俯仰 el) ----------
+   拖拽期间锁定 VLock(视口 fit 不变 → 旋转轴不漂移); 松手保留锁定(不跳变),
+   三视图切换 / 窗口 resize 时重新 fit(VLock=null)。光标: 悬停抓手、拖拽握紧。 */
+let drag=false, lx=0, ly=0;
+sceneC.addEventListener('mousedown', function(e){ e.preventDefault(); drag=true; lx=e.clientX; ly=e.clientY; VLock = viewParams(); sceneC.style.cursor='grabbing'; });
+window.addEventListener('mouseup', function(){ drag=false; sceneC.style.cursor='grab'; });
+sceneC.addEventListener('mouseleave', function(){ if (!drag) sceneC.style.cursor=''; });
+window.addEventListener('mousemove', function(e){
+  if (!drag) return;
+  S.camAz -= (e.clientX-lx)*0.008;
+  S.camEl = clamp(S.camEl + (e.clientY-ly)*0.008, -0.2, 1.5);
+  lx=e.clientX; ly=e.clientY; render();
+});
+
+render();
+startLoop(S, { sub: 0.002, step: step, render: render });   /* @slot:loop -- sub 按刚度调(ω·dt<0.1, 静态题用 sub:0 或省略); mode:'xxx' 时仅 S.mode===mode 推进 */
+</script>
+</body>
+</html>

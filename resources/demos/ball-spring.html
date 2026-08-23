@@ -1,0 +1,501 @@
+<!-- physics-lab-skill: 自由落体 + 弹簧回弹 · 球与弹簧 -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>自由落体 + 弹簧回弹 · 球与弹簧</title>
+<meta name="demo-mode" content="dynamic">
+<script>
+  window.addEventListener("message", function(e){
+    var d=e.data; if(!d||d.cmd!=="present")return;
+    document.body.classList.toggle("present", !!d.value);
+  });
+</script>
+<link rel="stylesheet" href="lib/common.css">
+<style>
+  /* ---- 页面专用 CSS 变量(画布颜色等, 浅色) ---- */
+  :root{
+    --statehead-bg:linear-gradient(90deg,#e0e4f0,#d8dce8);
+    --ke-grad:#0e8fa0; --peg-grad:#c47d10; --pes-grad:#7c3aed;
+    --canvas-grid:rgba(0,0,0,.04); --canvas-ground:#8a8fa0; --canvas-ground-hatch:#a0a5b5;
+    --canvas-base:#8a8fa0; --canvas-spring:#5a6880; --canvas-ball-hi:#a0c4ff; --canvas-ball-lo:#2f6fd0;
+    --canvas-ball-stroke:#1a4fa0; --canvas-ball-txt:#1a1e2e; --canvas-ruler:#6b7280;
+    --canvas-ruler-tick:rgba(0,0,0,.15); --canvas-dim-txt:#6b7280;
+  }
+  /* ---- 页面专用布局 ---- */
+  .grid{display:grid;grid-template-columns:2.8fr 0.8fr;gap:14px}.grid>.card:last-child{min-width:0}
+  @media(max-width:1100px){.grid{grid-template-columns:1fr}}
+  /* ---- 能量条 ---- */
+  .eb{margin-top:12px}
+  .eb .legend{display:flex;justify-content:space-between;font-size:12px;color:var(--dim);margin-bottom:5px;flex-wrap:wrap;gap:6px}
+  .bar{height:20px;border-radius:6px;overflow:hidden;display:flex;border:1px solid var(--line)}
+  .bar .ke{background:linear-gradient(90deg,var(--ke-grad),var(--cyan))}
+  .bar .peg{background:linear-gradient(90deg,var(--peg-grad),var(--orange))}
+  .bar .pes{background:linear-gradient(90deg,var(--pes-grad),var(--purple))}
+  .eb .vals{display:flex;justify-content:space-between;font-size:12px;margin-top:5px;font-variant-numeric:tabular-nums;flex-wrap:wrap;gap:6px}
+  /* ---- 阶段标签颜色 ---- */
+  .phase.free{color:var(--cyan)}
+  .phase.contact{color:var(--orange)}
+  /* ---- 状态面板 ---- */
+  .state{margin-top:14px;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--panel2)}
+  .stateHead{padding:9px 12px;background:var(--statehead-bg);border-bottom:1px solid var(--line)}
+  .stateTitle{font-size:13px;font-weight:600;color:var(--cyan)}
+  .stateBody{padding:10px 12px}
+  .stateDesc{font-size:12px;color:var(--dim);line-height:1.6;margin-bottom:8px}
+  .stbl{width:100%;border-collapse:collapse;font-size:12px;font-variant-numeric:tabular-nums}
+  .stbl th{color:var(--dim);text-align:left;font-weight:400;padding:4px 8px 4px 0;white-space:nowrap;width:22%}
+  .stbl td{color:var(--txt);font-weight:600;padding:4px 8px 4px 0;width:28%}
+  .stbl td small{color:var(--dim);font-weight:400;margin-left:2px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ====== 标题行 ====== -->
+  <div class="head-row">
+    <div>
+      <h1>自由落体 + 弹簧回弹 · 球与弹簧</h1>
+    </div>
+  </div>
+
+  <!-- ====== 顶栏 · 临界状态快捷跳转 ====== -->
+  <div class="topbar" style="gap:8px">
+    <div style="font-size:13px;color:var(--dim);margin-right:6px">临界状态 ▶</div>
+    <button class="btn" id="cTop">最高点</button>
+    <button class="btn dot" id="cMid1" title="空中段中点(最高点↔接触)"><span style="--dc:#6db8d8"></span></button>
+    <button class="btn" id="cContact">接触瞬间</button>
+    <button class="btn dot" id="cMid2" title="加速段中点(接触↔弹力=重力)"><span style="--dc:#d9b86a"></span></button>
+    <button class="btn" id="cEq">重力=弹力</button>
+    <button class="btn dot" id="cMid3" title="减速段中点(弹力=重力↔最低点)"><span style="--dc:#c98fb5"></span></button>
+    <button class="btn" id="cBot">最低点</button>
+    <div class="spacer"></div>
+    <button class="btn" id="cClear" style="border-color:var(--line)">清除标记</button>
+  </div>
+
+  <!-- ====== 双列布局 ====== -->
+  <div class="grid">
+
+    <!-- ====== 场景卡片 ====== -->
+    <div class="card">
+      <!-- 操作按钮 + 图例栏由 setupScene 注入 -->
+      <!-- 画布 -->
+      <canvas id="scene" height="450"></canvas>
+      <!-- 阶段标签 -->
+      <div class="phase free" id="phase">● 自由下落</div>
+      <!-- 能量条 -->
+      <div class="eb">
+        <div class="legend"><span>动能 / 重力势能 / 弹性势能</span><span>总能 E (恒定)</span></div>
+        <div class="bar"><div class="ke" id="keBar" style="width:0%"></div><div class="peg" id="pegBar" style="width:100%"></div><div class="pes" id="pesBar" style="width:0%"></div></div>
+        <div class="vals">
+          <span style="color:var(--cyan)">动能 <b id="keV">0</b></span>
+          <span style="color:var(--orange)">重力势能 <b id="pegV">0</b></span>
+          <span style="color:var(--purple)">弹性势能 <b id="pesV">0</b></span>
+          <span style="color:var(--green)">总能 <b id="eV">0</b> J</span>
+        </div>
+      </div>
+
+      <!-- 临界状态详情面板 -->
+      <div class="state" id="statePanel">
+        <div class="stateHead">
+          <span class="stateTitle" id="stateTitle">点击上方"临界状态"按钮查看关键状态</span>
+        </div>
+        <div class="stateBody" id="stateBody" style="display:none">
+          <div class="stateDesc" id="stateDesc"></div>
+          <table class="stbl">
+            <tr><th>球心高度 y</th><td id="sY">—</td><th>弹簧压缩 x</th><td id="sX">—</td></tr>
+            <tr><th>速度 v</th><td id="sV">—</td><th>加速度 a</th><td id="sA">—</td></tr>
+            <tr><th>动能 KE</th><td id="sKE">—</td><th>弹性势能 PE_s</th><td id="sPES">—</td></tr>
+            <tr><th>弹力 F</th><td id="sK">—</td><th>重力势能 PE_g</th><td id="sPEG">—</td></tr>
+            <tr><th>总能 E</th><td id="sE">—</td></tr>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====== 右侧卡片 · 参数 + 读数 ====== -->
+    <div class="card">
+      <h2>参数调整</h2>
+      <div class="controls">
+        <div class="ctl"><label>动画速度</label>
+          <input type="range" id="speedR" min="0.1" max="3" step="0.1" value="0.6">
+          <input type="number" id="speedN" min="0.1" max="3" step="0.1" value="0.6"></div>
+        <div class="ctl"><label>劲度 k</label>
+          <input type="range" id="kR" min="30" max="100" step="1" value="50">
+          <input type="number" id="kN" min="30" max="100" step="1" value="50"><span class="unit">N/m</span></div>
+        <div class="ctl"><label>质量 m</label>
+          <input type="range" id="mR" min="0.3" max="3" step="0.1" value="1">
+          <input type="number" id="mN" min="0.3" max="3" step="0.1" value="1"><span class="unit">kg</span></div>
+        <div class="ctl"><label>释放高度</label>
+          <input type="range" id="hR" min="4" max="7" step="0.1" value="6">
+          <input type="number" id="hN" min="4" max="7" step="0.1" value="6"><span class="unit">m</span></div>
+        <div class="ctl"><label>能量损失</label>
+          <input type="range" id="lossR" min="0" max="20" step="0.5" value="0">
+          <input type="number" id="lossN" min="0" max="20" step="0.5" value="0"><span class="unit">%</span></div>
+      </div>
+      <h2 style="margin-top:12px">实时读数</h2>
+      <div class="readouts">
+        <div class="ro"><div class="k">球心高度 y</div><div class="v" id="yV">0.00<small>m</small></div></div>
+        <div class="ro"><div class="k">速度 v</div><div class="v" id="vV">0.00<small>m/s</small></div></div>
+        <div class="ro"><div class="k">加速度 a</div><div class="v" id="aV">0.00<small>m/s²</small></div></div>
+        <div class="ro"><div class="k">弹簧压缩 x</div><div class="v" id="xV">0.00<small>m</small></div></div>
+        <div class="ro"><div class="k">弹力 F</div><div class="v" id="fV">0.00<small>N</small></div></div>
+        <div class="ro"><div class="k">时间 t</div><div class="v" id="tV">0.00<small>s</small></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot">
+    空中:仅重力 a=−g &nbsp;|&nbsp; 接触:弹力向上 kx、重力向下,a=kx/m−g &nbsp;|&nbsp; ω=√(k/m) &nbsp;|&nbsp; 接触段为绕平衡点的简谐运动<br>
+    g=9.81 m/s² · 弹簧自然长度 L₀=3 m · 双击此 HTML 即可在浏览器离线运行 · 空格暂停 / R 重置
+  </div>
+</div>
+
+<script src="lib/common.js"></script>
+<script>
+"use strict";
+/* ---------- 物理常量 / 状态 ---------- */
+const G = 9.81, L0 = 3.0, R = 0.35;
+const GRAV_C = '#e0504a';   /* 重力矢量/图例颜色(浅底亮红, 与 v/a/kx 亮色一致) */
+const S = { k:50, m:1, h0:6, loss:0, speed:0.6, y:6, v:0, t:0, running:false, last:null, show:{v:true,a:true,g:true,kx:true} };
+const VP = { zoom:1, panX:0, panY:0 };
+
+const TOP = function(){ return L0 + R; };
+
+/* ---------- 加速度:两阶段 + 连续粘滞阻尼 ---------- */
+function accel(y, v){
+  if (y >= TOP()){
+    return -G - 0.3*S.loss*v/S.m;
+  }
+  const comp = TOP() - y;
+  return S.k*comp/S.m - G - 0.5*S.loss*v/S.m;
+}
+
+/* ---------- 能量 ---------- */
+function energy(){
+  const ke = 0.5*S.m*S.v*S.v;
+  const peg = S.m*G*Math.max(S.y,0);
+  const comp = Math.max(0, TOP() - S.y);
+  const pes = 0.5*S.k*comp*comp;
+  return {ke,peg,pes,E:ke+peg+pes};
+}
+
+/* ---------- Velocity Verlet 子步 ---------- */
+function substep(dt){
+  const top = TOP();
+  const contactBefore = S.y < top;
+  const a0 = accel(S.y, S.v);
+  const vh = S.v + 0.5*a0*dt;
+  S.y += vh*dt;
+  if (S.y < R){ S.y = R; if (S.v<0) S.v = -S.v*0.6; }
+  const a1 = accel(S.y, vh);
+  S.v = vh + 0.5*a1*dt;
+  S.t += dt;
+  const contactAfter = S.y < top;
+  if (contactBefore && !contactAfter && S.v > 0 && S.loss > 0){
+    S.v *= Math.sqrt(1 - S.loss/100);
+  }
+  const yEq = TOP() - S.m*G/S.k;
+  if (Math.abs(S.v) < 0.02 && Math.abs(S.y - yEq) < 0.01){
+    S.v = 0; S.y = yEq; S.running = false;
+  }
+}
+
+/* ---------- 画布 ---------- */
+const sceneC = $('scene');
+let scene = fitCanvas(sceneC);
+window.addEventListener('resize', function(){ scene = fitCanvas(sceneC); });
+
+/* ---------- 坐标变换 (2D) ---------- */
+function view(){
+  const {w,h}=scene;
+  const yMax = S.h0 + 0.6;                    /* 世界 y 顶(标尺上界) */
+  const span = yMax;                          /* 世界 y ∈ [0, yMax] */
+  /* 世界 x 范围按画布纵横比取(≈原屏幕布局 ±0.46w), 使 s 与纵向一致 */
+  const xSpan = span * (0.92*w) / (h-36);
+  const {s, ox, oy} = fitView(w, h, -xSpan/2, xSpan/2, 0, yMax, {l:38, r:38, t:10, b:26});
+  return {s, ox, oy, w, h};
+}
+/* 世界坐标 → 画布坐标(仅在 drawScene 的 translate+scale 变换内使用):
+   X 原样(x 右正), Y 翻转(y 上正 → 画布 y 下正)。 */
+const X = function(x){ return x; };
+const Y = function(y){ return -y; };
+
+/* ---------- 颜色(一次缓存) ---------- */
+const C = palette();
+
+/* 世界字号 → font 串: 四舍五入到 2 位小数(Chrome 对 canvas font 的 px 尺寸按 2 位小数向下取整,
+   0.118241px 会被当 0.11px 用 → 字缩小 7%; 取整后与名义 px 误差 ≤0.5%) */
+const F = function(px, s){ return (Math.round(px/s*100)/100)+'px sans-serif'; };
+
+/* ---------- 矢量绘制 ---------- */
+function drawVecV(ctx,x,y,val,scale,color,label,s,mag){
+  const len=clamp(val*scale,-150,150)/s;   /* 世界单位 */
+  ctx.strokeStyle=color; ctx.fillStyle=color; ctx.lineWidth=2.5/s;
+  ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x,y-len);ctx.stroke();
+  if (Math.abs(len)*s>4){
+    const d=len>0?1:-1;
+    ctx.beginPath();ctx.moveTo(x,y-len);ctx.lineTo(x-5/s,y-len+8*d/s);ctx.lineTo(x+5/s,y-len+8*d/s);ctx.closePath();ctx.fill();
+  }
+  ctx.font=F(11,s); ctx.textAlign='center';
+  ctx.fillText(label+'='+(mag?Math.abs(val):val).toFixed(2), x, y-len + (len>0? -8 : 16)/s);
+}
+
+/* ---------- 场景绘制 ---------- */
+function drawScene(){
+  const {ctx,w,h}=scene;
+  const V=view();
+  ctx.clearRect(0,0,w,h);
+  ctx.save();
+  applyViewport(ctx,w,h,VP);
+  ctx.translate(V.ox, V.oy);
+  ctx.scale(V.s, V.s);                /* 世界空间: 1 世界单位 = V.s px —— 此后尺寸一律世界单位 */
+  const s = V.s;
+
+  const yMax = S.h0 + 0.6;            /* 世界顶(标尺上界, 与 view 同参) */
+  const cGrid=C.canvas.grid, cGround=C.canvas.ground, cGroundH=C.canvas.groundHatch;
+  const cBase=C.canvas.base, cSpring=C.canvas.spring;
+  const cBallHi=C.canvas.ballHi, cBallLo=C.canvas.ballLo, cBallSt=C.canvas.ballSt;
+  const cBallTx=C.canvas.ballTxt;
+  const cRuler=C.canvas.ruler, cRulerT=C.canvas.rulerTick, cDim=C.canvas.dimTxt;
+  const cRed=C.red, cCyan=C.cyan, cPurple=C.purple;
+  const light=true;
+
+  // 网格(40px → 世界步长 40/s, 覆盖全画布)
+  ctx.strokeStyle=cGrid; ctx.lineWidth=1/s;
+  const gs=40/s, gx0=-V.ox/s, gx1=(V.w-V.ox)/s, gy0=(V.oy-V.h)/s, gy1=V.oy/s;
+  for (let gx=gx0;gx<=gx1;gx+=gs){ctx.beginPath();ctx.moveTo(gx,gy0);ctx.lineTo(gx,gy1);ctx.stroke();}
+  for (let gy=gy0;gy<=gy1;gy+=gs){ctx.beginPath();ctx.moveTo(gx0,gy);ctx.lineTo(gx1,gy);ctx.stroke();}
+
+  // 释放高度线 (lib dashLine)
+  dashLine(ctx, X(-0.4*w/s), Y(S.h0), X(0.4*w/s), Y(S.h0), {color: light?'rgba(201,64,64,.4)':'rgba(239,111,111,.45)', dash:[4,5], lw:1.3, scale:s});
+  ctx.fillStyle=cRed; ctx.font=F(11,s); ctx.textAlign='left';
+  ctx.fillText('释放高度 h₀='+S.h0.toFixed(1)+'m', X((-0.4*w+6)/s), Y(S.h0+5/s));
+
+  // 自然长度线 (lib dashLine)
+  dashLine(ctx, X(-0.32*w/s), Y(L0), X(0.32*w/s), Y(L0), {color: light?'rgba(0,0,0,.15)':'rgba(120,140,180,.4)', dash:[3,5], lw:1.3, scale:s});
+  ctx.fillStyle=cDim; ctx.fillText('自然长度 L₀', X((0.32*w-72)/s), Y(L0+5/s));
+
+  // 平衡线 (lib dashLine)
+  const yEq = TOP() - S.m*G/S.k;
+  dashLine(ctx, X(-0.18*w/s), Y(yEq), X(0.18*w/s), Y(yEq), {color: light?'rgba(124,58,237,.25)':'rgba(180,140,245,.3)', dash:[2,4], lw:1.3, scale:s});
+  ctx.fillStyle=cPurple; ctx.fillText('平衡位置', X((0.18*w-50)/s), Y(yEq+4/s));
+
+  // 地面(与 lib ground 样式不同, 保持手写)
+  ctx.fillStyle=cGround; ctx.fillRect(X(-0.42*w/s), Y(0), 0.84*w/s, 4/s);
+  ctx.strokeStyle=cGroundH; ctx.lineWidth=1/s;
+  for (let x=-0.42*w/s;x<0.42*w/s;x+=12/s){ctx.beginPath();ctx.moveTo(x,4/s);ctx.lineTo(x-7/s,13/s);ctx.stroke();}
+
+  // 弹簧底座
+  ctx.fillStyle=cBase; ctx.fillRect(X(-26/s), Y(6/s), 52/s, 6/s);
+
+  // 弹簧 (lib spring; 原 drawSpring 的 lead=min(12,len*0.1)/N=max(80,coils*14) 经 lead/N 参数逐像素还原)
+  const springTopPhys = Math.min(L0, S.y - R);
+  const springBotY = 6/s, springTopY = springTopPhys;   /* 世界 */
+  const springLen = springTopY - springBotY;            /* 世界(恒正) */
+  ctx.strokeStyle=cSpring; ctx.lineWidth=2.4/s; ctx.lineJoin='round'; ctx.lineCap='round';
+  if (springLen <= 2/s){ /* 原 drawSpring 的退化分支: 压缩至极短时画直线 */
+    ctx.beginPath(); ctx.moveTo(X(0), Y(springBotY)); ctx.lineTo(X(0), Y(springTopY)); ctx.stroke();
+  } else {
+    spring(ctx, X(0), Y(springBotY), X(0), Y(springTopY), {coils:13, amp:8/s, lead: Math.min(12, springLen*s*0.1), N: Math.max(80, 13*14), color:cSpring, lw:2.4, scale:s});
+  }
+
+  // 球 (lib ball; 原渐变固定偏移 6px/内半径 2px, 经 gx/gy/r0 逐像素还原; 'm' 为单段标签, 保留原 fillText)
+  const by = S.y;
+  ball(ctx, X(0), Y(by), R, {hi:cBallHi, lo:cBallLo, st:cBallSt, lw:1.5, gx:6/s, gy:6/s, r0:2/s, scale:s});
+  ctx.fillStyle=cBallTx; ctx.font='bold '+F(13,s); ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText('m', X(0), Y(by)); ctx.textBaseline='alphabetic';
+
+  // 力/运动学矢量
+  const a = accel(S.y, S.v);
+  const comp = Math.max(0, TOP() - S.y);
+  const Fspring = S.k * comp;
+  const rW = R;                       /* 球半径(世界) */
+  const leftX  = -rW - 16/s;
+  const rightX =  rW + 16/s;
+
+  if (S.show.v)  drawVecV(ctx, X(0)+leftX, Y(by), S.v, 14, cCyan, 'v', s);
+  if (S.show.a)  drawVecV(ctx, X(0)+leftX - 30/s, Y(by), a, 10, light?'#b8960a':'#ffd24a', 'a', s);
+  if (S.show.kx && Fspring > 0.01){
+    drawVecV(ctx, X(0)+rightX + 30/s, Y(by), Fspring, 3.0, cPurple, 'kx', s);
+  }
+  // 重力 G = mg (恒向下, 与弹力同标度 3.0, 长度直接可比)
+  if (S.show.g){
+    drawVecV(ctx, X(0)+rightX, Y(by), -S.m*G, 3.0, GRAV_C, 'G', s, true);
+  }
+
+  // 临界状态标记线
+  if (S.mark){
+    const my = S.mark.y;
+    dashLine(ctx, X(-0.45*w/s), Y(my), X(0.45*w/s), Y(my), {color:S.mark.color, dash:[6,5], lw:1.6, scale:s});
+    ctx.fillStyle = S.mark.color; ctx.font='bold '+F(11,s); ctx.textAlign='left';
+    ctx.fillText(S.mark.label + '  y='+S.mark.y.toFixed(2)+'m', X((-0.44*w)/s), Y(my+5/s));
+    /* 标记圆: 原页为实线描边(非虚线), 保留手写 */
+    ctx.strokeStyle=S.mark.color; ctx.lineWidth=1.5/s;
+    ctx.beginPath();ctx.arc(X(0),Y(my),R,0,7);ctx.stroke();
+  }
+
+  // 高度标尺
+  ctx.fillStyle=cRuler; ctx.font=F(10,s); ctx.textAlign='right';
+  for (let m=0;m<=Math.ceil(yMax);m++){
+    ctx.strokeStyle=cRulerT; ctx.lineWidth=1/s;
+    ctx.beginPath();ctx.moveTo(X(-0.46*w/s),Y(m));ctx.lineTo(X(-0.44*w/s),Y(m));ctx.stroke();
+    if (m%1===0) ctx.fillText(m+'m', X((-0.47*w)/s), Y(m-3/s));
+  }
+  ctx.restore();
+}
+
+/* ---------- 渲染读数 ---------- */
+function render(){
+  drawScene();
+  const e=energy();
+  const a=accel(S.y, S.v);
+  const comp=Math.max(0, TOP()-S.y);
+  const inContact = S.y < TOP();
+  $('yV').innerHTML=S.y.toFixed(2)+'<small>m</small>';
+  $('vV').innerHTML=S.v.toFixed(2)+'<small>m/s</small>';
+  $('aV').innerHTML=a.toFixed(2)+'<small>m/s²</small>';
+  $('xV').innerHTML=comp.toFixed(2)+'<small>m</small>';
+  $('fV').innerHTML=(S.k*comp).toFixed(2)+'<small>N</small>';
+  $('tV').innerHTML=S.t.toFixed(2)+'<small>s</small>';
+  const tot=Math.max(e.E,1e-9);
+  $('keBar').style.width=(e.ke/tot*100)+'%';
+  $('pegBar').style.width=(e.peg/tot*100)+'%';
+  $('pesBar').style.width=(e.pes/tot*100)+'%';
+  $('keV').textContent=e.ke.toFixed(1);
+  $('pegV').textContent=e.peg.toFixed(1);
+  $('pesV').textContent=e.pes.toFixed(1);
+  $('eV').textContent=e.E.toFixed(1);
+  const ph=$('phase');
+  if (inContact){ph.textContent='● 弹簧接触 (压缩回弹)';ph.className='phase contact';}
+  else {ph.textContent='● 自由下落 / 上抛';ph.className='phase free';}
+  SC.syncRun();
+}
+
+/* ---------- 控件绑定 ---------- */
+bindRangeNumber('speedR','speedN',parseFloat,function(v){S.speed=v;});
+bindRangeNumber('kR','kN',parseFloat,function(v){S.k=v;});
+bindRangeNumber('mR','mN',parseFloat,function(v){S.m=v;});
+bindRangeNumber('hR','hN',parseFloat,function(v){S.h0=v;S.y=S.h0;S.v=0;S.t=0;});
+bindRangeNumber('lossR','lossN',parseFloat,function(v){S.loss=v;});
+
+/* ---------- 临界状态 ---------- */
+S.mark = null;
+
+function criticals(){
+  const top = TOP();
+  const mg = S.m*G;
+  const A = 0.5*S.k, Bc = -mg, C = -mg*(S.h0 - top);
+  const disc = Bc*Bc - 4*A*C;
+  let yMin = top;
+  if (disc >= 0){
+    const u = (-Bc + Math.sqrt(disc))/(2*A);
+    yMin = top - u;
+    if (yMin > top) yMin = top;
+  }
+  const yEq = top - mg/S.k;
+  const eqValid = (yMin <= yEq) && (yEq < top);
+  const mid1y = (S.h0 + top)/2;
+  const mid2y = (top + yEq)/2;
+  const mid3y = (yEq + yMin)/2;
+  return {
+    top:    {y:S.h0,   title:'① 最高点(释放点)',     color:'#5a9bf0'},
+    mid1:   {y:mid1y,  title:'①↔② 空中段中点',      color:'#6db8d8'},
+    contact:{y:top,    title:'② 接触瞬间',            color:'#f5a623'},
+    mid2:   {y:mid2y,  title:'②↔③ 加速段中点',       color:'#d9b86a'},
+    eq:     {y:yEq,    title:'③ 重力 = 弹力 (a=0)',   color:'#b48cf5', valid:eqValid},
+    mid3:   {y:mid3y,  title:'③↔④ 减速段中点',       color:'#c98fb5', valid:eqValid},
+    bot:    {y:yMin,   title:'④ 最低点(最大压缩)',    color:'#ef6f6f'},
+  };
+}
+
+function velDownAt(y){
+  const top = TOP();
+  if (y >= top){
+    return -Math.sqrt(Math.max(0, 2*G*(S.h0 - y)));
+  }
+  const u = top - y;
+  const v2 = 2*( S.m*G*(S.h0 - y) - 0.5*S.k*u*u ) / S.m;
+  return -Math.sqrt(Math.max(0, v2));
+}
+
+function setState(key){
+  const cs = criticals();
+  const c = cs[key];
+  if (!c) return;
+  S.running = false;
+  S.y = c.y;
+  S.v = (key==='top' || key==='bot') ? 0 : velDownAt(c.y);
+  S.t = 0;
+  S.mark = {label:c.title, y:c.y, color:c.color};
+  render();
+  fillStatePanel(key, c);
+}
+
+function fillStatePanel(key, c){
+  const y = c.y;
+  const comp = Math.max(0, TOP() - y);
+  const a = accel(y, S.v);
+  const Fs = S.k*comp;
+  const ke = 0.5*S.m*S.v*S.v;
+  const peg = S.m*G*y;
+  const pes = 0.5*S.k*comp*comp;
+  const E = ke+peg+pes;
+  const desc = {
+    top:'释放点:球在最高处静止释放。此时 v=0,a=−g(仅重力),弹簧未压缩,全部能量为重力势能 PE_g=mg·h₀。',
+    contact:'球底刚触弹簧顶端(y=L₀+r)。此刻仍是自由下落,v=−√(2g(h₀−y)),a=−g;弹力 kx=0 即将出现,是两个阶段的衔接点。',
+    bot:'最大压缩点:球速 v=0,加速度向上最大 a=kx/m−g>0,弹性势能 PE_s 达峰值。随后弹力把球弹回,完成一次回弹。',
+    eq:'弹簧被压缩到 kx=mg,即 x=mg/k。此处合力为零 a=0,是接触段简谐运动的平衡位置;球以最大速度经过、方向向下(惯性继续下压)。',
+    mid1:'空中下落段的位置中点(y=(h₀+L₀+r)/2)。球自由下落途中,弹簧仍未接触,v=−√(2g(h₀−y)),a=−g(仅重力)。',
+    mid2:'接触段上半的位置中点(接触点与平衡点之间)。此时弹力 kx<mg,合力仍向下,球继续加速下压(a<0、向下),速度在增大。',
+    mid3:'接触段下半的位置中点(平衡点与最低点之间)。此时弹力 kx>mg,合力向上,球减速下压(a>0、向上),直至最低点 v=0。',
+  };
+  $('stateTitle').textContent = c.title + '  ·  y = ' + y.toFixed(3) + ' m';
+  $('stateTitle').style.color = c.color;
+  let descText = desc[key];
+  if ((key==='eq' || key==='mid3') && c.valid===false){
+    descText = '注意:当前参数下,球的能量不足以压缩到平衡点,该状态(及之后的减速段)在本次运动中不会出现,仅作理论位置展示。';
+  }
+  $('stateDesc').textContent = descText;
+  $('stateBody').style.display = 'block';
+  const u=function(v,unt){return v.toFixed(3)+'<small>'+(unt||'')+'</small>';};
+  $('sY').innerHTML=u(y,'m');        $('sX').innerHTML=u(comp,'m');
+  $('sV').innerHTML=u(S.v,'m/s');    $('sA').innerHTML=u(a,'m/s²');
+  $('sK').innerHTML=u(Fs,'N');
+  $('sKE').innerHTML=u(ke,'J');      $('sPES').innerHTML=u(pes,'J');
+  $('sPEG').innerHTML=u(peg,'J');    $('sE').innerHTML=u(E,'J');
+}
+
+$('cTop').onclick    =function(){setState('top');};
+$('cMid1').onclick   =function(){setState('mid1');};
+$('cContact').onclick=function(){setState('contact');};
+$('cMid2').onclick   =function(){setState('mid2');};
+$('cEq').onclick     =function(){setState('eq');};
+$('cMid3').onclick   =function(){setState('mid3');};
+$('cBot').onclick    =function(){setState('bot');};
+$('cClear').onclick  =function(){ S.mark=null; $('stateTitle').textContent='点击上方"临界状态"按钮查看关键状态'; $('stateTitle').style.color='var(--cyan)'; $('stateBody').style.display='none'; render(); };
+
+/* ---------- 主循环: lib startLoop (子步积分已内置) ---------- */
+
+/* ---------- 场景标准件 (按钮/图例/视口/键盘 由 setupScene 注入并绑定) ---------- */
+const SC = setupScene({
+  canvas: sceneC, vp: VP, state: S, render: render,
+  resetFn: function(){ S.running=false; S.y=S.h0; S.v=0; S.t=0; render(); },
+  runLabel: '▶ 运行', panDrag: true,
+  legend: [
+    {k:'v',  label:'速度 v',  color:'#36d6e7'},
+    {k:'a',  label:'加速度 a', color:'#ffd24a'},
+    {k:'g',  label:'重力 G',  color:GRAV_C},
+    {k:'kx', label:'弹力 kx',  color:'#b48cf5'}
+  ],
+  onBeforeRun: function(){
+    /* 已停机(平衡点/落地)时, 先回到释放高度再运行, 否则球停在平衡点动不了 */
+    if (!S.running && S.t>0 && Math.abs(S.v)<0.02){ S.y=S.h0; S.v=0; S.t=0; }
+  }
+});
+
+render();
+startLoop(S, { sub: 0.0008, step: substep, render: render });
+</script>
+</body>
+</html>
