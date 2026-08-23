@@ -54,13 +54,14 @@ export class SessionHost {
 
   constructor(private readonly opts: SessionHostOptions) {}
 
-  /** 取（或创建）会话；file 为 null 时创建未绑定新会话。返回会话 key（供绑定） */
+  /** 取（或创建）会话；file 为 null 时创建未绑定新会话（可用 sessionKey 沿用已有会话，支撑多轮对话）。返回会话 key（供绑定） */
   async getSession(
     workspaceDir: string,
     file: string | null,
-    onEvent: (e: unknown) => void
+    onEvent: (e: unknown) => void,
+    sessionKey?: string
   ): Promise<{ key: string; ps: PhysicsSession }> {
-    const key = file ?? `_new-${Date.now()}`
+    const key = file ?? sessionKey ?? `_new-${Date.now()}`
     const existing = this.sessions.get(key)
     if (existing) return { key, ps: existing.ps }
     const ps = await createPhysicsSession({

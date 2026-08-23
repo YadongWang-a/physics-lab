@@ -202,9 +202,9 @@ body {
 .md th, .md td { border: 1px solid var(--pl-border); padding: 6px 10px; text-align: left; }
 .md th { background: var(--pl-muted); font-weight: 600; }
 .md hr { border: none; border-top: 1px solid var(--pl-border); margin: 12px 0; }
-/* 溢出兜底：图片限宽、行内公式可滚动（pre/表格已在上方处理） */
+/* 溢出兜底：图片限宽（pre/表格/块级公式已在上方处理；行内 .katex 不设 overflow，
+   避免 inline-block 化破坏 KaTeX 基线对齐导致公式偏上） */
 .md img { max-width: 100%; height: auto; border-radius: 6px; }
-.md .katex { display: inline-block; max-width: 100%; overflow-x: auto; overflow-y: hidden; }
 /* KaTeX 公式在浅色聊天区内保持可读 */
 .md .katex { color: var(--pl-ink); font-size: 1.02em; }
 .md .katex-display { margin: 10px 0; overflow-x: auto; overflow-y: hidden; }

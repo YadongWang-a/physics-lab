@@ -43,8 +43,8 @@ export interface RendererApi {
     remove: (file: string) => Promise<WorkspaceSnapshot>
   }
   chat: {
-    /** 向某演示的 agent 会话发送消息；file 为 null 表示新会话；images 为聊天图片（OCR 路由）。返回会话 key */
-    send: (file: string | null, text: string, images?: ImagePayload[]) => Promise<{ ok: boolean; key: string }>
+    /** 向某演示的 agent 会话发送消息；file 为 null 表示新会话；images 为聊天图片（OCR 路由）；sessionKey 为沿用会话的 key（新会话多轮延续）。返回会话 key */
+    send: (file: string | null, text: string, images?: ImagePayload[], sessionKey?: string) => Promise<{ ok: boolean; key: string }>
     /** 停止当前回合 */
     abort: (file: string) => Promise<{ ok: boolean }>
     /** 会话历史摘要（内存或磁盘恢复，切换演示时显示） */

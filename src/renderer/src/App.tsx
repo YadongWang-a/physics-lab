@@ -103,6 +103,13 @@ const styles: Record<string, React.CSSProperties> = {
   hint: { fontSize: 12, color: 'var(--pl-muted-foreground)' }
 }
 
+/** 提取 assistant 消息中的 [选项] a | b | c 行，返回按钮选项列表 */
+function optionList(text: string): string[] {
+  const m = text.match(/\[选项\]\s*([^\n]+)/)
+  if (!m) return []
+  return m[1]!.split('|').map((s) => s.trim()).filter(Boolean)
+}
+
 /** 把单条 agent 事件应用为消息变更；返回新的消息列表（未变更返回 null） */
 function applyChatEvent(prev: ChatMessage[], e: unknown, nextId: () => number): ChatMessage[] | null {
   if (typeof e !== 'object' || e === null) return null
@@ -288,23 +295,32 @@ export function App(): React.JSX.Element {
     reader.readAsDataURL(file)
   }, [])
 
+  const doSend = useCallback(
+    async (text: string, images?: ImagePayload[]) => {
+      if (!text || streaming) return
+      const payload = images ?? []
+      msgId.current += 1
+      setMessages((prev) => [...prev, { id: msgId.current, role: 'user', text }])
+      setStreaming(true)
+      try {
+        const { key } = await window.api!.chat.send(selected, text, payload, activeKeyRef.current ?? undefined)
+        activeKeyRef.current = key
+      } catch (err) {
+        append({ role: 'error', text: friendlyErrorMessage(err) })
+        setStreaming(false)
+      }
+    },
+    [selected, streaming, append]
+  )
+
   const send = useCallback(async () => {
     const text = input.trim()
     if ((!text && images.length === 0) || streaming) return
     setInput('')
     const payload = [...images]
     setImages([])
-    msgId.current += 1
-    setMessages((prev) => [...prev, { id: msgId.current, role: 'user', text: text || '（图片）' }])
-    setStreaming(true)
-    try {
-      const { key } = await window.api!.chat.send(selected, text, payload)
-      activeKeyRef.current = key
-    } catch (err) {
-      append({ role: 'error', text: friendlyErrorMessage(err) })
-      setStreaming(false)
-    }
-  }, [input, selected, streaming, append, images])
+    await doSend(text || '（图片）', payload)
+  }, [input, images, streaming, doSend])
 
   const stop = useCallback(async () => {
     const key = activeKeyRef.current ?? selected
@@ -549,6 +565,19 @@ export function App(): React.JSX.Element {
                     {m.role === 'tool' && m.streaming && <span className="app-tool-spinner" style={{ display: 'inline-block', width: 12, height: 12, marginRight: 8, verticalAlign: '-2px', border: '2px solid var(--pl-border)', borderTopColor: 'var(--pl-primary)', borderRadius: '50%', animation: 'spin .7s linear infinite' }} />}
                     {m.role === 'assistant' ? <Markdown text={m.text} /> : m.text}
                   </div>
+                  {m.role === 'assistant' && !m.streaming && optionList(m.text).length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
+                      {optionList(m.text).map((opt, i) => (
+                        <button
+                          key={i}
+                          onClick={() => void doSend(opt)}
+                          style={{ border: '1px solid var(--pl-border)', background: 'var(--pl-card)', color: 'var(--pl-primary)', borderRadius: 8, padding: '5px 14px', cursor: 'pointer', fontSize: 12.5, fontWeight: 600 }}
+                        >
+                          {opt}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 )
               })}

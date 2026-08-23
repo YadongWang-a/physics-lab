@@ -103,7 +103,7 @@ function registerWorkspaceIpc(): void {
   // ---- chat：每演示一个 agent 会话，事件流经 chat:event 推送 ----
   ipcMain.handle(
     'chat:send',
-    async (event, file: string | null, text: string, images?: ImagePayload[]) => {
+    async (event, file: string | null, text: string, images?: ImagePayload[], sessionKey?: string) => {
       if (!currentWs) throw new Error('尚未选择工作目录')
       const host = ensureSessionHost()
       if (file) stoppedKeys.delete(file)
@@ -124,7 +124,7 @@ function registerWorkspaceIpc(): void {
         } else {
           void autoCheckDemo(host, currentWs!.dirname, file, key)
         }
-      })
+      }, sessionKey)
 
       // OCR 通道路由（ticket 06）：主模型视觉直通 / 视觉模型转文本 / 明确不可用
       let promptText = text
