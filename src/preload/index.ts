@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { ChatHistoryEntry, ImagePayload, RendererApi, WorkspaceSnapshot } from '../shared/ipc-types'
+import type { ChatHistoryEntry, ImagePayload, RendererApi, WorkspaceChangedPayload, WorkspaceSnapshot } from '../shared/ipc-types'
 import type { ModelSlotConfig, SaveSettingsPayload, SettingsView } from '../shared/settings-types'
 
 const api: RendererApi = {
@@ -29,7 +29,7 @@ const api: RendererApi = {
       return () => ipcRenderer.removeListener('preview:changed', listener)
     },
     onWorkspaceChanged: (cb) => {
-      const listener = (): void => cb()
+      const listener = (_e: unknown, payload: unknown): void => cb(payload as WorkspaceChangedPayload)
       ipcRenderer.on('workspace:changed', listener)
       return () => ipcRenderer.removeListener('workspace:changed', listener)
     }

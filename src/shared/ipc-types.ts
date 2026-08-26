@@ -15,6 +15,10 @@ export interface WorkspaceSnapshot {
   dir: string
   demos: DemoMeta[]
 }
+export interface WorkspaceChangedPayload {
+  /** 本次新生成的演示文件名；缺省表示非新建（仅刷新列表，不切换选中） */
+  created?: string
+}
 
 export interface ChatHistoryEntry {
   role: 'user' | 'assistant'
@@ -55,8 +59,8 @@ export interface RendererApi {
   preview: {
     /** 订阅演示文件变化（fs.watch 防抖）；返回取消函数 */
     onChanged: (cb: (payload: { file: string }) => void) => () => void
-    /** 订阅工作目录清单变化（新演示生成等）；返回取消函数 */
-    onWorkspaceChanged: (cb: () => void) => () => void
+    /** 订阅工作目录清单变化（新演示生成等）；payload.created 为本次新生成的文件名；返回取消函数 */
+    onWorkspaceChanged: (cb: (payload: WorkspaceChangedPayload) => void) => () => void
   }
   window: {
     /** 主窗口全屏/退出全屏（演示模式投影用） */

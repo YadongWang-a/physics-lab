@@ -114,7 +114,7 @@ function registerWorkspaceIpc(): void {
         // 回合以错误结束（401/限流/超时等）：chat_error 展示给用户，跳过绑定与自检
         const turnError = lastTurnError(ps.session.messages)
         if (turnError) {
-          broadcast('chat:event', { file: key, event: { type: 'chat_error', message: turnError } })
+          broadcast('chat:event', { file: key, event: { type: 'chat_error', message: friendlyErrorMessage(turnError) } })
           return
         }
         // 新会话：先绑定生成的新 HTML，再自动自检
@@ -315,7 +315,8 @@ function finalizeNewSession(pendingSessionFile: string): string | null {
   if (existsSync(oldPath) && !existsSync(newPath)) {
     renameSync(oldPath, newPath)
   }
-  broadcast('workspace:changed', {})
+  // 告知渲染层刚生成的是哪个文件：便于生成后自动打开预览并在列表选中
+  broadcast('workspace:changed', { created: created[0] })
   return created[0]!
 }
 

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Markdown } from './Markdown'
 import { SettingsModal } from './SettingsModal'
 import { friendlyErrorMessage } from '../../shared/errors'
-import type { DemoMeta, ImagePayload, RendererApi, WorkspaceSnapshot } from '../../shared/ipc-types'
+import type { DemoMeta, ImagePayload, RendererApi, WorkspaceChangedPayload, WorkspaceSnapshot } from '../../shared/ipc-types'
 
 declare global {
   interface Window {
@@ -71,8 +71,8 @@ const styles: Record<string, React.CSSProperties> = {
   chatCollapsed: { width: 0, minWidth: 0, opacity: 0, overflow: 'hidden', borderRight: 'none' },
   chatBody: { flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: 14 },
   msgUser: { alignSelf: 'flex-end', textAlign: 'right', background: 'var(--pl-muted)', color: 'var(--pl-ink)', padding: '10px 16px', borderRadius: 'var(--pl-radius-lg) var(--pl-radius-lg) 4px var(--pl-radius-lg)', maxWidth: '88%', whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: 13.5, lineHeight: 1.6, boxShadow: '0 1px 2px rgba(15,23,42,.10)' },
-  msgAssistant: { alignSelf: 'flex-start', background: 'transparent', border: 'none', padding: '4px 0', borderRadius: 0, maxWidth: '94%', whiteSpace: 'normal', fontSize: 13.5, lineHeight: 1.75, boxShadow: 'none' },
-  msgError: { alignSelf: 'flex-start', maxWidth: '94%', whiteSpace: 'pre-wrap', fontSize: 12.5, lineHeight: 1.6, color: 'var(--pl-state-error)', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 'var(--pl-radius-md)', padding: '10px 12px' },
+  msgAssistant: { alignSelf: 'flex-start', background: 'transparent', border: 'none', padding: '4px 0', borderRadius: 0, maxWidth: '94%', whiteSpace: 'normal', overflowWrap: 'break-word', fontSize: 13.5, lineHeight: 1.75, boxShadow: 'none' },
+  msgError: { alignSelf: 'flex-start', maxWidth: '94%', whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'anywhere', fontSize: 12.5, lineHeight: 1.6, color: 'var(--pl-state-error)', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 'var(--pl-radius-md)', padding: '10px 12px' },
   inputCard: { margin: '0 16px 12px', background: 'transparent', position: 'relative' },
   chatInput: { width: '100%', resize: 'none', border: '1px solid var(--pl-border)', background: 'var(--pl-background)', outline: 'none', padding: '12px 14px 4px', fontSize: 13.5, lineHeight: 1.6, fontFamily: 'inherit', color: 'var(--pl-foreground)', maxHeight: 128, borderRadius: 'var(--pl-radius-md)' },
   inputFooter: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px 8px' },
@@ -241,15 +241,13 @@ export function App(): React.JSX.Element {
         }, 100)
       }
     })
-    const offWorkspace = window.api?.preview.onWorkspaceChanged(() => {
-      // 新演示生成：刷新列表，自动选中新条目
+    const offWorkspace = window.api?.preview.onWorkspaceChanged((payload?: WorkspaceChangedPayload) => {
+      // 刷新列表；仅当本次确为新建演示（payload.created）才切换选中并打开预览，
+      // 避免生成异常（0/多个 html）时误抢当前选中；保留 activeKey 以继续同一会话
       window.api?.workspace.get().then((snap) => {
         if (!snap) return
         setWs(snap)
-        if (!selectedRef.current && snap.demos[0]) setSelected(snap.demos[0].file)
-        else if (selectedRef.current && !snap.demos.some((d) => d.file === selectedRef.current)) {
-          setSelected(snap.demos[0]?.file ?? null)
-        }
+        if (payload?.created) setSelected(payload.created)
       })
     })
     const offSettings = window.api?.settings.onChanged(() => {
