@@ -1,6 +1,8 @@
 /* 物理演示生成器 — Design Tokens（参考 physics-lab-main 界面语言，浅色唯一） */
 
 :root {
+  /* 布局 */
+  --rail-w: 44px;
   /* 语义色板 */
   --pl-background: #f8fafc;
   --pl-foreground: #0f172a;
@@ -112,7 +114,7 @@ body {
 
 /* 常驻窄图标栏（Activity Bar，v2 原型） */
 .app-rail {
-  width: 44px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center;
+  width: var(--rail-w); flex-shrink: 0; display: flex; flex-direction: column; align-items: center;
   padding-top: 12px; gap: 4px; background: var(--pl-card); border-right: 1px solid var(--pl-border);
 }
 .app-rail-btn {

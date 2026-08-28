@@ -55,6 +55,11 @@ export class SettingsStore {
   save(settings: AppSettings): void {
     writeFileSync(this.settingsPath, JSON.stringify(encodeSettings(settings, this.cipher), null, 2), 'utf8')
   }
+
+  /** 局部更新：保留既有字段（含已加密的 apiKeyEnc），只覆盖传入的部分 */
+  patch(partial: Partial<AppSettings>): void {
+    this.save({ ...this.load(), ...partial })
+  }
 }
 
 function decodeSlot(persisted: PersistedSlot | undefined, cipher: SettingsCipher): ModelSlotConfig | undefined {

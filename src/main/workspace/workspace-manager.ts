@@ -154,6 +154,15 @@ export class WorkspaceManager {
     this.save()
   }
 
+  /** 显式绑定演示 ↔ 会话文件（清单补丁，不重命名）：返回是否绑定成功 */
+  bindSession(file: string, sessionFile: string): boolean {
+    const demo = this.manifest.demos.find((d) => d.file === file)
+    if (!demo || demo.sessionFile === sessionFile) return false
+    demo.sessionFile = sessionFile
+    this.save()
+    return true
+  }
+
   private save(): void {
     writeFileSync(
       join(this.dir, SESSIONS_DIR, MANIFEST_FILE),

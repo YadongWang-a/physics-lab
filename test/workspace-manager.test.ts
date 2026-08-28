@@ -132,4 +132,19 @@ describe('WorkspaceManager', () => {
     expect(demo?.sessionFile).toBe('spring.jsonl')
     expect(demo?.title).toBe('弹簧振子')
   })
+
+  it('bindSession：显式改绑会话文件并落盘（重启后保留），幂等与边界', async () => {
+    writeFileSync(join(dir, 'spring.html'), DEMO_HTML)
+    const ws = await WorkspaceManager.open(dir)
+    await ws.scan()
+    expect(ws.bindSession('spring.html', '_new-1756000000-abc123.jsonl')).toBe(true)
+    expect(ws.list()[0]?.sessionFile).toBe('_new-1756000000-abc123.jsonl')
+    // 幂等：重复绑定同一会话文件返回 false（不改清单）
+    expect(ws.bindSession('spring.html', '_new-1756000000-abc123.jsonl')).toBe(false)
+    // 落盘验证：重新打开清单保留显式关联
+    const ws2 = await WorkspaceManager.open(dir)
+    expect(ws2.list()[0]?.sessionFile).toBe('_new-1756000000-abc123.jsonl')
+    // 不存在的演示条目 → 失败
+    expect(ws.bindSession('ghost.html', 'x.jsonl')).toBe(false)
+  })
 })

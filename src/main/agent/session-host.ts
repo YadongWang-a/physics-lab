@@ -17,6 +17,8 @@ export interface SessionHostOptions {
   skillDir: string
   /** 当前主模型槽位（每次建会话时读取，设置保存后新配置生效） */
   getMainSlot: () => ModelSlotConfig | undefined
+  /** 清单解析：html 文件名 → 会话文件名（demos.json 显式关联）；缺省回退 stem 同名约定 */
+  resolveSessionFile?: (file: string) => string | undefined
 }
 
 interface SessionEntry {
@@ -61,7 +63,7 @@ export class SessionHost {
     onEvent: (e: unknown) => void,
     sessionKey?: string
   ): Promise<{ key: string; ps: PhysicsSession }> {
-    const key = file ?? sessionKey ?? `_new-${Date.now()}`
+    const key = file ?? sessionKey ?? `_new-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
     const existing = this.sessions.get(key)
     if (existing) return { key, ps: existing.ps }
     const ps = await createPhysicsSession({
@@ -69,7 +71,7 @@ export class SessionHost {
       sessionDir: join(workspaceDir, '.pi-sessions'),
       agentDir: this.opts.agentDir,
       mainSlot: this.opts.getMainSlot(),
-      sessionFile: `${key}.jsonl`,
+      sessionFile: file ? (this.opts.resolveSessionFile?.(file) ?? `${file.replace(/\.html$/i, '')}.jsonl`) : `${key}.jsonl`,
       systemPrompt: skillSystemPrompt(this.opts.skillDir)
     })
     ps.session.subscribe((e) => onEvent(e))
@@ -92,7 +94,7 @@ export class SessionHost {
     const entry = this.sessions.get(file)
     if (entry) return messagesToHistory(entry.ps.session.messages)
     // 磁盘恢复
-    const sessionPath = join(workspaceDir, '.pi-sessions', `${file.replace(/\.html$/i, '')}.jsonl`)
+    const sessionPath = join(workspaceDir, '.pi-sessions', this.opts.resolveSessionFile?.(file) ?? `${file.replace(/\.html$/i, '')}.jsonl`)
     if (!existsSync(sessionPath)) return []
     try {
       const manager = SessionManager.open(sessionPath)

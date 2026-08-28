@@ -41,19 +41,12 @@
     /* 例: --canvas-ground:#8a8fa0; ... 按题加 */
   }
   .grid{display:grid;grid-template-columns:2.8fr 1fr;gap:14px}
-  @media(max-width:1100px){.grid{grid-template-columns:1fr}}
+  @media(max-width:760px){.grid{grid-template-columns:1fr}}
   /* @slot:page-css —— 页面特有组件样式(能量条/状态面板/判定卡等), 无则留空 */
 </style>
 </head>
 <body>
 <div class="wrap">
-
-  <!-- ====== 标题行 ====== -->
-  <div class="head-row">
-    <div>
-      <h1>标题</h1>
-    </div>
-  </div>
 
   <!-- ====== 顶栏(临界状态/模式切换; 无则整段删) ====== -->
   <!-- @slot:topbar —— 例(状态/模式切换 seg, 无则整段删):

@@ -1,19 +1,20 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, renameSync, watch, writeFileSync, type FSWatcher } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, watch, writeFileSync, type FSWatcher } from 'node:fs'
 import { createPhysicsSession, lastTurnError } from './agent/agent-runner'
 import { ModelRegistry, ModelRuntime } from '@earendil-works/pi-coding-agent'
 import type { ImageContent } from '@earendil-works/pi-ai'
 import { applySlotToRuntime, listProviderModels } from './agent/provider-config'
 import { extractImageText, routeDecision, type ImagePayload } from './agent/vision-extract'
-import { toSlotView, type ModelSlotConfig, type SaveSettingsPayload, type SettingsView } from '../shared/settings-types'
+import { mergeSettings, toSlotView, type ModelSlotConfig, type SaveSettingsPayload, type SettingsView } from '../shared/settings-types'
 import { friendlyErrorMessage } from '../shared/errors'
 import { loadEnvFile } from '../shared/load-env'
 import { isInsufficientBalance } from '../shared/balance'
-import type { WorkspaceSnapshot } from '../shared/ipc-types'
+import type { WorkspaceSnapshot, UiPrefs } from '../shared/ipc-types'
 import { WorkspaceManager } from './workspace/workspace-manager'
 import { SettingsStore } from './workspace/app-settings'
+import { UiPrefsStore } from './workspace/ui-prefs'
 import { seedLibIntoWorkspace } from './workspace/lib-seed'
 import { SessionHost } from './agent/session-host'
 import { DemoChecker } from './agent/check-demo/runtime-check'
@@ -27,10 +28,14 @@ if (process.argv.includes('--smoke-checkdemo')) {
 }
 
 let currentWs: WorkspaceManager | null = null
+let uiPrefs: UiPrefsStore | null = null
 let settings: SettingsStore | null = null
 let sessionHost: SessionHost | null = null
+
+/** 进行中的新建会话绑定：会话 id → 生成前 html 集合 / 已绑定的目标文件（demos.json 显式关联，无改名） */
+const pendingNewSessions = new Map<string, { before: Set<string>; boundFile?: string }>()
 let watcher: FSWatcher | null = null
-let watcherTimer: NodeJS.Timeout | null = null
+let watcherTimer: NodeJS.Timeout | undefined
 
 function skillDir(): string {
   return join(app.getAppPath(), 'resources', 'physics-lab-skill')
@@ -49,10 +54,11 @@ function snapshot(): WorkspaceSnapshot {
 
 async function openWorkspace(dir: string): Promise<WorkspaceSnapshot> {
   currentWs = WorkspaceManager.open(dir)
+  pendingNewSessions.clear()
   currentWs.scan()
   seedLibIntoWorkspace(dir, skillDir())
   startWorkspaceWatcher(dir)
-  settings?.save({ workspaceDir: dir })
+  settings?.patch({ workspaceDir: dir })
   return snapshot()
 }
 
@@ -62,9 +68,10 @@ function startWorkspaceWatcher(dir: string): void {
   watcher = null
   watcher = watch(dir, (event, filename) => {
     if (!filename || !filename.toString().toLowerCase().endsWith('.html')) return
-    if (watcherTimer) clearTimeout(watcherTimer)
+    clearTimeout(watcherTimer)
     watcherTimer = setTimeout(() => {
       currentWs?.scan()
+      bindPendingNewSessions()
       broadcast('preview:changed', { file: filename.toString() })
     }, 300)
   })
@@ -119,12 +126,16 @@ function registerWorkspaceIpc(): void {
         }
         // 新会话：先绑定生成的新 HTML，再自动自检
         if (!file) {
-          const created = finalizeNewSession(`${key}.jsonl`)
+          const created = finalizeNewSession(key)
           if (created) void autoCheckDemo(host, currentWs!.dirname, created, key)
         } else {
           void autoCheckDemo(host, currentWs!.dirname, file, key)
         }
       }, sessionKey)
+      // 新建会话：记录生成前的 html 集合，首个新 html 落盘后绑定（demos.json 显式关联）
+      if (!file && !pendingNewSessions.has(key)) {
+        pendingNewSessions.set(key, { before: new Set(currentWs.list().map((d) => d.file)) })
+      }
 
       // OCR 通道路由（ticket 06）：主模型视觉直通 / 视觉模型转文本 / 明确不可用
       let promptText = text
@@ -200,13 +211,8 @@ function registerSettingsIpc(): void {
   ipcMain.handle('settings:save', (_event, payload: SaveSettingsPayload) => {
     if (!settings) throw new Error('设置未初始化')
     const current = settings.load()
-    const main: ModelSlotConfig | undefined = payload.main ?? current.main
-    // 明文 Key 走独立字段（渲染层不回显）；省略/空串 = 保持原样
-    if (main && payload.mainApiKey) main.apiKey = payload.mainApiKey
-    const vision: ModelSlotConfig | undefined =
-      payload.vision === null ? undefined : (payload.vision ?? current.vision)
-    if (vision && payload.visionApiKey) vision.apiKey = payload.visionApiKey
-    settings.save({ workspaceDir: current.workspaceDir, main, vision })
+    // 合并：未传新 Key 时保留既有 Key（渲染层不回显明文），避免重存设置清掉已保存 Key
+    settings.save(mergeSettings(current, payload))
     // 配置变化 → 旧会话（旧模型/旧 Key）全部释放；下次消息按新配置重建，历史从磁盘恢复
     sessionHost?.releaseAll()
     broadcast('settings:changed', {})
@@ -297,27 +303,31 @@ async function autoCheckDemo(
     autoChecking.delete(key)
   }
 }
-
-/**
- * 新会话生成完成后：扫描识别新 HTML，把临时会话文件（_new-<ts>.jsonl）
- * 重命名为 <新html>.jsonl（与清单约定一致），并通知渲染层刷新列表。
- */
-function finalizeNewSession(pendingSessionFile: string): string | null {
-  if (!currentWs) return null
-  const before = new Set(currentWs.list().map((d) => d.file))
-  currentWs.scan()
-  const after = currentWs.list().map((d) => d.file)
-  const created = after.filter((f) => !before.has(f))
-  if (created.length !== 1) return null
-  const stem = created[0]!.replace(/\.html$/i, '')
-  const oldPath = join(currentWs.dirname, '.pi-sessions', pendingSessionFile)
-  const newPath = join(currentWs.dirname, '.pi-sessions', `${stem}.jsonl`)
-  if (existsSync(oldPath) && !existsSync(newPath)) {
-    renameSync(oldPath, newPath)
+/** 新建会话的绑定：把「生成前不存在的唯一新 html」绑到会话 id（demos.json 清单补丁，无改名） */
+function bindPendingNewSessions(): void {
+  if (!currentWs) return
+  const htmls = new Set(currentWs.list().map((d) => d.file))
+  for (const [sessionId, pending] of pendingNewSessions) {
+    if (pending.boundFile) continue
+    const created = [...htmls].filter((f) => !pending.before.has(f))
+    if (created.length !== 1) continue
+    const html = created[0]!
+    if (currentWs.bindSession(html, `${sessionId}.jsonl`)) {
+      pending.boundFile = html
+      // 告知渲染层刚生成的是哪个文件：生成后自动打开预览并在列表选中
+      broadcast('workspace:changed', { created: html })
+    }
   }
-  // 告知渲染层刚生成的是哪个文件：便于生成后自动打开预览并在列表选中
-  broadcast('workspace:changed', { created: created[0] })
-  return created[0]!
+}
+
+/** 回合 settle 兜底：watcher 漏事件时在此补绑定；已绑定则仅刷新列表 */
+function finalizeNewSession(sessionId: string): string | null {
+  currentWs?.scan()
+  bindPendingNewSessions()
+  const pending = pendingNewSessions.get(sessionId)
+  if (!pending?.boundFile) return null
+  broadcast('workspace:changed', { created: pending.boundFile })
+  return pending.boundFile
 }
 
 function createWindow(): void {
@@ -459,7 +469,7 @@ async function smokeWorkspace(): Promise<void> {
     join(dir, 'spring.html'),
     '<!doctype html><html><head><title>弹簧振子</title></head><body><script src="lib/common.js"></script></body></html>'
   )
-  settings?.save({ workspaceDir: dir })
+  settings?.patch({ workspaceDir: dir })
   createWindow()
   await delay(1500)
   const [win] = BrowserWindow.getAllWindows()
@@ -690,14 +700,22 @@ app.whenReady().then(async () => {
   if (process.argv.some((a) => a.startsWith('--smoke'))) {
     app.setPath('userData', mkdtempSync(join(tmpdir(), 'physics-lab-smoke-userdata-')))
   }
+  uiPrefs = UiPrefsStore.at(app.getPath('userData'))
   settings = SettingsStore.at(app.getPath('userData'))
   sessionHost = new SessionHost({
     agentDir: join(app.getPath('userData'), 'agent'),
     skillDir: skillDir(),
-    getMainSlot: () => settings?.load().main
+    getMainSlot: () => settings?.load().main,
+    resolveSessionFile: (file) => currentWs?.list().find((d) => d.file === file)?.sessionFile
   })
   registerWorkspaceIpc()
   registerSettingsIpc()
+  ipcMain.handle('uiPrefs:get', () => uiPrefs?.load() ?? {})
+  ipcMain.handle('uiPrefs:set', (_event, patch: Partial<UiPrefs>) => {
+    const next = { ...(uiPrefs?.load() ?? {}), ...patch }
+    uiPrefs?.save(next)
+    return next
+  })
 
   if (process.argv.includes('--smoke-agent')) {
     await smokeAgent().catch((err) => {

@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { ChatHistoryEntry, ImagePayload, RendererApi, WorkspaceChangedPayload, WorkspaceSnapshot } from '../shared/ipc-types'
+import type { ChatHistoryEntry, ImagePayload, RendererApi, UiPrefs, WorkspaceChangedPayload, WorkspaceSnapshot } from '../shared/ipc-types'
 import type { ModelSlotConfig, SaveSettingsPayload, SettingsView } from '../shared/settings-types'
 
 const api: RendererApi = {
@@ -49,10 +49,13 @@ const api: RendererApi = {
       ipcRenderer.invoke('settings:test', { slot }),
     onChanged: (cb) => {
       const listener = (): void => cb()
-      ipcRenderer.on('settings:changed', listener)
       return () => ipcRenderer.removeListener('settings:changed', listener)
     }
-  }
+  },
+  uiPrefs: {
+    get: (): Promise<UiPrefs> => ipcRenderer.invoke('uiPrefs:get'),
+    set: (patch: Partial<UiPrefs>): Promise<UiPrefs> => ipcRenderer.invoke('uiPrefs:set', patch)
+  },
 }
 
 contextBridge.exposeInMainWorld('api', api)

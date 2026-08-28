@@ -32,19 +32,13 @@
     /* @slot: 更多面颜色(top/bot/hi/front/back)按需加 */
   }
   .grid{display:grid;grid-template-columns:2.8fr 1fr;gap:14px}
-  @media(max-width:1100px){.grid{grid-template-columns:1fr}}
+  @media(max-width:760px){.grid{grid-template-columns:1fr}}
   .btn.on{background:var(--blue);color:#fff;border-color:var(--blue)}
   /* @slot:page-css */
 </style>
 </head>
 <body>
 <div class="wrap">
-
-  <div class="head-row">
-    <div>
-      <h1>标题</h1>
-    </div>
-  </div>
 
   <!-- @slot:topbar -- 状态/模式切换 seg, 例(无则整段删):
   <div class="topbar" style="gap:8px">

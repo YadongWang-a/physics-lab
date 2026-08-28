@@ -19,6 +19,10 @@ export interface WorkspaceChangedPayload {
   /** 本次新生成的演示文件名；缺省表示非新建（仅刷新列表，不切换选中） */
   created?: string
 }
+export interface UiPrefs {
+  /** 预览缩放比例（0.6~1），默认 0.75 */
+  previewZoom?: number
+}
 
 export interface ChatHistoryEntry {
   role: 'user' | 'assistant'
@@ -81,5 +85,11 @@ export interface RendererApi {
     test: (slot: ModelSlotConfig) => Promise<{ ok: boolean; error?: string }>
     /** 订阅设置变化（保存成功）；返回取消函数 */
     onChanged: (cb: () => void) => () => void
+  }
+  uiPrefs: {
+    /** 读取 UI 偏好（预览缩放等，非敏感） */
+    get: () => Promise<UiPrefs>
+    /** 局部更新 UI 偏好并返回最新值 */
+    set: (patch: Partial<UiPrefs>) => Promise<UiPrefs>
   }
 }

@@ -21,7 +21,11 @@ interface ChatMessage {
 interface WebviewElement extends HTMLElement {
   reload(): void
   isLoading(): boolean
+  setZoomFactor(zoomFactor: number): void
 }
+
+/** 三栏宽度比例（列表:对话:预览）；收起的栏不占份额，其余栏按此重新归一化 */
+const COL_RATIOS = { browse: 0.12, chat: 0.23, preview: 0.65 } as const
 
 const styles: Record<string, React.CSSProperties> = {
   layout: { display: 'flex', flexDirection: 'column', height: '100vh', fontFamily: 'var(--pl-font-sans)', background: 'var(--pl-background)', color: 'var(--pl-foreground)' },
@@ -37,8 +41,7 @@ const styles: Record<string, React.CSSProperties> = {
   dot: { width: 8, height: 8, borderRadius: '50%' },
   winBtn: { width: 36, height: 34, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: 'none', color: 'var(--pl-muted-foreground)', cursor: 'pointer', borderRadius: 6 },
   // ---- 浏览窗口（工作空间演示列表，可收缩；标题栏 ☰ 呼出） ----
-  browse: { width: 208, minWidth: 208, display: 'flex', flexDirection: 'column', background: 'var(--pl-card)', borderRight: '1px solid var(--pl-border)', flexShrink: 0, transition: 'width 240ms ease, opacity 200ms ease, min-width 240ms ease' },
-  browseCollapsed: { width: 0, minWidth: 0, opacity: 0, overflow: 'hidden', borderRight: 'none' },
+  browse: { minWidth: 140, display: 'flex', flexDirection: 'column', background: 'var(--pl-card)', borderRight: '1px solid var(--pl-border)', flexShrink: 0, transition: 'width 240ms ease, opacity 200ms ease, min-width 240ms ease' },
   browseHead: { height: 40, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6, padding: '0 8px 0 14px' },
   browseHeadTitle: { fontSize: 12, fontWeight: 600, flex: 1 },
   browseHeadCount: { fontSize: 11, color: 'var(--pl-muted-foreground)', fontWeight: 400 },
@@ -47,7 +50,6 @@ const styles: Record<string, React.CSSProperties> = {
   browseItem: { display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', width: '100%', border: '1px solid transparent', background: 'transparent', font: 'inherit', color: 'inherit', textAlign: 'left', borderRadius: 'var(--pl-radius-md)', cursor: 'pointer', userSelect: 'none', position: 'relative', transition: 'all .12s ease' },
   browseItemHover: { background: 'var(--pl-muted)' },
   browseItemActive: { background: 'var(--primary-soft)', borderColor: 'rgba(37,99,235,.2)' },
-  browseThumb: { width: 34, height: 26, borderRadius: 5, background: 'var(--pl-card)', border: '1px solid var(--pl-border)', flexShrink: 0, position: 'relative', overflow: 'hidden' },
   browseMeta: { flex: 1, minWidth: 0 },
   browseTitle: { fontSize: 12, color: 'var(--pl-foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.4 },
   browseTitleActive: { color: '#1d4ed8', fontWeight: 500 },
@@ -67,7 +69,7 @@ const styles: Record<string, React.CSSProperties> = {
   welcomeExampleHover: { borderColor: 'var(--pl-primary)', color: 'var(--pl-foreground)', background: 'var(--primary-soft)', transform: 'translateX(2px)' },
   // ---- 工作台 ----
   workspace: { flex: 1, display: 'flex', overflow: 'hidden', position: 'relative' },
-  chat: { width: 420, minWidth: 320, maxWidth: '50%', display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--pl-border)', background: 'var(--pl-card)', transition: 'width 240ms ease, opacity 200ms ease, min-width 240ms ease' },
+  chat: { minWidth: 260, display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--pl-border)', background: 'var(--pl-card)', transition: 'width 240ms ease, opacity 200ms ease, min-width 240ms ease' },
   chatCollapsed: { width: 0, minWidth: 0, opacity: 0, overflow: 'hidden', borderRight: 'none' },
   chatBody: { flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: 14 },
   msgUser: { alignSelf: 'flex-end', textAlign: 'right', background: 'var(--pl-muted)', color: 'var(--pl-ink)', padding: '10px 16px', borderRadius: 'var(--pl-radius-lg) var(--pl-radius-lg) 4px var(--pl-radius-lg)', maxWidth: '88%', whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: 13.5, lineHeight: 1.6, boxShadow: '0 1px 2px rgba(15,23,42,.10)' },
@@ -84,6 +86,7 @@ const styles: Record<string, React.CSSProperties> = {
   // ---- 预览 ----
   preview: { flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--pl-background)', minWidth: 320 },
   previewHeader: { height: 44, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', borderBottom: '1px solid var(--pl-border)', fontSize: 13, fontWeight: 600, background: 'rgba(255,255,255,.72)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' },
+  zoomSelect: { height: 26, padding: '0 4px', fontSize: 12, color: 'var(--pl-foreground)', background: 'var(--pl-card)', border: '1px solid var(--pl-border)', borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit' },
   previewBody: { flex: 1, position: 'relative' },
   previewEmpty: { position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, background: 'var(--pl-background)', zIndex: 10 },
   previewEmptyIcon: { width: 56, height: 56, borderRadius: '50%', background: 'rgba(37,99,235,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, color: 'var(--pl-primary)' },
@@ -100,7 +103,6 @@ const styles: Record<string, React.CSSProperties> = {
   attachImg: { width: '100%', height: '100%', objectFit: 'cover' },
   attachRemove: { position: 'absolute', top: 2, right: 2, border: 'none', background: 'rgba(0,0,0,0.55)', color: '#fff', borderRadius: 10, width: 16, height: 16, fontSize: 10, lineHeight: '14px', cursor: 'pointer', padding: 0 },
   picker: { padding: '16px 26px', fontSize: 14, border: '1px solid var(--pl-border)', borderRadius: 8, background: 'var(--pl-card)', cursor: 'pointer', boxShadow: 'var(--pl-shadow-1)' },
-  hint: { fontSize: 12, color: 'var(--pl-muted-foreground)' }
 }
 
 /** 提取 assistant 消息中的 [选项] a | b | c 行，返回按钮选项列表 */
@@ -181,7 +183,8 @@ export function App(): React.JSX.Element {
   const [hasMainKey, setHasMainKey] = useState<boolean | null>(null)
   /** 待发送的聊天图片（粘贴） */
   const [images, setImages] = useState<ImagePayload[]>([])
-  /** 演示模式（ticket 07）：全屏展示当前演示 */
+  /** 预览缩放比例（0.6~1），默认 0.75；演示模式强制 100% */
+  const [zoom, setZoom] = useState<number>(0.75)
   const [presenting, setPresenting] = useState(false)
   /** 聊天面板折叠（参考 physics-lab-main 界面交互） */
   const [chatCollapsed, setChatCollapsed] = useState(false)
@@ -190,9 +193,47 @@ export function App(): React.JSX.Element {
   const msgId = useRef(0)
   const webviewRef = useRef<WebviewElement | null>(null)
   // 当前活跃会话 key：选中演示名，或未选中时新会话的 key（chat.send 返回）
+  // 预览缩放：编辑态用用户比例，演示模式强制 100%
+  const applyZoom = useCallback(() => {
+    const wv = webviewRef.current as (WebviewElement & { setZoomFactor?: (z: number) => void }) | null
+    if (wv && typeof wv.setZoomFactor === 'function') {
+      try {
+        wv.setZoomFactor(presenting ? 1 : zoom)
+      } catch {
+        /* guest 尚未就绪 */
+      }
+    }
+  }, [presenting, zoom])
+
+  // 比例或演示模式切换时立即应用
+  useEffect(() => {
+    applyZoom()
+  }, [applyZoom])
+
+  // webview（重新）加载完成后重新应用（reload / 切换 demo 会复位缩放）
+  useEffect(() => {
+    const wv = webviewRef.current
+    if (!wv) return
+    const onLoad = () => applyZoom()
+    wv.addEventListener('did-finish-load', onLoad)
+    wv.addEventListener('dom-ready', onLoad)
+    return () => {
+      wv.removeEventListener('did-finish-load', onLoad)
+      wv.removeEventListener('dom-ready', onLoad)
+    }
+  }, [applyZoom, selected])
+
+  // 启动时读取已保存的预览缩放
+  useEffect(() => {
+    window.api?.uiPrefs.get().then((p) => {
+      if (typeof p.previewZoom === 'number') setZoom(p.previewZoom)
+    })
+  }, [])
   const activeKeyRef = useRef<string | null>(null)
   const selectedRef = useRef<string | null>(null)
   selectedRef.current = selected
+  const streamingRef = useRef(false)
+  streamingRef.current = streaming
 
   const append = useCallback((msg: Omit<ChatMessage, 'id'>) => {
     msgId.current += 1
@@ -234,10 +275,18 @@ export function App(): React.JSX.Element {
       }
     })
     const offPreview = window.api?.preview.onChanged(({ file }) => {
+      // 新会话生成中：首个新 html 落盘即自动打开预览（不等回合 settle）
+      if (!selectedRef.current && streamingRef.current) {
+        window.api?.workspace.get().then((snap) => {
+          if (!snap) return
+          setWs(snap)
+          setSelected(file)
+        })
+      }
       if (file === selectedRef.current) {
         setTimeout(() => {
-          const wv = webviewRef.current
-          if (wv && !wv.isLoading()) wv.reload()
+          // 始终重载：isLoading 守卫会在连续重写（自检修复循环）时漏掉最后一次刷新
+          webviewRef.current?.reload()
         }, 100)
       }
     })
@@ -371,6 +420,10 @@ export function App(): React.JSX.Element {
     )
   }
 
+  // 收起联动：收起的栏不占份额，其余栏按原比例重新归一化（预览恒参与，分母不为零）
+  const colTotal = (browseCollapsed ? 0 : COL_RATIOS.browse) + (chatCollapsed ? 0 : COL_RATIOS.chat) + COL_RATIOS.preview
+  const colW = (r: number): string => `calc((100% - var(--rail-w)) * ${(r / colTotal).toFixed(4)})`
+
   const selectedDemo = ws.demos.find((d) => d.file === selected) ?? null
   const canSend = !streaming && (input.trim().length > 0 || images.length > 0)
   const inputPlaceholder = selectedDemo ? '输入物理题或修改要求（可粘贴题目图片）…' : '输入物理题，生成一个新演示（可粘贴题目图片）…'
@@ -429,9 +482,10 @@ export function App(): React.JSX.Element {
         )}
         {/* 浏览窗口（工作空间演示列表，可收缩） */}
         {!presenting && !browseCollapsed && (
-          <section style={styles.browse}>
+          <section style={{ ...styles.browse, width: colW(COL_RATIOS.browse) }}>
             <div style={styles.browseHead}>
-              <span style={styles.browseHeadTitle}>演示</span>
+              {/* 原标题「演示」移除：空占位使计数/刷新保持靠右 */}
+              <span style={styles.browseHeadTitle} />
               <span style={styles.browseHeadCount}>{ws.demos.length}</span>
               <button style={styles.browseHeadBtn} title="刷新列表" onClick={refresh}>
                 <Icon name="refresh" size={13} />
@@ -456,7 +510,6 @@ export function App(): React.JSX.Element {
                   title={d.file}
                   onClick={() => selectDemo(d.file)}
                 >
-                  <div style={styles.browseThumb} />
                   <div style={styles.browseMeta}>
                     <div style={selected === d.file ? { ...styles.browseTitle, ...styles.browseTitleActive } : styles.browseTitle}>
                       {d.title}
@@ -497,7 +550,7 @@ export function App(): React.JSX.Element {
         )}
 
         {!presenting && (
-          <section style={chatCollapsed ? { ...styles.chat, ...styles.chatCollapsed } : styles.chat}>
+          <section style={chatCollapsed ? styles.chatCollapsed : { ...styles.chat, width: colW(COL_RATIOS.chat) }}>
             <div style={{ height: 44, flexShrink: 0, display: 'flex', alignItems: 'center', padding: '0 8px', borderBottom: '1px solid var(--pl-border)', gap: 4 }}>
               <div style={{ flex: 1 }} />
               <button
@@ -670,6 +723,21 @@ export function App(): React.JSX.Element {
                     实时预览
                   </span>
                 )}
+              <select
+                style={styles.zoomSelect}
+                value={Math.round(zoom * 100)}
+                title="预览缩放"
+                onChange={(e) => {
+                  const z = Number(e.target.value) / 100
+                  setZoom(z)
+                  void window.api?.uiPrefs.set({ previewZoom: z })
+                }}
+              >
+                <option value={100}>100%</option>
+                <option value={90}>90%</option>
+                <option value={75}>75%</option>
+                <option value={60}>60%</option>
+              </select>
               </span>
               {selectedDemo && (
                 <button style={styles.presentBtn} onClick={enterPresent}>

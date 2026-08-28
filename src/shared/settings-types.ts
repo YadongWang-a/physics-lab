@@ -70,3 +70,25 @@ export function toSlotView(slot: ModelSlotConfig | undefined): ModelSlotView | n
   const { apiKey, ...rest } = slot
   return { ...rest, hasApiKey: Boolean(apiKey) }
 }
+
+/**
+ * settings:save 的合并语义（纯函数，便于测试）：
+ * - `payload.main` 来自渲染层视图（不含明文 Key），整体替换时不能丢 Key；
+ * - `mainApiKey` 省略/空 = 保持原样（渲染层不回显明文），故未传新 Key 时沿用 `current.main?.apiKey`；
+ * - `payload.main` 整体缺省才回退 `current.main`（如只更新 vision）。
+ */
+export function mergeSettings(
+  current: AppSettings,
+  payload: SaveSettingsPayload
+): AppSettings {
+  const main: ModelSlotConfig | undefined = payload.main ?? current.main
+  if (main) {
+    main.apiKey = payload.mainApiKey ?? current.main?.apiKey
+  }
+  const vision: ModelSlotConfig | undefined =
+    payload.vision === null ? undefined : payload.vision ?? current.vision
+  if (vision) {
+    vision.apiKey = payload.visionApiKey ?? current.vision?.apiKey
+  }
+  return { workspaceDir: current.workspaceDir, main, vision }
+}
