@@ -84,11 +84,19 @@ function encodeSlot(slot: ModelSlotConfig | undefined, cipher: SettingsCipher): 
   return persisted
 }
 
+/** 旧版本曾预置 opencode 网关供应商；已移除支持，载入时迁移为 DeepSeek 直连 */
+function migrateSlot(slot: ModelSlotConfig | undefined): ModelSlotConfig | undefined {
+  if (!slot) return undefined
+  // String() 阻断字面量收窄：存量 settings.json 可能仍含已移除的 'opencode-go'
+  const legacy = String(slot.provider) === 'opencode-go'
+  return legacy ? { ...slot, provider: 'deepseek' } : slot
+}
+
 function decodeSettings(persisted: PersistedSettings, cipher: SettingsCipher): AppSettings {
   return {
     workspaceDir: persisted.workspaceDir,
-    main: decodeSlot(persisted.main, cipher),
-    vision: decodeSlot(persisted.vision, cipher)
+    main: migrateSlot(decodeSlot(persisted.main, cipher)),
+    vision: migrateSlot(decodeSlot(persisted.vision, cipher))
   }
 }
 

@@ -16,7 +16,7 @@ describe('SettingsStore：双槽位加密存储', () => {
     const dir = mkdtempSync(join(tmpdir(), 'settings-test-'))
     const store = SettingsStore.at(dir, fakeCipher)
     store.save({
-      main: { provider: 'opencode-go', modelId: 'deepseek-v4-flash', apiKey: 'sk-secret-main' },
+      main: { provider: 'deepseek', modelId: 'deepseek-v4-flash', apiKey: 'sk-secret-main' },
       vision: { provider: 'deepseek', modelId: 'deepseek-v4-flash', apiKey: 'sk-secret-vision' }
     })
 
@@ -31,7 +31,7 @@ describe('SettingsStore：双槽位加密存储', () => {
     const store = SettingsStore.at(dir, fakeCipher)
     store.save({
       main: { provider: 'custom', modelId: 'qwen-max', baseUrl: 'https://proxy.example/v1', api: 'openai-completions', apiKey: 'sk-main' },
-      vision: { provider: 'opencode-go', modelId: 'glm-5.x', apiKey: 'sk-vision' }
+      vision: { provider: 'deepseek', modelId: 'glm-5.x', apiKey: 'sk-vision' }
     })
 
     const loaded = store.load()
@@ -64,7 +64,7 @@ describe('SettingsStore：双槽位加密存储', () => {
   it('无 Key 的槽位不写 apiKeyEnc；vision 可整体缺省', () => {
     const dir = mkdtempSync(join(tmpdir(), 'settings-test-'))
     const store = SettingsStore.at(dir, fakeCipher)
-    store.save({ main: { provider: 'opencode-go', modelId: 'deepseek-v4-flash' } })
+    store.save({ main: { provider: 'deepseek', modelId: 'deepseek-v4-flash' } })
 
     const raw = readFileSync(join(dir, 'settings.json'), 'utf8')
     expect(raw).not.toContain('apiKeyEnc')
@@ -82,7 +82,7 @@ describe('SettingsStore：双槽位加密存储', () => {
   })
 
   it('toSlotView 剥离明文 Key（渲染层安全边界回归）', () => {
-    const view = toSlotView({ provider: 'opencode-go', modelId: 'deepseek-v4-flash', apiKey: 'sk-secret' })
+    const view = toSlotView({ provider: 'deepseek', modelId: 'deepseek-v4-flash', apiKey: 'sk-secret' })
     expect(view).not.toHaveProperty('apiKey')
     expect(view?.hasApiKey).toBe(true)
     expect(toSlotView(undefined)).toBeNull()
@@ -93,7 +93,7 @@ describe('SettingsStore.patch：局部更新不丢字段（openWorkspace 回归�
     const dir = mkdtempSync(join(tmpdir(), 'settings-test-'))
     const store = SettingsStore.at(dir, fakeCipher)
     store.save({
-      main: { provider: 'opencode-go', modelId: 'deepseek-v4-flash', apiKey: 'sk-secret-main' },
+      main: { provider: 'deepseek', modelId: 'deepseek-v4-flash', apiKey: 'sk-secret-main' },
       vision: { provider: 'deepseek', modelId: 'deepseek-v4-flash', apiKey: 'sk-secret-vision' },
       workspaceDir: '/old'
     })
@@ -110,7 +110,7 @@ describe('mergeSettings：settings:save 合并语义（重存设置不丢 Key）
   it('写入主模型 Key 并保留既有 workspaceDir', () => {
     const current: AppSettings = { workspaceDir: '/old' }
     const merged = mergeSettings(current, {
-      main: { provider: 'opencode-go', modelId: 'deepseek-v4-flash' },
+      main: { provider: 'deepseek', modelId: 'deepseek-v4-flash' },
       mainApiKey: 'sk-new'
     })
     const dir = mkdtempSync(join(tmpdir(), 'settings-test-'))
@@ -125,11 +125,11 @@ describe('mergeSettings：settings:save 合并语义（重存设置不丢 Key）
     const dir = mkdtempSync(join(tmpdir(), 'settings-test-'))
     const store = SettingsStore.at(dir, fakeCipher)
     // 先存一个 Key（模拟用户之前配置）
-    store.save({ main: { provider: 'opencode-go', modelId: 'deepseek-v4-flash', apiKey: 'sk-existing' } })
+    store.save({ main: { provider: 'deepseek', modelId: 'deepseek-v4-flash', apiKey: 'sk-existing' } })
     // 重开设置、改了别的字段但没重输 Key：payload.main 不含明文 Key
     const current = store.load()
     const merged = mergeSettings(current, {
-      main: { provider: 'opencode-go', modelId: 'deepseek-v4-flash' }
+      main: { provider: 'deepseek', modelId: 'deepseek-v4-flash' }
     })
     store.save(merged)
     // 既有 Key 必须仍在（此前此场景会清掉 Key → banner 复现）
@@ -140,7 +140,7 @@ describe('mergeSettings：settings:save 合并语义（重存设置不丢 Key）
   it('payload.main 整体缺省（只更新 vision）→ 回退 current.main，不丢主模型', () => {
     const dir = mkdtempSync(join(tmpdir(), 'settings-test-'))
     const store = SettingsStore.at(dir, fakeCipher)
-    store.save({ main: { provider: 'opencode-go', modelId: 'deepseek-v4-flash', apiKey: 'sk-main' } })
+    store.save({ main: { provider: 'deepseek', modelId: 'deepseek-v4-flash', apiKey: 'sk-main' } })
     const current = store.load()
     const merged = mergeSettings(current, {
       vision: { provider: 'deepseek', modelId: 'deepseek-v4-flash' },
@@ -149,5 +149,21 @@ describe('mergeSettings：settings:save 合并语义（重存设置不丢 Key）
     store.save(merged)
     expect(store.load().main?.apiKey).toBe('sk-main')
     expect(store.load().vision?.apiKey).toBe('sk-vision')
+  })
+})
+
+describe('SettingsStore：旧配置迁移（opencode-go → deepseek）', () => {
+  it('载入时把存量 opencode-go 供应商迁移为 deepseek，Key 保留', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'settings-test-'))
+    const cipher = fakeCipher
+    const legacy = {
+      workspaceDir: 'C:/ws',
+      main: { provider: 'opencode-go', modelId: 'deepseek-v4-flash', apiKeyEnc: cipher.encrypt('sk-legacy') }
+    }
+    writeFileSync(join(dir, 'settings.json'), JSON.stringify(legacy), 'utf8')
+    const loaded = SettingsStore.at(dir, cipher).load()
+    expect(loaded.main?.provider).toBe('deepseek')
+    expect(loaded.main?.modelId).toBe('deepseek-v4-flash')
+    expect(loaded.main?.apiKey).toBe('sk-legacy')
   })
 })

@@ -16,7 +16,7 @@ export interface SlotLike {
 
 /**
  * 槽位 → 运行时注入。规则：
- * - 内置供应商（opencode-go/deepseek）：setRuntimeApiKey 运行时注入（不落 auth.json 明文）
+ * - 内置供应商（deepseek）：setRuntimeApiKey 运行时注入（不落 auth.json 明文）
  * - custom：先注册自定义端点（baseUrl + 协议 + 模型目录），再运行时注入 Key
  */
 export async function applySlotToRuntime(runtime: ModelRuntime, slot: SlotLike): Promise<void> {

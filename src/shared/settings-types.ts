@@ -1,6 +1,6 @@
 /** 模型槽位配置（主模型 / 视觉模型），主进程与渲染层共享 */
 
-export type SlotProvider = 'opencode-go' | 'deepseek' | 'custom'
+export type SlotProvider = 'deepseek' | 'custom'
 
 /** 自定义 OpenAI 兼容端点协议 */
 export type CustomApi = 'openai-completions' | 'openai-responses'
@@ -51,12 +51,11 @@ export interface SaveSettingsPayload {
 export const CUSTOM_PROVIDER_ID = 'custom'
 
 export const DEFAULT_MAIN_SLOT: ModelSlotConfig = {
-  provider: 'opencode-go',
+  provider: 'deepseek',
   modelId: 'deepseek-v4-flash'
 }
 
 export const PROVIDER_LABELS: Record<SlotProvider, string> = {
-  'opencode-go': 'opencode-go（本机 opencode 网关）',
   deepseek: 'DeepSeek',
   custom: '自定义 OpenAI 兼容端点'
 }

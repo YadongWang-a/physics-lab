@@ -80,7 +80,7 @@ describe.skipIf(!hasKey)('SDK 层：agent 会话（真实 Key）', () => {
     if (!apiKey) ctx.skip()
     const { session, dispose } = await createPhysicsSession({
       ...dirs,
-      mainSlot: { provider: 'opencode-go', modelId: 'deepseek-v4-flash', apiKey }
+      mainSlot: { provider: 'deepseek', modelId: 'deepseek-v4-flash', apiKey }
     })
     await session.prompt('只回复两个字：你好')
     skipOnInsufficientBalance(ctx, session.messages)
@@ -88,7 +88,7 @@ describe.skipIf(!hasKey)('SDK 层：agent 会话（真实 Key）', () => {
     const last = session.messages[session.messages.length - 1]
     const assistant = last as { role?: string; provider?: string } | undefined
     expect(assistant?.role).toBe('assistant')
-    expect(assistant?.provider).toBe('opencode-go')
+    expect(assistant?.provider).toBe('deepseek')
     dispose()
   })
 

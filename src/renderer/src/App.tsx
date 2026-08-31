@@ -229,15 +229,33 @@ export function App(): React.JSX.Element {
       if (typeof p.previewZoom === 'number') setZoom(p.previewZoom)
     })
   }, [])
+
+  // 会话消息变化（历史加载/新消息/流式）→ 滚到最新一条
+  useEffect(() => {
+    const el = chatBodyRef.current
+    if (el) el.scrollTop = el.scrollHeight
+  }, [messages])
   const activeKeyRef = useRef<string | null>(null)
   const selectedRef = useRef<string | null>(null)
   selectedRef.current = selected
   const streamingRef = useRef(false)
   streamingRef.current = streaming
+  const selectTokenRef = useRef(0)
+  const chatBodyRef = useRef<HTMLDivElement | null>(null)
 
   const append = useCallback((msg: Omit<ChatMessage, 'id'>) => {
     msgId.current += 1
     setMessages((prev) => [...prev, { ...msg, id: msgId.current }])
+  }, [])
+
+  /** 加载演示对应的会话历史（html ↔ session 一一对应）；token 过期（快速切换）则丢弃 */
+  const loadDemoSession = useCallback(async (file: string, token: number): Promise<ChatMessage[]> => {
+    const history = (await window.api?.chat.history(file)) ?? []
+    if (selectTokenRef.current !== token) return []
+    return history.map((h) => {
+      msgId.current += 1
+      return { id: msgId.current, role: h.role, text: h.text }
+    })
   }, [])
 
   const refresh = useCallback(async () => {
@@ -246,9 +264,18 @@ export function App(): React.JSX.Element {
   }, [])
 
   useEffect(() => {
-    window.api?.workspace.get().then((snap) => {
+    // 启动恢复：先加载上次演示的 session 历史，再打开 html 预览
+    window.api?.workspace.get().then(async (snap) => {
+      if (!snap) { setLoading(false); return }
       setWs(snap)
-      if (snap?.demos[0]) setSelected(snap.demos[0].file)
+      const first = snap.demos[0]
+      if (!first) { setLoading(false); return }
+      selectTokenRef.current += 1
+      const token = selectTokenRef.current
+      const msgs = await loadDemoSession(first.file, token)
+      if (selectTokenRef.current !== token) { setLoading(false); return }
+      setMessages(msgs)
+      setSelected(first.file)
       setLoading(false)
     })
 
@@ -312,17 +339,18 @@ export function App(): React.JSX.Element {
   }, [])
 
   const selectDemo = useCallback(async (file: string) => {
-    setSelected(file)
+    selectTokenRef.current += 1
+    const token = selectTokenRef.current
     activeKeyRef.current = null
     setStreaming(false)
     setMessages([])
     msgId.current = 0
-    const history = (await window.api?.chat.history(file)) ?? []
-    for (const h of history) {
-      msgId.current += 1
-      setMessages((prev) => [...prev, { id: msgId.current, role: h.role, text: h.text }])
-    }
-  }, [])
+    // 先加载 session 历史，再切换 html 预览
+    const msgs = await loadDemoSession(file, token)
+    if (selectTokenRef.current !== token) return
+    setMessages(msgs)
+    setSelected(file)
+  }, [loadDemoSession])
 
   const onNewTab = useCallback(() => {
     setSelected(null)
@@ -561,7 +589,7 @@ export function App(): React.JSX.Element {
                 <Icon name="close" size={14} />
               </button>
             </div>
-            <div style={styles.chatBody}>
+            <div style={styles.chatBody} ref={chatBodyRef}>
               {messages.length === 0 && (
                 <div style={styles.welcome}>
                   <div style={styles.welcomeKicker}>物理演示生成器</div>

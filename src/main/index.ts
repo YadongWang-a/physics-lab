@@ -621,8 +621,8 @@ async function smokeCheckDemo(): Promise<void> {
  */
 async function smokeSettings(): Promise<void> {
   const store = SettingsStore.at(app.getPath('userData'))
-  const probeKey = process.env.OPENCODE_API_KEY ?? 'sk-roundtrip-probe'
-  store.save({ main: { provider: 'opencode-go', modelId: 'deepseek-v4-flash', apiKey: probeKey } })
+  const probeKey = process.env.DEEPSEEK_API_KEY ?? 'sk-roundtrip-probe'
+  store.save({ main: { provider: 'deepseek', modelId: 'deepseek-v4-flash', apiKey: probeKey } })
   const loaded = store.load()
   const roundtrip = loaded.main?.apiKey === probeKey
   console.log(`[smoke-settings] encrypted roundtrip=${roundtrip}`)
@@ -633,7 +633,7 @@ async function smokeSettings(): Promise<void> {
   })
   const registry = new ModelRegistry(runtime)
   await registry.refresh()
-  const models = listProviderModels(runtime, 'opencode-go')
+  const models = listProviderModels(runtime, 'deepseek')
   console.log(`[smoke-settings] models count=${models.length}`)
   if (models.length === 0 || !roundtrip) {
     console.log('[smoke-settings] FAIL')
@@ -642,57 +642,17 @@ async function smokeSettings(): Promise<void> {
   }
 
   if (!process.env.OPENCODE_API_KEY) {
-    console.log('[smoke-settings] SKIP (无 OPENCODE_API_KEY)')
+    console.log('[smoke-settings] SKIP (无 DEEPSEEK_API_KEY)')
     app.exit(0)
     return
   }
   const test = await testSlotConnection({
-    provider: 'opencode-go',
+    provider: 'deepseek',
     modelId: 'deepseek-v4-flash',
-    apiKey: process.env.OPENCODE_API_KEY
+    apiKey: process.env.DEEPSEEK_API_KEY
   })
   console.log(`[smoke-settings] complete ${test.ok ? 'OK' : 'FAIL: ' + (test.error ?? '')}`)
   app.exit(test.ok ? 0 : 1)
-}
-
-/**
- * OCR 冒烟（ticket 06 验收）：
- *   electron-vite dev -- --smoke-ocr
- * 真实 Key：从 opencode-go 目录挑一个支持视觉的模型，用 1×1 PNG 走 extractImageText。
- * 无 Key 则 SKIP；目录无视觉模型则 FAIL（配置问题）。
- */
-async function smokeOcr(): Promise<void> {
-  const authPath = join(app.getPath('userData'), 'agent', 'auth.json')
-  if (!process.env.OPENCODE_API_KEY) {
-    console.log('[smoke-ocr] SKIP (无 OPENCODE_API_KEY)')
-    app.exit(0)
-    return
-  }
-  const runtime = await ModelRuntime.create({ authPath, refreshOnCreate: false })
-  await applySlotToRuntime(runtime, {
-    provider: 'opencode-go',
-    modelId: 'unused',
-    apiKey: process.env.OPENCODE_API_KEY
-  })
-  await runtime.refresh()
-  const visionModel = runtime.getModels('opencode-go').find((m) => m.input.includes('image'))
-  if (!visionModel) {
-    console.log('[smoke-ocr] FAIL (opencode-go 目录无视觉模型)')
-    app.exit(1)
-    return
-  }
-  // 1×1 透明 PNG（base64）
-  const png =
-    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='
-  const text = await extractImageText({
-    authPath,
-    slot: { provider: 'opencode-go', modelId: visionModel.id, apiKey: process.env.OPENCODE_API_KEY },
-    images: [{ data: png, mimeType: 'image/png' }]
-  })
-  const ok = text.trim().length > 0
-  console.log(`[smoke-ocr] vision model=${visionModel.id}; extracted=${JSON.stringify(text.slice(0, 80))}`)
-  console.log(`[smoke-ocr] ${ok ? 'PASS' : 'FAIL'}`)
-  app.exit(ok ? 0 : 1)
 }
 
 app.whenReady().then(async () => {
@@ -709,6 +669,7 @@ app.whenReady().then(async () => {
     resolveSessionFile: (file) => currentWs?.list().find((d) => d.file === file)?.sessionFile
   })
   registerWorkspaceIpc()
+
   registerSettingsIpc()
   ipcMain.handle('uiPrefs:get', () => uiPrefs?.load() ?? {})
   ipcMain.handle('uiPrefs:set', (_event, patch: Partial<UiPrefs>) => {
@@ -748,13 +709,6 @@ app.whenReady().then(async () => {
   if (process.argv.includes('--smoke-settings')) {
     await smokeSettings().catch((err) => {
       console.error('[smoke-settings] FAIL', err)
-      app.exit(1)
-    })
-    return
-  }
-  if (process.argv.includes('--smoke-ocr')) {
-    await smokeOcr().catch((err) => {
-      console.error('[smoke-ocr] FAIL', err)
       app.exit(1)
     })
     return

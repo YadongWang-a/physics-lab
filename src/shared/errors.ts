@@ -27,7 +27,7 @@ export function classifyError(err: unknown): ClassifiedError {
     return { kind: 'unknown', title: '请先选择工作目录', detail: raw, hint: '点击左上角选择工作目录后重试。' }
   }
   if (raw.includes('402') || low.includes('insufficient') || low.includes('余额')) {
-    return { kind: 'balance', title: 'API Key 余额不足（402）', detail: raw, hint: '请到对应平台（opencode / DeepSeek）控制台充值后重试。' }
+    return { kind: 'balance', title: 'API Key 余额不足（402）', detail: raw, hint: '请到 DeepSeek 开放平台控制台充值后重试。' }
   }
   if (raw.includes('401') || low.includes('unauthorized') || low.includes('invalid api key') || low.includes('authentication')) {
     return { kind: 'auth', title: 'API Key 无效或未授权（401）', detail: raw, hint: '请到设置页检查 Key 是否正确并已保存。' }
@@ -51,6 +51,7 @@ export function classifyError(err: unknown): ClassifiedError {
 /** 面向用户的单行/多行友好文案（标题 + 处置建议；未知错误附原始信息） */
 export function friendlyErrorMessage(err: unknown): string {
   const c = classifyError(err)
-  if (c.kind === 'unknown') return `⚠️ ${c.title}：${c.detail}\n${c.hint}`
-  return `⚠️ ${c.title}\n${c.hint}`
+  // 原始报错永远透出（截断）：便于区分「真余额不足」与「402 被误分类/瞬时故障」
+  const raw = c.detail.length > 300 ? c.detail.slice(0, 300) + '…' : c.detail
+  return `⚠️ ${c.title}\n${c.hint}\n原始信息：${raw}`
 }

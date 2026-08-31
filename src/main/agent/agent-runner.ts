@@ -30,9 +30,9 @@ export interface PhysicsAgentOptions {
   sessionDir: string
   /** 应用私有 agent 配置目录 */
   agentDir: string
-  /** 供应商 id（缺省 opencode-go：https://opencode.ai/zen/go） */
+  /** 供应商 id（缺省 deepseek：平台直连） */
   provider?: string
-  /** DeepSeek/opencode API Key；缺省时按供应商读环境变量 */
+  /** DeepSeek API Key；缺省时按供应商读环境变量 */
   apiKey?: string
   /** 模型 id，默认 deepseek-v4-flash */
   modelId?: string
@@ -65,7 +65,7 @@ ${PHYSICS_SKILL_PROMPT}
 }
 
 export const DEFAULT_MODEL = 'deepseek-v4-flash'
-export const DEFAULT_PROVIDER = 'opencode-go'
+export const DEFAULT_PROVIDER = 'deepseek'
 
 /**
  * 回合级错误提取：settled 后检查会话最后一条消息，assistant 回合以 error
@@ -84,7 +84,6 @@ export function lastTurnError(messages: readonly unknown[]): string | null {
 
 /** 供应商 → 环境变量 Key 名；缺省回落到 DEEPSEEK_API_KEY */
 const PROVIDER_ENV: Record<string, string> = {
-  'opencode-go': 'OPENCODE_API_KEY',
   deepseek: 'DEEPSEEK_API_KEY'
 }
 
