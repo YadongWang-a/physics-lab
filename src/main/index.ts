@@ -106,6 +106,16 @@ function registerWorkspaceIpc(): void {
     sessionHost?.release(file)
     return snapshot()
   })
+  ipcMain.handle('workspace:close', () => {
+    currentWs = null
+    if (watcher) {
+      watcher.close()
+      watcher = null
+    }
+    clearTimeout(watcherTimer)
+    settings?.patch({ workspaceDir: '' })
+    return true
+  })
 
   // ---- chat：每演示一个 agent 会话，事件流经 chat:event 推送 ----
   ipcMain.handle(
@@ -471,8 +481,15 @@ async function smokeWorkspace(): Promise<void> {
   )
   settings?.patch({ workspaceDir: dir })
   createWindow()
-  await delay(1500)
-  const [win] = BrowserWindow.getAllWindows()
+  /** UI 浏览窗口底部只显示路径末两段（正斜杠归一），冒烟按同一规则断言 */
+  const dirTail = dir.replace(/\\/g, '/').split('/').slice(-2).join('/')
+  const winEnd = Date.now() + 30000
+  let win: Electron.BrowserWindow | undefined
+  while (Date.now() < winEnd) {
+    win = BrowserWindow.getAllWindows()[0]
+    if (win) break
+    await delay(500)
+  }
   if (!win) throw new Error('窗口未创建')
   win.webContents.on('console-message', (_e, _level, message) => {
     console.log(`[renderer-console] ${message}`)
@@ -487,13 +504,24 @@ async function smokeWorkspace(): Promise<void> {
     state = await win.webContents.executeJavaScript(
       `(() => ({
         count: document.querySelectorAll('[data-demo-item]').length,
-        dirShown: document.body.innerText.includes(${JSON.stringify(dir)}),
+        dirShown: document.body.innerText.includes(${JSON.stringify(dirTail)}),
         webview: !!document.querySelector('webview')
       }))()`
     )
     if (state.count === 1 && state.dirShown && state.webview) break
     await delay(500)
   }
+  // 等待主布局挂载（vite dev 可能整页重载，重载间隙按钮不存在）
+  const mountedEnd = Date.now() + 45000
+  let mounted = false
+  while (Date.now() < mountedEnd) {
+    mounted = await win.webContents.executeJavaScript(
+      `!!document.querySelector('button[title="模型设置"]')`
+    )
+    if (mounted) break
+    await delay(500)
+  }
+  if (!mounted) throw new Error('渲染层主布局未挂载')
   // 设置弹窗（ticket 05）：点齿轮 → 断言双槽位表单渲染
   await win.webContents.executeJavaScript(`document.querySelector('button[title="模型设置"]').click()`)
   await delay(600)
@@ -512,18 +540,18 @@ async function smokeWorkspace(): Promise<void> {
       return ta ? ta.placeholder.includes('图片') : false
     })()`
   )
-  // 新布局（UI 重做）：标题栏 + 窗口控制 + 标签页 + 状态栏
+  // 新布局（UI v2）：标题栏 + 窗口控制 + 标签页 + 常驻窄图标栏 + Key 徽标
   const chrome = await win.webContents.executeJavaScript(
     `(() => ({
       titlebar: !!document.querySelector('[class*="titlebar-drag"]'),
       winControls: ['最小化', '最大化', '关闭'].every((t) => [...document.querySelectorAll('button')].some((b) => b.title === t)),
       tabs: document.querySelectorAll('[data-demo-item]').length,
-      statusbar: document.body.innerText.includes('就绪')
+      keyBadge: document.body.innerText.includes('模型已配置') || document.body.innerText.includes('未配置 Key')
     }))()`
   )
   // 演示模式（ticket 07）：点「演示」→ 全屏覆盖层出现；点「退出演示」→ 恢复编辑态
   await win.webContents.executeJavaScript(
-    `[...document.querySelectorAll('button')].find((b) => b.textContent === '演示')?.click()`
+    `[...document.querySelectorAll('button')].find((b) => b.textContent?.trim() === '演示')?.click()`
   )
   await delay(400)
   const presentOn = await win.webContents.executeJavaScript(
@@ -543,26 +571,23 @@ async function smokeWorkspace(): Promise<void> {
       presentGone: ![...document.querySelectorAll('button')].some((b) => b.textContent?.includes('退出演示'))
     }))()`
   )
-  // 浏览窗口（v2.1）：☰ 演示 收起 → 完全隐藏；再点展开 → 恢复列表
+  // 浏览窗口（UI v2）：「收起浏览」完全隐藏；窄图标栏「演示列表」再点恢复
   await win.webContents.executeJavaScript(
-    `[...document.querySelectorAll('button')].find((b) => b.title === '隐藏演示列表')?.click()`
+    `[...document.querySelectorAll('button')].find((b) => b.title === '收起浏览')?.click()`
   )
   await delay(400)
   const browseOff = await win.webContents.executeJavaScript(
-    `(() => ({
-      itemsGone: document.querySelectorAll('[data-demo-item]').length === 0,
-      toggleTitle: [...document.querySelectorAll('button')].find((b) => b.textContent?.includes('演示'))?.title ?? ''
-    }))()`
+    `document.querySelectorAll('[data-demo-item]').length === 0`
   )
   await win.webContents.executeJavaScript(
-    `[...document.querySelectorAll('button')].find((b) => b.title === '显示演示列表')?.click()`
+    `[...document.querySelectorAll('button')].find((b) => b.title === '演示列表')?.click()`
   )
   await delay(400)
   const browseOn = await win.webContents.executeJavaScript(
     `document.querySelectorAll('[data-demo-item]').length`
   )
   console.log(
-    `[smoke-workspace] demo items=${state.count}; dir shown=${state.dirShown}; webview=${state.webview}; settings modal=${settingsUi.modal}; paste hint=${pasteHint}; present on=${presentOn.stage && presentOn.exitBtn && presentOn.chatHidden}; present off=${presentOff.chatBack && presentOff.presentGone}; chrome=${chrome.titlebar && chrome.winControls && chrome.tabs === 1 && chrome.statusbar}; browse off=${browseOff.itemsGone}; browse on=${browseOn === 1}`
+    `[smoke-workspace] demo items=${state.count}; dir shown=${state.dirShown}; webview=${state.webview}; settings modal=${settingsUi.modal}; paste hint=${pasteHint}; present on=${presentOn.stage && presentOn.exitBtn && presentOn.chatHidden}; present off=${presentOff.chatBack && presentOff.presentGone}; chrome=${chrome.titlebar && chrome.winControls && chrome.tabs === 1 && chrome.keyBadge}; browse off=${browseOff}; browse on=${browseOn === 1}`
   )
   const ok =
     state.count === 1 &&
@@ -580,8 +605,8 @@ async function smokeWorkspace(): Promise<void> {
     chrome.titlebar &&
     chrome.winControls &&
     chrome.tabs === 1 &&
-    chrome.statusbar &&
-    browseOff.itemsGone &&
+    chrome.keyBadge &&
+    browseOff &&
     browseOn === 1
   app.exit(ok ? 0 : 1)
 }

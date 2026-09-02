@@ -49,6 +49,8 @@ export interface RendererApi {
     rescan: () => Promise<WorkspaceSnapshot>
     /** 删除演示（html + 会话文件 + 清单条目）；UI 层负责二次确认 */
     remove: (file: string) => Promise<WorkspaceSnapshot>
+    /** 关闭当前工作空间（清除持久化记录）；渲染层随后引导重新选择 */
+    close: () => Promise<boolean>
   }
   chat: {
     /** 向某演示的 agent 会话发送消息；file 为 null 表示新会话；images 为聊天图片（OCR 路由）；sessionKey 为沿用会话的 key（新会话多轮延续）。返回会话 key */

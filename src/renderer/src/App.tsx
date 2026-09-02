@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Markdown } from './Markdown'
 import { SettingsModal } from './SettingsModal'
+import { WorkspaceDialog } from './WorkspaceDialog'
 import { friendlyErrorMessage } from '../../shared/errors'
 import type { DemoMeta, ImagePayload, RendererApi, WorkspaceChangedPayload, WorkspaceSnapshot } from '../../shared/ipc-types'
 
@@ -179,6 +180,8 @@ export function App(): React.JSX.Element {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(true)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  /** 工作目录选择对话框：首次启动 / 关闭工作空间后引导 */
+  const [wsDialogOpen, setWsDialogOpen] = useState(false)
   /** 主模型槽位是否已配置 Key（未配置 → 顶部引导条） */
   const [hasMainKey, setHasMainKey] = useState<boolean | null>(null)
   /** 待发送的聊天图片（粘贴） */
@@ -266,7 +269,7 @@ export function App(): React.JSX.Element {
   useEffect(() => {
     // 启动恢复：先加载上次演示的 session 历史，再打开 html 预览
     window.api?.workspace.get().then(async (snap) => {
-      if (!snap) { setLoading(false); return }
+      if (!snap) { setWsDialogOpen(true); setLoading(false); return }
       setWs(snap)
       const first = snap.demos[0]
       if (!first) { setLoading(false); return }
@@ -351,6 +354,12 @@ export function App(): React.JSX.Element {
     setMessages(msgs)
     setSelected(file)
   }, [loadDemoSession])
+
+  /** 对话框选定工作目录：刷新快照并关闭对话框（不自动选中演示，由用户点击加载其会话） */
+  const pickWorkspace = useCallback((snap: WorkspaceSnapshot) => {
+    setWs(snap)
+    setWsDialogOpen(false)
+  }, [])
 
   const onNewTab = useCallback(() => {
     setSelected(null)
@@ -437,14 +446,18 @@ export function App(): React.JSX.Element {
   if (loading) return <div style={{ padding: 24 }}>加载中…</div>
 
   if (!ws) {
+    // 无工作空间：全屏引导页 + 选择对话框（对话框必须在此分支内渲染——主布局 return 时本分支已返回）
     return (
-      <div style={{ ...styles.layout, alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12 }}>
-        <h2 style={{ margin: 0 }}>物理演示生成器</h2>
-        <p style={styles.hint}>选择工作目录：所有生成的演示与会话都保存在这里，拷贝目录即可带走。</p>
-        <button style={styles.picker} onClick={() => window.api?.workspace.choose().then((s) => s && setWs(s))}>
-          选择工作目录…
-        </button>
-      </div>
+      <>
+        <div style={{ ...styles.layout, alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12 }}>
+          <h2 style={{ margin: 0 }}>物理演示生成器</h2>
+          <p style={styles.hint}>选择工作目录：所有生成的演示与会话都保存在这里，拷贝目录即可带走。</p>
+          <button style={styles.picker} onClick={() => window.api?.workspace.choose().then((s) => s && setWs(s))}>
+            选择工作目录…
+          </button>
+        </div>
+        {wsDialogOpen && <WorkspaceDialog onPick={pickWorkspace} onClose={() => setWsDialogOpen(false)} />}
+      </>
     )
   }
 
@@ -570,7 +583,7 @@ export function App(): React.JSX.Element {
             <div style={styles.browseFoot}>
               <span style={styles.browseFootIcon}><Icon name="folder" size={14} /></span>
               <span style={styles.browseFootName}>{ws.dir.replace(/\\/g, '/').split('/').slice(-2).join('/')}</span>
-              <button style={styles.browseFootClose} title="关闭工作空间" onClick={() => setWs(null)}>
+              <button style={styles.browseFootClose} title="关闭工作空间" onClick={() => { setWs(null); setWsDialogOpen(true); void window.api?.workspace.close() }}>
                 <Icon name="close" size={11} />
               </button>
             </div>
@@ -806,6 +819,7 @@ export function App(): React.JSX.Element {
       </section>
 
       {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
+      {wsDialogOpen && <WorkspaceDialog onPick={pickWorkspace} onClose={() => setWsDialogOpen(false)} />}
     </div>
   )
 }

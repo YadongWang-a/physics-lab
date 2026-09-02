@@ -9,7 +9,8 @@ const api: RendererApi = {
     get: (): Promise<WorkspaceSnapshot | null> => ipcRenderer.invoke('workspace:get'),
     rescan: (): Promise<WorkspaceSnapshot> => ipcRenderer.invoke('workspace:rescan'),
     remove: (file: string): Promise<WorkspaceSnapshot> =>
-      ipcRenderer.invoke('workspace:remove', file)
+      ipcRenderer.invoke('workspace:remove', file),
+    close: (): Promise<boolean> => ipcRenderer.invoke('workspace:close'),
   },
   chat: {
     send: (file: string | null, text: string, images?: ImagePayload[], sessionKey?: string): Promise<{ ok: boolean; key: string }> =>
