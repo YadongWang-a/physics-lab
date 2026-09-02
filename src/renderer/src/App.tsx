@@ -566,7 +566,7 @@ export function App(): React.JSX.Element {
               ))}
             </div>
             <div style={styles.browseFoot}>
-              {ws.dir !== '' && (
+              {ws.dir !== '' ? (
                 <>
                   <button style={styles.browseFootPath} title="切换工作目录" onClick={() => window.api?.workspace.choose().then((s) => s && setWs(s))}>
                     <span style={styles.browseFootIcon}><Icon name="folder" size={14} /></span>
@@ -576,6 +576,11 @@ export function App(): React.JSX.Element {
                     <Icon name="close" size={11} />
                   </button>
                 </>
+              ) : (
+                <button style={styles.browseFootPath} title="选择工作目录" onClick={() => setWsDialogOpen(true)}>
+                  <span style={styles.browseFootIcon}><Icon name="folder" size={14} /></span>
+                  <span style={styles.browseFootName}>选择工作目录…</span>
+                </button>
               )}
             </div>
           </section>
