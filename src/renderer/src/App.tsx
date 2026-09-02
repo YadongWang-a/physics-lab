@@ -24,7 +24,11 @@ interface WebviewElement extends HTMLElement {
   isLoading(): boolean
   setZoomFactor(zoomFactor: number): void
 }
-
+
+
+/** 空工作空间快照：未选目录时主界面照常渲染（三栏布局不变），仅以对话框叠加引导 */
+const EMPTY_WS: WorkspaceSnapshot = { dir: '', demos: [] }
+
 /** 三栏宽度比例（列表:对话:预览）；收起的栏不占份额，其余栏按此重新归一化 */
 const COL_RATIOS = { browse: 0.12, chat: 0.23, preview: 0.65 } as const
 
@@ -103,7 +107,6 @@ const styles: Record<string, React.CSSProperties> = {
   attachThumb: { position: 'relative', width: 60, height: 60, border: '1px solid var(--pl-border)', borderRadius: 8, overflow: 'hidden' },
   attachImg: { width: '100%', height: '100%', objectFit: 'cover' },
   attachRemove: { position: 'absolute', top: 2, right: 2, border: 'none', background: 'rgba(0,0,0,0.55)', color: '#fff', borderRadius: 10, width: 16, height: 16, fontSize: 10, lineHeight: '14px', cursor: 'pointer', padding: 0 },
-  picker: { padding: '16px 26px', fontSize: 14, border: '1px solid var(--pl-border)', borderRadius: 8, background: 'var(--pl-card)', cursor: 'pointer', boxShadow: 'var(--pl-shadow-1)' },
 }
 
 /** 提取 assistant 消息中的 [选项] a | b | c 行，返回按钮选项列表 */
@@ -173,7 +176,7 @@ function applyChatEvent(prev: ChatMessage[], e: unknown, nextId: () => number): 
 }
 
 export function App(): React.JSX.Element {
-  const [ws, setWs] = useState<WorkspaceSnapshot | null>(null)
+  const [ws, setWs] = useState<WorkspaceSnapshot>(EMPTY_WS)
   const [selected, setSelected] = useState<string | null>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [streaming, setStreaming] = useState(false)
@@ -262,14 +265,14 @@ export function App(): React.JSX.Element {
   }, [])
 
   const refresh = useCallback(async () => {
-    const next = await window.api?.workspace.rescan()
+    const next = await window.api?.workspace.rescan().catch(() => null)
     if (next) setWs(next)
   }, [])
 
   useEffect(() => {
     // 启动恢复：先加载上次演示的 session 历史，再打开 html 预览
     window.api?.workspace.get().then(async (snap) => {
-      if (!snap) { setWsDialogOpen(true); setLoading(false); return }
+      if (!snap) { setWsDialogOpen(true); setLoading(false); return } // ws 保持 EMPTY_WS：主界面照常渲染，仅叠加对话框
       setWs(snap)
       const first = snap.demos[0]
       if (!first) { setLoading(false); return }
@@ -445,22 +448,6 @@ export function App(): React.JSX.Element {
 
   if (loading) return <div style={{ padding: 24 }}>加载中…</div>
 
-  if (!ws) {
-    // 无工作空间：全屏引导页 + 选择对话框（对话框必须在此分支内渲染——主布局 return 时本分支已返回）
-    return (
-      <>
-        <div style={{ ...styles.layout, alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12 }}>
-          <h2 style={{ margin: 0 }}>物理演示生成器</h2>
-          <p style={styles.hint}>选择工作目录：所有生成的演示与会话都保存在这里，拷贝目录即可带走。</p>
-          <button style={styles.picker} onClick={() => window.api?.workspace.choose().then((s) => s && setWs(s))}>
-            选择工作目录…
-          </button>
-        </div>
-        {wsDialogOpen && <WorkspaceDialog onPick={pickWorkspace} onClose={() => setWsDialogOpen(false)} />}
-      </>
-    )
-  }
-
   // 收起联动：收起的栏不占份额，其余栏按原比例重新归一化（预览恒参与，分母不为零）
   const colTotal = (browseCollapsed ? 0 : COL_RATIOS.browse) + (chatCollapsed ? 0 : COL_RATIOS.chat) + COL_RATIOS.preview
   const colW = (r: number): string => `calc((100% - var(--rail-w)) * ${(r / colTotal).toFixed(4)})`
@@ -581,11 +568,15 @@ export function App(): React.JSX.Element {
               ))}
             </div>
             <div style={styles.browseFoot}>
-              <span style={styles.browseFootIcon}><Icon name="folder" size={14} /></span>
-              <span style={styles.browseFootName}>{ws.dir.replace(/\\/g, '/').split('/').slice(-2).join('/')}</span>
-              <button style={styles.browseFootClose} title="关闭工作空间" onClick={() => { setWs(null); setWsDialogOpen(true); void window.api?.workspace.close() }}>
-                <Icon name="close" size={11} />
-              </button>
+              {ws.dir !== '' && (
+                <>
+                  <span style={styles.browseFootIcon}><Icon name="folder" size={14} /></span>
+                  <span style={styles.browseFootName}>{ws.dir.replace(/\\/g, '/').split('/').slice(-2).join('/')}</span>
+                  <button style={styles.browseFootClose} title="关闭工作空间" onClick={() => { setWs(EMPTY_WS); setWsDialogOpen(true); void window.api?.workspace.close() }}>
+                    <Icon name="close" size={11} />
+                  </button>
+                </>
+              )}
             </div>
           </section>
         )}

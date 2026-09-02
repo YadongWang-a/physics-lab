@@ -14,8 +14,9 @@
 ## Comments
 
 实现说明（补记）：
-- 渲染层：`src/renderer/src/WorkspaceDialog.tsx`（新组件）；`App.tsx` 无工作空间分支保留全屏引导页 + 对话框叠加
+- 渲染层：`src/renderer/src/WorkspaceDialog.tsx`（新组件）；未选目录时主界面照常渲染，对话框叠加引导
 - 主进程：`workspace:close` 处理器（`currentWs = null`、关 watcher、`settings.patch({ workspaceDir: '' })`）；preload 暴露 `api.workspace.close`
 - 收尾时修复：`workspace:close` 处理器曾被误插进 `workspace:remove` 函数体内（语义错误：首次 remove 才注册、二次 remove 重复注册崩溃），已移到同级
 - 顺手修正 `smoke-workspace` 与现行 UI 的三处漂移：`隐藏演示列表`/`就绪` 断言 → `收起浏览`+rail`演示列表`/Key 徽标；`dir shown` 改按路径末两段匹配；「演示」按钮 `trim()` 后比较；并给窗口创建与主布局挂载加轮询等待消除 vite 重载竞态
 - 验证：`npm run typecheck` 通过；`npx electron-vite dev -- --smoke-workspace` 全部断言通过（0 退出）；vitest 11/13 文件通过，2 个失败均为真实 Key 在线测试的 LLM 输出非确定性/超时，与本改动无关
+- 追改（用户反馈）：未选目录时不再切换全屏空态引导页 —— 主界面（三栏布局）以空快照照常渲染，对话框仅叠加其上；「关闭工作空间」同理回空快照并弹对话框。新增 `--smoke-emptyws` 冒烟锁定该契约（rail=true + dialog=true + items=0）

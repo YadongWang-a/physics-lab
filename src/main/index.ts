@@ -610,6 +610,38 @@ async function smokeWorkspace(): Promise<void> {
     browseOn === 1
   app.exit(ok ? 0 : 1)
 }
+/**
+ * 空工作空间冒烟：未选目录时主界面（三栏布局）照常渲染，仅叠加选择对话框：
+ *   electron-vite dev -- --smoke-emptyws
+ */
+async function smokeEmptyWs(): Promise<void> {
+  createWindow()
+  const winEnd = Date.now() + 30000
+  let win: Electron.BrowserWindow | undefined
+  while (Date.now() < winEnd) {
+    win = BrowserWindow.getAllWindows()[0]
+    if (win) break
+    await delay(500)
+  }
+  if (!win) throw new Error('窗口未创建')
+  // 轮询等待渲染层挂载（vite dev 首载/整页重载耗时不定）
+  const deadline = Date.now() + 45000
+  let state = { rail: false, dialog: false, items: 1 }
+  while (Date.now() < deadline) {
+    state = await win.webContents.executeJavaScript(
+      `(() => ({
+        rail: !!document.querySelector('.app-rail'),
+        dialog: document.body.innerText.includes('选择工作目录') && !!document.querySelector('div[style*="z-index: 100"]'),
+        items: document.querySelectorAll('[data-demo-item]').length
+      }))()`
+    )
+    if (state.rail && state.dialog) break
+    await delay(500)
+  }
+  const ok = state.rail && state.dialog && state.items === 0
+  console.log(`[smoke-emptyws] rail=${state.rail}; dialog=${state.dialog}; items=${state.items}`)
+  app.exit(ok ? 0 : 1)
+}
 
 /**
  * check_demo 冒烟（ticket 04 验收）：
@@ -720,6 +752,13 @@ app.whenReady().then(async () => {
   if (process.argv.includes('--smoke-workspace')) {
     await smokeWorkspace().catch((err) => {
       console.error('[smoke-workspace] FAIL', err)
+      app.exit(1)
+    })
+    return
+  }
+  if (process.argv.includes('--smoke-emptyws')) {
+    await smokeEmptyWs().catch((err) => {
+      console.error('[smoke-emptyws] FAIL', err)
       app.exit(1)
     })
     return
