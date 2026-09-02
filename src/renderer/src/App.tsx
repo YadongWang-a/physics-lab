@@ -61,6 +61,8 @@ const styles: Record<string, React.CSSProperties> = {
   browseTitleActive: { color: '#1d4ed8', fontWeight: 500 },
   browseFile: { fontSize: 10, color: 'var(--pl-muted-foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.3 },
   browseEmpty: { padding: '12px 14px', fontSize: 11, color: 'var(--pl-muted-foreground)', lineHeight: 1.6 },
+  browseEmptyPick: { display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4, margin: '8px', padding: '12px 14px', border: '1px dashed var(--pl-border)', borderRadius: 8, background: 'transparent', color: 'var(--pl-foreground)', fontSize: 12, fontWeight: 600, cursor: 'pointer', textAlign: 'left' },
+  browseEmptyPickHint: { fontSize: 11, fontWeight: 400, color: 'var(--pl-muted-foreground)' },
   browseDelete: { position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', width: 18, height: 18, border: 'none', background: 'var(--pl-muted)', color: 'var(--pl-muted-foreground)', borderRadius: 5, fontSize: 10, cursor: 'pointer', lineHeight: 1, display: 'none' },
   browseFoot: { height: 36, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8, padding: '0 12px', borderTop: '1px solid var(--pl-border)', background: 'var(--pl-muted)' },
   browseFootIcon: { width: 16, height: 16, color: 'var(--pl-muted-foreground)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
@@ -529,9 +531,15 @@ export function App(): React.JSX.Element {
               </button>
             </div>
             <div style={styles.browseList} className="no-scrollbar">
-              {ws.demos.length === 0 && (
-                <div style={styles.browseEmpty}>还没有演示 — 在聊天区输入一道物理题开始生成</div>
-              )}
+              {ws.demos.length === 0 &&
+                (ws.dir === '' ? (
+                  <button style={styles.browseEmptyPick} title="选择工作目录" onClick={() => setWsDialogOpen(true)}>
+                    尚未选择工作目录
+                    <span style={styles.browseEmptyPickHint}>点击此处或左下角「选择工作目录」</span>
+                  </button>
+                ) : (
+                  <div style={styles.browseEmpty}>还没有演示 — 在聊天区输入一道物理题开始生成</div>
+                ))}
               {ws.demos.map((d) => (
                 <button
                   key={d.file}

@@ -627,21 +627,22 @@ async function smokeEmptyWs(): Promise<void> {
   if (!win) throw new Error('窗口未创建')
   // 轮询等待渲染层挂载（vite dev 首载/整页重载耗时不定）
   const deadline = Date.now() + 45000
-  let state = { rail: false, dialog: false, items: 1, footEntry: false }
+  let state = { rail: false, dialog: false, items: 1, footEntry: false, listHint: false }
   while (Date.now() < deadline) {
     state = await win.webContents.executeJavaScript(
       `(() => ({
         rail: !!document.querySelector('.app-rail'),
         dialog: document.body.innerText.includes('选择工作目录') && !!document.querySelector('div[style*="z-index: 100"]'),
         items: document.querySelectorAll('[data-demo-item]').length,
-        footEntry: document.body.innerText.includes('选择工作目录…')
+        footEntry: document.body.innerText.includes('选择工作目录…'),
+        listHint: document.body.innerText.includes('尚未选择工作目录')
       }))()`
     )
-    if (state.rail && state.dialog && state.footEntry) break
+    if (state.rail && state.dialog && state.footEntry && state.listHint) break
     await delay(500)
   }
-  const ok = state.rail && state.dialog && state.items === 0 && state.footEntry
-  console.log(`[smoke-emptyws] rail=${state.rail}; dialog=${state.dialog}; items=${state.items}; footEntry=${state.footEntry}`)
+  const ok = state.rail && state.dialog && state.items === 0 && state.footEntry && state.listHint
+  console.log(`[smoke-emptyws] rail=${state.rail}; dialog=${state.dialog}; items=${state.items}; footEntry=${state.footEntry}; listHint=${state.listHint}`)
   app.exit(ok ? 0 : 1)
 }
 
