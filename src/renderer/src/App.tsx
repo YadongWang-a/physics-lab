@@ -42,7 +42,7 @@ const styles: Record<string, React.CSSProperties> = {
   titlebarRight: { display: 'flex', alignItems: 'center', gap: 8 },
   iconBtn: { border: 'none', background: 'transparent', color: 'var(--pl-muted-foreground)', cursor: 'pointer', borderRadius: 6, padding: '6px 10px', fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 6 },
   iconBtnHover: { background: 'var(--pl-muted)', color: 'var(--pl-foreground)' },
-  chatNewBtn: { display: 'inline-flex', alignItems: 'center', gap: 5, border: 'none', background: 'transparent', color: 'var(--pl-muted-foreground)', cursor: 'pointer', borderRadius: 6, padding: '5px 8px', fontSize: 12.5, fontWeight: 600 },
+  chatNewBtn: { display: 'inline-flex', alignItems: 'center', gap: 5, border: '1px solid var(--pl-border)', background: 'var(--pl-card)', color: 'var(--pl-foreground)', cursor: 'pointer', borderRadius: 6, padding: '4px 10px', fontSize: 12.5, fontWeight: 600, boxShadow: 'var(--pl-shadow-1)' },
   providerBadge: { display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 6, background: 'var(--pl-muted)', fontSize: 12 },
   dot: { width: 8, height: 8, borderRadius: '50%' },
   winBtn: { width: 36, height: 34, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: 'none', color: 'var(--pl-muted-foreground)', cursor: 'pointer', borderRadius: 6 },
