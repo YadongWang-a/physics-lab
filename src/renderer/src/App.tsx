@@ -42,7 +42,7 @@ const styles: Record<string, React.CSSProperties> = {
   titlebarRight: { display: 'flex', alignItems: 'center', gap: 8 },
   iconBtn: { border: 'none', background: 'transparent', color: 'var(--pl-muted-foreground)', cursor: 'pointer', borderRadius: 6, padding: '6px 10px', fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 6 },
   iconBtnHover: { background: 'var(--pl-muted)', color: 'var(--pl-foreground)' },
-  chatNewBtn: { display: 'inline-flex', alignItems: 'center', gap: 5, border: '1px solid var(--pl-border)', background: 'var(--pl-card)', color: 'var(--pl-foreground)', cursor: 'pointer', borderRadius: 6, padding: '4px 10px', fontSize: 12.5, fontWeight: 600, boxShadow: 'var(--pl-shadow-1)' },
+  browseNewBtn: { display: 'inline-flex', alignItems: 'center', gap: 5, border: '1px solid var(--pl-border)', background: 'var(--pl-card)', color: 'var(--pl-foreground)', cursor: 'pointer', borderRadius: 6, padding: '4px 10px', fontSize: 12.5, fontWeight: 600, boxShadow: 'var(--pl-shadow-1)' },
   providerBadge: { display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 6, background: 'var(--pl-muted)', fontSize: 12 },
   dot: { width: 8, height: 8, borderRadius: '50%' },
   winBtn: { width: 36, height: 34, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: 'none', color: 'var(--pl-muted-foreground)', cursor: 'pointer', borderRadius: 6 },
@@ -520,8 +520,16 @@ export function App(): React.JSX.Element {
         {!presenting && !browseCollapsed && (
           <section style={{ ...styles.browse, width: colW(COL_RATIOS.browse) }}>
             <div style={styles.browseHead}>
-              {/* 原标题「演示」移除：空占位使计数/刷新保持靠右 */}
-              <span style={styles.browseHeadTitle} />
+              <button
+                style={{ ...styles.browseNewBtn, opacity: ws.dir === '' ? 0.45 : 1, cursor: ws.dir === '' ? 'not-allowed' : 'pointer', padding: '3px 8px', fontSize: 12 }}
+                title={ws.dir === '' ? '先选择工作目录' : '新建对话（生成一个新演示）'}
+                disabled={ws.dir === ''}
+                onClick={onNewTab}
+              >
+                <Icon name="plus" size={12} />
+                <span>新建</span>
+              </button>
+              <span style={{ flex: 1 }} />
               <span style={styles.browseHeadCount}>{ws.demos.length}</span>
               <button style={styles.browseHeadBtn} title="刷新列表" onClick={refresh}>
                 <Icon name="refresh" size={13} />
@@ -602,16 +610,6 @@ export function App(): React.JSX.Element {
         {!presenting && (
           <section style={chatCollapsed ? styles.chatCollapsed : { ...styles.chat, width: colW(COL_RATIOS.chat) }}>
             <div style={{ height: 44, flexShrink: 0, display: 'flex', alignItems: 'center', padding: '0 8px', borderBottom: '1px solid var(--pl-border)', gap: 4 }}>
-              <button
-                style={{ ...styles.chatNewBtn, opacity: ws.dir === '' ? 0.45 : 1, cursor: ws.dir === '' ? 'not-allowed' : 'pointer' }}
-                title={ws.dir === '' ? '先选择工作目录' : '新建对话（生成一个新演示）'}
-                disabled={ws.dir === ''}
-                onClick={onNewTab}
-              >
-                <Icon name="plus" size={14} />
-                <span>新建</span>
-              </button>
-              <div style={{ flex: 1 }} />
               <button
                 style={{ width: 28, height: 28, border: 'none', background: 'transparent', color: 'var(--pl-muted-foreground)', borderRadius: 6, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                 title="收起对话"
