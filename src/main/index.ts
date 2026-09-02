@@ -95,7 +95,8 @@ function registerWorkspaceIpc(): void {
   })
 
   ipcMain.handle('workspace:rescan', async () => {
-    if (!currentWs) throw new Error('尚未选择工作目录')
+    // 无工作空间时列表恒为空，返回空快照而非抛错（避免 IPC 错误日志噪音）
+    if (!currentWs) return { dir: '', demos: [] }
     currentWs.scan()
     return snapshot()
   })
