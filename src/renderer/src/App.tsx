@@ -64,6 +64,7 @@ const styles: Record<string, React.CSSProperties> = {
   browseFoot: { height: 36, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8, padding: '0 12px', borderTop: '1px solid var(--pl-border)', background: 'var(--pl-muted)' },
   browseFootIcon: { width: 16, height: 16, color: 'var(--pl-muted-foreground)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   browseFootName: { flex: 1, fontSize: 11, color: 'var(--pl-ink-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'var(--pl-font-mono)' },
+  browseFootPath: { flex: 1, display: 'flex', alignItems: 'center', gap: 8, border: 'none', background: 'transparent', padding: 0, cursor: 'pointer', minWidth: 0, textAlign: 'left' },
   browseFootClose: { width: 20, height: 20, border: 'none', background: 'transparent', color: 'var(--pl-muted-foreground)', borderRadius: 4, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   welcome: { padding: '16px 0', display: 'flex', flexDirection: 'column', gap: 8 },
   welcomeKicker: { fontSize: 11, color: 'var(--pl-primary)', fontWeight: 600, letterSpacing: '.08em', textTransform: 'uppercase' },
@@ -518,9 +519,6 @@ export function App(): React.JSX.Element {
               <button style={styles.browseHeadBtn} title="刷新列表" onClick={refresh}>
                 <Icon name="refresh" size={13} />
               </button>
-              <button style={styles.browseHeadBtn} title="切换工作目录" onClick={() => window.api?.workspace.choose().then((s) => s && setWs(s))}>
-                <Icon name="folder" size={14} />
-              </button>
               <button style={styles.browseHeadBtn} title="收起浏览" onClick={() => setBrowseCollapsed(true)}>
                 <Icon name="close" size={12} />
               </button>
@@ -570,8 +568,10 @@ export function App(): React.JSX.Element {
             <div style={styles.browseFoot}>
               {ws.dir !== '' && (
                 <>
-                  <span style={styles.browseFootIcon}><Icon name="folder" size={14} /></span>
-                  <span style={styles.browseFootName}>{ws.dir.replace(/\\/g, '/').split('/').slice(-2).join('/')}</span>
+                  <button style={styles.browseFootPath} title="切换工作目录" onClick={() => window.api?.workspace.choose().then((s) => s && setWs(s))}>
+                    <span style={styles.browseFootIcon}><Icon name="folder" size={14} /></span>
+                    <span style={styles.browseFootName}>{ws.dir.replace(/\\/g, '/').split('/').slice(-2).join('/')}</span>
+                  </button>
                   <button style={styles.browseFootClose} title="关闭工作空间" onClick={() => { setWs(EMPTY_WS); setWsDialogOpen(true); void window.api?.workspace.close() }}>
                     <Icon name="close" size={11} />
                   </button>
