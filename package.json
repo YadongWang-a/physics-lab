@@ -24,8 +24,8 @@
     "vitest": "^4.1.10"
   },
   "dependencies": {
-    "@earendil-works/pi-ai": "^0.84.2",
-    "@earendil-works/pi-coding-agent": "^0.84.2",
+    "@earendil-works/pi-ai": "^0.84.4",
+    "@earendil-works/pi-coding-agent": "^0.84.4",
     "katex": "^0.18.4",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
