@@ -521,13 +521,12 @@ export function App(): React.JSX.Element {
           <section style={{ ...styles.browse, width: colW(COL_RATIOS.browse) }}>
             <div style={styles.browseHead}>
               <button
-                style={{ ...styles.browseNewBtn, opacity: ws.dir === '' ? 0.45 : 1, cursor: ws.dir === '' ? 'not-allowed' : 'pointer', padding: '3px 8px', fontSize: 12 }}
-                title={ws.dir === '' ? '先选择工作目录' : '新建对话（生成一个新演示）'}
+                style={{ ...styles.browseNewBtn, opacity: ws.dir === '' ? 0.45 : 1, cursor: ws.dir === '' ? 'not-allowed' : 'pointer', padding: '3px 6px', fontSize: 12 }}
+                title={ws.dir === '' ? '先选择工作目录' : '新建（生成一个新演示）'}
                 disabled={ws.dir === ''}
                 onClick={onNewTab}
               >
                 <Icon name="plus" size={12} />
-                <span>新建</span>
               </button>
               <span style={{ flex: 1 }} />
               <span style={styles.browseHeadCount}>{ws.demos.length}</span>
@@ -848,6 +847,7 @@ const ICONS: Record<string, React.ReactNode> = {
   plus: <path d="M12 5v14M5 12h14" />,
   refresh: <><path d="M21 12a9 9 0 1 1-3-6.7L21 8" /><path d="M21 3v5h-5" /></>,
   play: <path d="M8 5v14l11-7z" />,
+  close: <path d="M6 6l12 12M18 6L6 18" />,
   arrowUp: <><path d="M12 19V5" /><path d="M5 12l7-7 7 7" /></>,
   folder: <><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" /></>,
 }
