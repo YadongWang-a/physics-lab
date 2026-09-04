@@ -135,8 +135,11 @@ SKILL.md「绘制」节的细则部分, 绘制场景时按需读取(2D 与 3D �
   - `stopCheck?`: 子步内提前停止判据(返回 true → running=false)
   - `mode?`: 仅 S.mode === mode 时推进(模式门控, 如 'anim')
   - dt≤0.05 限幅与 ×S.speed 已内置, 各页不得重写。
-- `bindRangeNumber(rId,nId,parse,onChange)` 滑块↔数字输入双向绑定
-- `setupKeyboard(state,resetFn,onResume?)` → cleanup(空格暂停/运行, R 重置)
+  - **暂停即停帧**: 非运行帧不调 render()(初帧/resize 由循环置脏兜底补一次);
+    暂停期改状态必须显式 render() —— lib 控件(空格/运行按钮)已内置,
+    页面自定义控件(参数滑条/模式切换等)改完状态须自行调 render()。
+- `bindRangeNumber(rId,nId,parse,onChange)` 滑块↔数字输入双向绑定; onChange 里改完状态记得 render()
+- `setupKeyboard(state,resetFn,onResume?,redraw?)` → cleanup(空格暂停/运行(切换后调 redraw), R 重置)
 - `setupViewport(canvas,vp,onChange,opts)` → `{zoomIn,zoomOut,reset,pan}`; opts.panDrag=false 时不绑拖拽平移(3D 拖拽留给旋转)
 - `applyViewport(ctx,w,h,vp)` 应用视口变换(画布中心锚点), 调用方 ctx.save()/restore() 包裹; 页面坐标一律写世界值, zoom/pan 由本函数统一施加(元素间相对关系不畸变), 勿在坐标上手动换算
 - `bindViewportButtons(canvas,vp,onChange,opts)` 绑定按钮 id: vpIn/vpOut/vpReset/vpUp/vpDown/vpLeft/vpRight
@@ -145,9 +148,15 @@ SKILL.md「绘制」节的细则部分, 绘制场景时按需读取(2D 与 3D �
 - `panStep(canvas,dir)` → `{dx,dy}` 平移步长(画布尺寸 8%; dir: up/down/left/right), 供方向按钮用
 - `startAnimation(frameFn)` 旧版动画启动(仅兼容存量页, 新页一律 startLoop)
 - `setupConservation(parent,{items:[{label,getValue}],tol,ids:{panel}})` → `{check}` 守恒监测; render() 每帧调 check()
+- **`setupCharts(container, defs)`** → `{update, clear}` 标准图表区(模板已预留 `<div class="charts-row" id="charts">`, 画布下方双栏、窄屏堆叠):
+  - **无图题型不调用**, 容器 :empty 自动塌缩不留白; 有图页面 render() 末尾调 `CH.update()`(运行帧每帧采样; 暂停期改参数后显式调一次)。
+  - def = `{title?, xLabel?='t/s', yLabel?, series:[{label, color?, get}], getX?=()=>S.t, maxPoints?=1200}`; `get` 返回 null/NaN 跳过该样本。
+  - x 单调递增 → 追加样本; x 不变(暂停改参/静态关系图) → 原位更新最新样本; 超过 maxPoints 隔点抽稀。
+  - 自绘缓冲与 resize 自适应(CSS 高 clamp(150px,21vh,230px)); 图例/网格/坐标轴内建, 页面零绘制代码。
+  - 用法: `const CH = setupCharts($('charts'), [{title:'x-t 图', yLabel:'x/m', getX:()=>S.t, series:[{label:'A', get:()=>S.xA}, {label:'B', get:()=>S.xB}]}]);`
 - **`setupScene(o)`** → `{syncRun}` 场景标准件注入(各页只调一次):
   - o = `{canvas, vp, state, render, resetFn, runLabel, panDrag, legend, onBeforeRun?, extraActions?, pen?}`
-  - 注入 `.scene-actions`(运行/暂停+重置+缩放＋－还原+平移↑↓←→+画笔标注+动画倍速)到 canvas 之前; `.legendbar` 到 canvas 之后(legend 配置生成 → `state.show`; **无可切换量传 `legend:null`, 不生成图例栏**); `.side-tabs` 到画布右缘(齿轮=参数侧栏收起/展开, 书=解析弹层 .mpop 开/关; 页面无 .mpop 时「解析」标签自动隐藏)
+  - 注入 `.scene-actions`(运行/暂停+重置+缩放＋－还原+平移↑↓←→+画笔标注+动画倍速+快捷键提示「⌨ 空格 运行/暂停 · R 重置」; sticky 吸顶, 滚过画布仍可见)到 canvas 之前; `.legendbar` 到 canvas 之后(legend 配置生成 → `state.show`; **无可切换量传 `legend:null`, 不生成图例栏**); `.side-tabs` 到画布右缘(齿轮=参数侧栏收起/展开, 书=解析弹层 .mpop 开/关; 页面无 .mpop 时「解析」标签自动隐藏)
   - 绑定: 运行切换/重置/视口(滚轮+拖拽+按钮)/键盘(空格/R)/倍速(绑 state.speed); 页面在 render() 末尾调返回的 `SC.syncRun()`
   - `onBeforeRun`: 从结束态重启钩子; `extraActions`: 额外动作组(如 3D 三视图 seg); `runLabel`: 运行按钮文案(如 '▶ 运行'/'▶ 同时释放'); `panDrag`: 2D=true 拖拽平移, 3D=false(拖拽留给旋转); `pen`: 默认 true 注入「✎ 画笔」标注(覆盖画布, 屏幕空间笔迹; 开启时接管鼠标画线、拖拽平移让位, 滚轮缩放仍可用; 再点一次退出并清空笔迹; 传 false 时按钮隐藏)
 

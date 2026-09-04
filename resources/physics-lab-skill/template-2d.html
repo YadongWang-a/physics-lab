@@ -2,8 +2,11 @@
 <!--
   使用: 复制本文件为 <英文-kebab>.html, 替换所有 @slot 标记处。
   骨架(非 @slot 部分)已可运行, 勿改: fitCanvas/resize/view()/坐标变换(X/Y)/
-  drawScene 外壳(ctx.save+applyViewport+translate+scale+restore)/render(SC.syncRun)/startLoop/setupScene 调用。
-  标准件(按钮/图例/视口/键盘/倍速/侧栏/解析弹层)由 lib/common.js 的 setupScene 注入并绑定。
+  drawScene 外壳(ctx.save+applyViewport+translate+scale+restore)/render(SC.syncRun)/
+  .charts-row 图表容器/startLoop/setupScene 调用。
+  标准件(按钮/图例/视口/键盘/倍速/侧栏/解析弹层)由 lib/common.js 的 setupScene 注入并绑定;
+  标准图表区由 setupCharts($('charts'), […]) 填充(render() 末尾调 CH.update()),
+  无图题型不调用、容器保持为空自动隐藏。
   .mpop 弹层(问题/推导/答案)无内容时整段删除(「解析」标签自动隐藏)。
 -->
 <!DOCTYPE html>
@@ -64,7 +67,9 @@
     <!-- ====== 场景卡片 ====== -->
     <div class="card">
       <!-- 操作按钮 + 图例栏由 setupScene 注入到 canvas 前/后 -->
-      <canvas id="scene" height="480"></canvas>
+      <canvas id="scene" height="360"></canvas>
+      <!-- 标准图表区: 无图题型保持空(自动隐藏); 有图由 setupCharts($('charts'),[…]) 填充 -->
+      <div class="charts-row" id="charts"></div>
       <!-- 阶段标签 -->
       <div class="phase" id="phase">● 准备就绪</div>
       <!-- @slot:scene-extras —— 场景卡内额外件(能量条/状态面板/hint等), 无则删 -->
@@ -169,13 +174,15 @@ function drawScene(){
 }
 
 /* ---------- 主循环: lib startLoop(dt≤0.05 限幅 ×S.speed + 子步积分内置, 各页不手写 frame) ----------
-   见文件尾 startLoop(S,{sub,step,render}) 调用; sub=0/省略 = 每帧单步(解析); mode:'xxx' 时仅 S.mode===mode 推进。 */
+   见文件尾 startLoop(S,{sub,step,render}) 调用; sub=0/省略 = 每帧单步(解析); mode:'xxx' 时仅 S.mode===mode 推进。
+   暂停即停帧渲染: 暂停期改状态必须显式 render()(页面自定义控件同理)。 */
 
 /* ---------- 渲染 ---------- */
 function render(){
   drawScene();
   /* @slot:readouts-update —— 更新读数 DOM, 例: $('xV').innerHTML=S.x.toFixed(2)+'<small>m</small>'; */
   /* @slot:phase —— 阶段标签, 例: $('phase').textContent='● 运行中'; */
+  /* @slot:charts-update —— 有图表时: CH.update(); (暂停期改参数后也须显式调) */
   SC.syncRun();                       /* 每帧同步运行按钮文案 */
 }
 

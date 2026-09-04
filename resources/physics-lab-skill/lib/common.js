@@ -1001,12 +1001,17 @@ function verlet2(accel, x, v, h){
    - S 需含 {running, last, speed?} (speed 缺失按 1)
    - sub: 子步长(秒); 0/缺省 = 每帧调一次 step(dt) (解析单步)
    - step(h): 物理推进(只写这里)
-   - render(): 每帧重绘
-   - postStep?: 子步循环结束后钩子(如碰撞后处理)
-   - stopCheck?: 子步内提前停止判据(返回 true → running=false)
-   - mode?: 仅 S.mode === mode 时推进(模式门控, 如 'anim')
+   - render(): 绘制一帧; 运行中每帧调, 暂停时只在脏标记(初帧/resize)时补一次
+   - postStep(): 每运行帧收尾
+   - stopCheck(): 返回 true 则暂停
+   - mode: 指定时仅 S.mode===mode 推进; 其余视同暂停帧
+   暂停帧不渲染(CPU≈0)。暂停期任何状态变更(含 lib 内部空格/运行按钮)必须
+   伴随显式 render() —— lib 的 setupScene/setupKeyboard 已内置; 页面自定义
+   控件改完状态须自行调 render()。resize 由本函数监听置脏兜底重绘。
    限幅 dt≤0.05 与 ×S.speed 已内置, 各页不得重写。 */
 function startLoop(S, opts){
+  let dirty = true;   /* 暂停帧补渲染标记: 初帧 / resize / 布局变化 */
+  window.addEventListener('resize', function () { dirty = true; });
   function frame(now){
     if (S.last == null) S.last = now;
     let dt = (now - S.last) / 1000; S.last = now;
@@ -1025,15 +1030,19 @@ function startLoop(S, opts){
         opts.step(dt);
       }
       if (opts.postStep) opts.postStep();
+      opts.render();
+    } else if (dirty){
+      dirty = false;
+      opts.render();
     }
-    opts.render();
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
 }
 
 /* ---- Canvas 高 DPI + 响应式适配 ----
-   高度取 max(HTML属性值, 55%视口高度), 大屏自动拉高, 小屏保底。
+   高度取 max(HTML属性值, 视口高×42%), 编辑态给下方图表区留空间;
+   演示模式(.present, 画布独占 70vh)用 62% 保缓冲分辨率。
    按 devicePixelRatio 放大像素缓冲区。
    返回 {ctx, w, h} (w=CSS宽度, h=逻辑高度) */
 function fitCanvas(c) {
@@ -1042,7 +1051,8 @@ function fitCanvas(c) {
   // 基准高度只读一次: c.height 写缓冲会反射回 height 属性(变成 h·dpr),
   // 下次再读属性会把缓冲高度当基准 → 画布高度只能涨不能缩(resize 后无法复原)。
   if (c._baseH === undefined) c._baseH = parseFloat(c.getAttribute('height') || 0);
-  const vh = window.innerHeight * 0.65;
+  const frac = document.body.classList.contains('present') ? 0.62 : 0.42;
+  const vh = window.innerHeight * frac;
   const h = Math.max(c._baseH, vh);
   c.width = Math.round(r.width * dpr);
   c.height = Math.round(h * dpr);
@@ -1050,6 +1060,141 @@ function fitCanvas(c) {
   const ctx = c.getContext('2d');
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   return { ctx, w: r.width, h };
+}
+
+/* ---- 标准图表区 (setupCharts; SKILL「数据图像」标准件) ----
+   模板在画布下方预留 <div class="charts-row" id="charts">; 无图题型不调用本
+   函数, 容器 :empty 自动塌缩不留白。有图页面在 render() 末尾调 CH.update():
+   运行帧每帧采样; 暂停期改参数后由页面显式调一次(配合 startLoop 暂停停帧)。
+   用法:
+     const CH = setupCharts($('charts'), [
+       { title:'x-t 图', yLabel:'x/m', getX:()=>S.t,
+         series:[{label:'A', color:'#2f6fd0', get:()=>S.xA},
+                 {label:'B', color:'#c94040', get:()=>S.xB}] },
+       { title:'v-t 图', yLabel:'v/(m/s)', getX:()=>S.t, series:[...] }
+     ]);
+   def 字段: title?(左上角标注) / xLabel?('t/s' 缺省) / yLabel? / series(必填,
+   get 返回 null/NaN 跳过该样本) / getX(缺省 () => 0, 一般传 () => S.t) /
+   maxPoints?(缺省 1200, 超限隔点抽稀 + 采样隔帧)。
+   x 单调递增 → 追加样本; x 不变(暂停改参/静态关系图) → 原位更新最新样本。
+   返回 { update(), clear() }; resize 自适应(自绘缓冲, 不走 fitCanvas)。 */
+function setupCharts(container, defs){
+  if (!container) return { update: function(){}, clear: function(){} };
+  const SERIES_COLORS = ['#2f6fd0', '#c94040', '#1f9d55', '#b8860b', '#7c3aed'];
+  const charts = defs.map(function (def) {
+    const cv = document.createElement('canvas');
+    cv.className = 'chart';
+    container.appendChild(cv);
+    return { def: def, cv: cv, ctx: cv.getContext('2d'), pts: [], lastX: null, count: 0, stride: 1 };
+  });
+  function size(ch){
+    const r = ch.cv.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    ch.cv.width = Math.max(1, Math.round(r.width * dpr));
+    ch.cv.height = Math.max(1, Math.round(r.height * dpr));
+    ch.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ch.w = r.width; ch.h = r.height;
+  }
+  function redraw(ch){
+    const ctx = ch.ctx, w = ch.w, h = ch.h, d = ch.def;
+    ctx.clearRect(0, 0, w, h);
+    /* 坐标范围: x 取样本全程, y 取各系列 min/max(过滤空样本), 各留 8% 边距 */
+    let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+    for (const p of ch.pts){
+      if (p[0] < x0) x0 = p[0];
+      if (p[0] > x1) x1 = p[0];
+      for (let i = 1; i < p.length; i++){
+        if (!isFinite(p[i])) continue;
+        if (p[i] < y0) y0 = p[i];
+        if (p[i] > y1) y1 = p[i];
+      }
+    }
+    if (!isFinite(x0)) { x0 = 0; x1 = 1; }
+    if (!isFinite(y0)) { y0 = 0; y1 = 1; }
+    if (y1 - y0 < 1e-9) { y0 -= 1; y1 += 1; }
+    const mx = (x1 - x0) * 0.04 || 1, my = (y1 - y0) * 0.08;
+    x0 -= mx; x1 += mx; y0 -= my; y1 += my;
+    const L = 34, R = 8, T = 20, B = 18;              /* 边距: 左留 y 轴标签 */
+    const px = function (x){ return L + (x - x0) / (x1 - x0) * (w - L - R); };
+    const py = function (y){ return h - B - (y - y0) / (y1 - y0) * (h - T - B); };
+    /* 网格 + 坐标轴 + 刻度(约 4 段) */
+    ctx.strokeStyle = 'rgba(0,0,0,.07)'; ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let i = 0; i <= 4; i++){
+      const gx = L + i * (w - L - R) / 4, gy = T + i * (h - T - B) / 4;
+      ctx.moveTo(gx, T); ctx.lineTo(gx, h - B);
+      ctx.moveTo(L, gy); ctx.lineTo(w - R, gy);
+    }
+    ctx.stroke();
+    ctx.strokeStyle = '#98a0b3'; ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.moveTo(px(0), T); ctx.lineTo(px(0), h - B); ctx.lineTo(w - R, h - B); ctx.stroke();
+    ctx.fillStyle = '#6b7280'; ctx.font = '10px sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.fillText(d.xLabel || 't/s', (L + w - R) / 2, h - B + 3);
+    ctx.textAlign = 'left';
+    ctx.fillText(fmtTick(y1), 2, T - 12);
+    ctx.fillText(fmtTick(y0), 2, h - B - 12);
+    /* 标题(左上) + 图例(右上) */
+    if (d.title){ ctx.textAlign = 'left'; ctx.fillText(d.title, L + 4, 4); }
+    let lx = w - R - 4;
+    const series = d.series;
+    for (let i = series.length - 1; i >= 0; i--){
+      const label = series[i].label, color = series[i].color || SERIES_COLORS[i % SERIES_COLORS.length];
+      ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#6b7280';
+      ctx.fillText(label, lx, 8);
+      lx -= ctx.measureText(label).width + 10;
+      ctx.fillStyle = color;
+      ctx.fillRect(lx + 3, 5, 8, 3);
+      lx -= 8;
+    }
+    /* 曲线(逐段连线, 跳过空样本) */
+    for (let si = 0; si < series.length; si++){
+      ctx.strokeStyle = series[si].color || SERIES_COLORS[si % SERIES_COLORS.length];
+      ctx.lineWidth = 1.6; ctx.lineJoin = 'round';
+      ctx.beginPath();
+      let pen = false;
+      for (const p of ch.pts){
+        const v = p[si + 1];
+        if (!isFinite(v)){ pen = false; continue; }
+        const X = px(p[0]), Y = py(v);
+        if (pen) ctx.lineTo(X, Y); else { ctx.moveTo(X, Y); pen = true; }
+      }
+      ctx.stroke();
+    }
+  }
+  function fmtTick(v){ return Math.abs(v) >= 100 ? v.toFixed(0) : v.toFixed(1); }
+  function update(){
+    for (const ch of charts){
+      const d = ch.def;
+      ch.count++;
+      if (ch.stride > 1 && ch.count % ch.stride !== 0) continue;
+      const x = d.getX ? d.getX() : 0;
+      const vals = d.series.map(function (s){ const v = s.get(); return v == null ? NaN : v; });
+      if (vals.every(function (v){ return !isFinite(v); })){ redraw(ch); continue; }
+      if (ch.lastX == null || x > ch.lastX + 1e-12){
+        ch.pts.push([x].concat(vals)); ch.lastX = x;
+      } else if (ch.pts.length){
+        ch.pts[ch.pts.length - 1] = [x].concat(vals);
+      }
+      const max = d.maxPoints || 1200;
+      if (ch.pts.length > max){
+        ch.pts = ch.pts.filter(function (_, i){ return i % 2 === 0; });
+        ch.stride = Math.min(ch.stride * 2, 30);
+      }
+      redraw(ch);
+    }
+  }
+  function clear(){
+    for (const ch of charts){ ch.pts.length = 0; ch.lastX = null; ch.stride = 1; redraw(ch); }
+  }
+  let rt;
+  window.addEventListener('resize', function(){
+    clearTimeout(rt);
+    rt = setTimeout(function(){ for (const ch of charts){ size(ch); redraw(ch); } }, 120);
+  });
+  for (const ch of charts){ size(ch); redraw(ch); }
+  return { update: update, clear: clear };
 }
 
 /* ---- 范围滑块 ↔ 数字输入 双向绑定 ----
@@ -1072,14 +1217,16 @@ function bindRangeNumber(rId, nId, parse, onChange) {
 /* ---- 键盘快捷键: 空格暂停/运行 , R 重置 ----
    state    : {running:bool, last:?}  — 需要有 running 字段
    resetFn  : function()              — 重置回调
+   redraw   : function() 可选         — 空格切换后补一次渲染(暂停帧不再自动重绘)
    返回 cleanup 函数以便移除监听 */
-function setupKeyboard(state, resetFn, onResume) {
+function setupKeyboard(state, resetFn, onResume, redraw) {
   function handler(e) {
     if (e.code === 'Space') {
       e.preventDefault();
       if (!state.running && onResume) onResume();
       state.running = !state.running;
       state.last = null;
+      if (redraw) redraw();
     }
     if (e.code === 'KeyR') {
       if (resetFn) resetFn();
@@ -1290,8 +1437,8 @@ function setupScene(o) {
   const actions = document.createElement('div');
   actions.className = 'scene-actions';
   actions.innerHTML =
-    '<button class="btn sm primary" id="run">' + o.runLabel + '</button>' +
-    '<button class="btn sm" id="reset">↺ 重置</button>' +
+    '<button class="btn sm primary" id="run" title="运行/暂停(快捷键 空格)">' + o.runLabel + '</button>' +
+    '<button class="btn sm" id="reset" title="重置(快捷键 R)">↺ 重置</button>' +
     '<div class="seg seg-act" title="缩放">' +
       '<button id="vpIn">＋</button><button id="vpOut">－</button><button id="vpReset">还原</button></div>' +
     '<div class="seg seg-act" title="平移">' +
@@ -1300,6 +1447,7 @@ function setupScene(o) {
     '<button class="btn sm" id="pen" title="画笔标注(再点一次清除)">✎ 画笔</button>' +
     '<label class="spd" title="动画倍速">倍速' +
       '<input type="range" id="spd" min="0.2" max="3" step="0.1" value="' + (state.speed || 1) + '"></label>' +
+    '<span class="kbd-hint">⌨ 空格 运行/暂停 · R 重置</span>' +
     '<div class="spacer"></div>' +
     (o.extraActions || '');
   card.insertBefore(actions, canvas);
@@ -1414,9 +1562,10 @@ function setupScene(o) {
   $('run').onclick = function () {
     if (state.running) { state.running = false; }
     else { if (o.onBeforeRun) o.onBeforeRun(); state.running = true; state.last = null; }
+    o.render();   /* 暂停帧不再自动重绘: 切换后补一帧(含 syncRun 按钮文案) */
   };
   $('reset').onclick = o.resetFn;
-  setupKeyboard(state, o.resetFn, o.onBeforeRun);
+  setupKeyboard(state, o.resetFn, o.onBeforeRun, o.render);
   bindViewportButtons(canvas, o.vp, o.render, { panDrag: o.panDrag });
   const spd = $('spd');   /* 动画倍速(绑 state.speed) */
   if (spd) spd.addEventListener('input', function(){ state.speed = parseFloat(spd.value); });

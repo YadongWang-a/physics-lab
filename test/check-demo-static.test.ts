@@ -18,6 +18,7 @@ const DEMOS_DIR = join(process.cwd(), 'resources', 'demos')
 const GOOD_HTML = `<!doctype html><html><head><title>弹簧振子</title></head>
 <body>
 <canvas id="scene"></canvas>
+<div class="charts-row" id="charts"></div>
 <div class="phase" id="phase">● 准备就绪</div>
 <script src="lib/common.js"></script>
 <script>
@@ -74,6 +75,7 @@ describe('回归基准：resources/demos 全部通过', () => {
   it.each(demoFiles)('%s 静态检查通过', (file) => {
     const html = readFileSync(join(DEMOS_DIR, file), 'utf8')
     const result = collectIssues([...syntaxCheck(html), ...idCrossCheck(html), ...skeletonCheck(html)])
-    expect(result.issues).toEqual([])
+    // 存量页（v2 前）允许 no-charts-row 迁移警告（ticket 02 改造后消失），其余必须干净
+    expect(result.issues.filter((i) => i.code !== 'no-charts-row')).toEqual([])
   })
 })

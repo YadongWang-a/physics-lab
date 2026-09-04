@@ -103,11 +103,15 @@ code { background: var(--code-bg); padding: 1px 6px; border-radius: 4px; color: 
   font-size: 13px; color: var(--dim); margin: 0 0 8px;
   font-weight: 500; letter-spacing: .5px; text-transform: uppercase;
 }
-canvas { display: block; width: 100%; border-radius: 8px; min-height: 45vh; }
+canvas { display: block; width: 100%; border-radius: 8px; min-height: 34vh; }
 
 /* ---- 场景卡片内操作栏(小按钮) ---- */
 .scene-actions {
   display: flex; gap: 5px; align-items: center; margin-bottom: 8px;
+  /* v2: sticky 吸顶 — 滚过画布后控制条钉在页顶, 运行/暂停随时可见 */
+  position: sticky; top: 8px; z-index: 45;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+  padding: 6px 8px; box-shadow: 0 2px 10px rgba(15,20,35,.07);
 }
 .btn.sm {
   padding: 4px 10px; font-size: 11px; border-radius: 6px;
@@ -127,6 +131,20 @@ canvas { display: block; width: 100%; border-radius: 8px; min-height: 45vh; }
   font-size: 11px; color: var(--dim); white-space: nowrap;
 }
 .scene-actions .spd input[type=range] { width: 64px; margin: 0; accent-color: var(--blue); cursor: pointer; }
+/* ---- 快捷键提示 (控制条尾, 窄屏隐藏) ---- */
+.kbd-hint { font-size: 10.5px; color: var(--dim); white-space: nowrap; margin-left: 6px; }
+@media (max-width: 1100px){ .kbd-hint { display: none; } }
+/* ---- 标准图表区 (setupCharts; 模板预留 .charts-row 容器) ----
+   双栏并排, 窄屏堆叠; 容器为空(无图题型未调 setupCharts)整体塌缩不留白。 */
+.charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+.charts-row:empty { display: none; }
+@media (max-width: 760px){ .charts-row { grid-template-columns: 1fr; } }
+/* 图表画布: 固定高度, 覆盖全局 canvas 的 min-height/圆角; setupCharts 按 box 自设缓冲 */
+.charts-row .chart {
+  width: 100%; min-height: 0; height: clamp(150px, 21vh, 230px);
+  border: 1px solid var(--line); border-radius: 8px; background: #fff;
+}
+
 /* ---- 画笔标注层 (setupScene 注入的覆盖画布, 屏幕空间笔迹) ----
    关闭时 pointer-events:none 不拦截画布交互; 开启时接管鼠标画线。 */
 .pen-layer {

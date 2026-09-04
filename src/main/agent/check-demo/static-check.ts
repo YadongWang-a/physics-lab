@@ -76,6 +76,9 @@ export function skeletonCheck(html: string): CheckIssue[] {
   if (/setInterval\s*\(/.test(code)) {
     issues.push({ level: 'warning', code: 'set-interval', message: '发现 setInterval（动画应走 startLoop）' })
   }
+  if (!/class="[^"]*charts-row/.test(code)) {
+    issues.push({ level: 'warning', code: 'no-charts-row', message: '缺 .charts-row 图表容器（v2 模板骨架标准件；有图题型应调 setupCharts，无图题型保留空容器）' })
+  }
   return issues
 }
 
