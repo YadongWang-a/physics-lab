@@ -11,7 +11,7 @@ Label: wayfinder:map
 - 领域：physics-lab 生成的中学物理演示页（template-2d/3d + lib/common.js 标准件）。工作会话先读 `resources/physics-lab-skill/`（SKILL.md、drawing.md、template-*.html）再动决定。
 - 语言：中文输出，术语保留英文（如 tickets、lib、sticky）。
 - 四项用户决定（已锁定，ticket 只做细化）：
-  1. 画布高度 = 视口高 × ≈42%（现为 0.65，`fitCanvas`）
+  1. 画布高度 = 视口高 × 50%（0.65→0.42→0.50：0.42 体感过矮回调；`fitCanvas`）
   2. 标准图表区 + 按题型选图，无图题型区隐藏
   3. 沿用现有键位（空格=运行/暂停、R=重置）+ 页面加快捷键提示
   4. `scene-actions` 控制条 sticky 吸顶（CSS position: sticky）

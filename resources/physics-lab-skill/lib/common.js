@@ -1041,7 +1041,7 @@ function startLoop(S, opts){
 }
 
 /* ---- Canvas 高 DPI + 响应式适配 ----
-   高度取 max(HTML属性值, 视口高×42%), 编辑态给下方图表区留空间;
+   高度取 max(HTML属性值, 视口高×50%), 编辑态给下方图表区留空间;
    演示模式(.present, 画布独占 70vh)用 62% 保缓冲分辨率。
    按 devicePixelRatio 放大像素缓冲区。
    返回 {ctx, w, h} (w=CSS宽度, h=逻辑高度) */
@@ -1051,7 +1051,7 @@ function fitCanvas(c) {
   // 基准高度只读一次: c.height 写缓冲会反射回 height 属性(变成 h·dpr),
   // 下次再读属性会把缓冲高度当基准 → 画布高度只能涨不能缩(resize 后无法复原)。
   if (c._baseH === undefined) c._baseH = parseFloat(c.getAttribute('height') || 0);
-  const frac = document.body.classList.contains('present') ? 0.62 : 0.42;
+  const frac = document.body.classList.contains('present') ? 0.62 : 0.5;
   const vh = window.innerHeight * frac;
   const h = Math.max(c._baseH, vh);
   c.width = Math.round(r.width * dpr);

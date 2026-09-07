@@ -9,10 +9,10 @@
 
 ## 决定（已锁定）
 
-### 1. 画布高度：视口高 × ≈42%
+### 1. 画布高度：视口高 × 50%（2026-09-07 由 42% 上调，实施后体感过矮）
 
 - 现状：`fitCanvas`（lib/common.js）`h = max(c._baseH, window.innerHeight * 0.65)`，1080p 屏画布 ≈700px，过高。
-- 改动：系数 0.65 → 0.42；模板里画布 `height` 属性基准（baseH）同步下调，保证小屏不再被 baseH 顶到过高。
+- 改动：系数 0.65 → **0.50**（首次实施 0.42，实测体感过矮回调）；模板里画布 `height` 属性基准（baseH）同步下调为 360，保证小屏不再被 baseH 顶到过高。
 - 涉及：lib/common.js `fitCanvas`；template-2d/3d.html 画布 height 属性；SKILL/drawing.md 中高度描述。
 
 ### 2. 标准图表区：lib 标准件 `setupCharts(parent, defs)`
