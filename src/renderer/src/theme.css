@@ -97,6 +97,27 @@ body {
   background: var(--pl-muted);
   color: var(--pl-foreground);
 }
+
+/* 聊天输入卡片：聚焦高亮；附件按钮 ghost 悬停 */
+.app-input-card:focus-within {
+  border-color: var(--pl-ring);
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.12), var(--pl-shadow-1);
+}
+.app-drag-over {
+  border-color: var(--pl-ring);
+  background: #f0f9ff;
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.15), var(--pl-shadow-1);
+}
+.app-attach-btn:hover {
+  background: var(--pl-muted);
+  color: var(--pl-foreground);
+}
+
+/* 演示列表项: 点击不留 focus 描边, 键盘导航仍可见 */
+[data-demo-item]:focus-visible {
+  outline: 2px solid var(--pl-ring);
+  outline-offset: 1px;
+}
 .tab-close:hover {
   background: var(--pl-muted);
   color: var(--pl-foreground);

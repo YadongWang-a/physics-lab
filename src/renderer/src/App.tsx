@@ -53,7 +53,7 @@ const styles: Record<string, React.CSSProperties> = {
   browseHeadCount: { fontSize: 11, color: 'var(--pl-muted-foreground)', fontWeight: 400 },
   browseHeadBtn: { width: 24, height: 24, border: 'none', background: 'transparent', color: 'var(--pl-muted-foreground)', borderRadius: 6, cursor: 'pointer', fontSize: 12, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' },
   browseList: { flex: 1, overflowY: 'auto', padding: '2px 8px 12px', display: 'flex', flexDirection: 'column', gap: 2 },
-  browseItem: { display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', width: '100%', border: '1px solid transparent', background: 'transparent', font: 'inherit', color: 'inherit', textAlign: 'left', borderRadius: 'var(--pl-radius-md)', cursor: 'pointer', userSelect: 'none', position: 'relative', transition: 'all .12s ease' },
+  browseItem: { display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', width: '100%', borderWidth: 1, borderStyle: 'solid', borderColor: 'transparent', outline: 'none', background: 'transparent', font: 'inherit', color: 'inherit', textAlign: 'left', borderRadius: 'var(--pl-radius-md)', cursor: 'pointer', userSelect: 'none', position: 'relative', transition: 'all .12s ease' },
   browseItemHover: { background: 'var(--pl-muted)' },
   browseItemActive: { background: 'var(--primary-soft)', borderColor: 'rgba(37,99,235,.2)' },
   browseMeta: { flex: 1, minWidth: 0 },
@@ -74,7 +74,7 @@ const styles: Record<string, React.CSSProperties> = {
   welcomeTitle: { fontSize: 18, fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.3, margin: 0 },
   welcomeDesc: { fontSize: 13, color: 'var(--pl-ink-2)', lineHeight: 1.7, margin: 0 },
   welcomeExamples: { display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 },
-  welcomeExampleBtn: { textAlign: 'left', border: '1px solid var(--pl-border)', background: 'var(--pl-card)', color: 'var(--pl-ink-2)', borderRadius: 'var(--pl-radius-md)', padding: '11px 14px', fontSize: 13, cursor: 'pointer', transition: 'all .15s', lineHeight: 1.5 },
+  welcomeExampleBtn: { textAlign: 'left', borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--pl-border)', background: 'var(--pl-card)', color: 'var(--pl-ink-2)', borderRadius: 'var(--pl-radius-md)', padding: '11px 14px', fontSize: 13, cursor: 'pointer', transition: 'all .15s', lineHeight: 1.5 },
   welcomeExampleHover: { borderColor: 'var(--pl-primary)', color: 'var(--pl-foreground)', background: 'var(--primary-soft)', transform: 'translateX(2px)' },
   // ---- 工作台 ----
   workspace: { flex: 1, display: 'flex', overflow: 'hidden', position: 'relative' },
@@ -84,13 +84,14 @@ const styles: Record<string, React.CSSProperties> = {
   msgUser: { alignSelf: 'flex-end', textAlign: 'right', background: 'var(--pl-muted)', color: 'var(--pl-ink)', padding: '10px 16px', borderRadius: 'var(--pl-radius-lg) var(--pl-radius-lg) 4px var(--pl-radius-lg)', maxWidth: '88%', whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: 13.5, lineHeight: 1.6, boxShadow: '0 1px 2px rgba(15,23,42,.10)' },
   msgAssistant: { alignSelf: 'flex-start', background: 'transparent', border: 'none', padding: '4px 0', borderRadius: 0, maxWidth: '94%', whiteSpace: 'normal', overflowWrap: 'break-word', fontSize: 13.5, lineHeight: 1.75, boxShadow: 'none' },
   msgError: { alignSelf: 'flex-start', maxWidth: '94%', whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'anywhere', fontSize: 12.5, lineHeight: 1.6, color: 'var(--pl-state-error)', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 'var(--pl-radius-md)', padding: '10px 12px' },
-  inputCard: { margin: '0 16px 12px', background: 'transparent', position: 'relative' },
-  chatInput: { width: '100%', resize: 'none', border: '1px solid var(--pl-border)', background: 'var(--pl-background)', outline: 'none', padding: '12px 14px 4px', fontSize: 13.5, lineHeight: 1.6, fontFamily: 'inherit', color: 'var(--pl-foreground)', maxHeight: 128, borderRadius: 'var(--pl-radius-md)' },
-  inputFooter: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px 8px' },
-  inputHint: { fontSize: 11, color: 'var(--pl-muted-foreground)', paddingLeft: 4 },
-  sendBtn: { border: 'none', background: 'var(--grad-primary)', color: 'var(--pl-primary-foreground)', borderRadius: 10, width: 36, height: 34, cursor: 'pointer', fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(37,99,235,.3)' },
-  sendBtnDisabled: { opacity: 0.45, cursor: 'default' },
-  stopBtn: { border: '1px solid var(--pl-border)', background: 'var(--pl-card)', color: 'var(--pl-state-error)', borderRadius: 8, padding: '0 14px', cursor: 'pointer', fontSize: 12.5 },
+  inputCard: { margin: '0 16px 14px', background: 'var(--pl-card)', border: '1px solid var(--pl-border)', borderRadius: 14, boxShadow: 'var(--pl-shadow-1)', position: 'relative', transition: 'border-color .15s, box-shadow .15s' },
+  chatInput: { width: '100%', resize: 'none', border: 'none', background: 'transparent', outline: 'none', padding: '12px 14px 2px', fontSize: 13.5, lineHeight: 1.6, fontFamily: 'inherit', color: 'var(--pl-foreground)', maxHeight: 128 },
+  inputFooter: { display: 'flex', alignItems: 'center', gap: 8, padding: '2px 8px 8px 8px' },
+  inputHint: { fontSize: 11, color: 'var(--pl-ink-3)', marginLeft: 4, marginRight: 'auto' },
+  sendBtn: { border: 'none', background: 'var(--grad-primary)', color: 'var(--pl-primary-foreground)', borderRadius: 10, width: 32, height: 32, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 6px rgba(37,99,235,.28)' },
+  sendBtnDisabled: { background: 'var(--pl-muted)', color: 'var(--pl-muted-foreground)', boxShadow: 'none', cursor: 'default' },
+  attachBtn: { border: 'none', background: 'transparent', color: 'var(--pl-ink-3)', borderRadius: 'var(--pl-radius-md)', width: 30, height: 30, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  stopBtn: { border: '1px solid var(--pl-border)', background: 'var(--pl-card)', color: 'var(--pl-state-error)', borderRadius: 8, padding: '0 14px', height: 30, cursor: 'pointer', fontSize: 12.5 },
   chatToggle: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: '50%', background: 'var(--pl-card)', border: '1px solid var(--pl-border)', color: 'var(--pl-muted-foreground)', cursor: 'pointer', fontSize: 11, boxShadow: 'var(--pl-shadow-2)', flexShrink: 0, padding: 0, lineHeight: 1 },
   // ---- 预览 ----
   preview: { flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--pl-background)', minWidth: 320 },
@@ -191,8 +192,10 @@ export function App(): React.JSX.Element {
   const [wsDialogOpen, setWsDialogOpen] = useState(false)
   /** 主模型槽位是否已配置 Key（未配置 → 顶部引导条） */
   const [hasMainKey, setHasMainKey] = useState<boolean | null>(null)
-  /** 待发送的聊天图片（粘贴） */
+  /** 待发送的聊天图片（粘贴/附件按钮/拖拽） */
   const [images, setImages] = useState<ImagePayload[]>([])
+  /** 拖拽图片悬停输入卡片的高亮态 */
+  const [imageDragOver, setImageDragOver] = useState(false)
   /** 预览缩放比例（0.6~1），默认 0.75；演示模式强制 100% */
   const [zoom, setZoom] = useState<number>(0.75)
   const [presenting, setPresenting] = useState(false)
@@ -252,7 +255,7 @@ export function App(): React.JSX.Element {
   streamingRef.current = streaming
   const selectTokenRef = useRef(0)
   const chatBodyRef = useRef<HTMLDivElement | null>(null)
-
+  const attachInputRef = useRef<HTMLInputElement | null>(null)
   const append = useCallback((msg: Omit<ChatMessage, 'id'>) => {
     msgId.current += 1
     setMessages((prev) => [...prev, { ...msg, id: msgId.current }])
@@ -719,7 +722,24 @@ export function App(): React.JSX.Element {
                 ))}
               </div>
             )}
-            <div style={styles.inputCard}>
+            <div
+              style={styles.inputCard}
+              className={'app-input-card' + (imageDragOver ? ' app-drag-over' : '')}
+              onDragOver={(e) => {
+                if (!e.dataTransfer.types.includes('Files')) return
+                e.preventDefault()
+                setImageDragOver(true)
+              }}
+              onDragLeave={(e) => {
+                if (e.currentTarget.contains(e.relatedTarget as Node | null)) return
+                setImageDragOver(false)
+              }}
+              onDrop={(e) => {
+                setImageDragOver(false)
+                for (const f of Array.from(e.dataTransfer.files)) appendImage(f)
+                e.preventDefault()
+              }}
+            >
               <textarea
                 className="app-chat-input"
                 style={styles.chatInput}
@@ -739,7 +759,15 @@ export function App(): React.JSX.Element {
                 }}
               />
               <div style={styles.inputFooter}>
-                <span style={styles.inputHint}>Shift + Enter 换行</span>
+                <span style={styles.inputHint}>Enter 发送 · Shift + Enter 换行</span>
+                <button
+                  className="app-attach-btn"
+                  style={styles.attachBtn}
+                  title="添加题目图片（也可直接粘贴截图）"
+                  onClick={() => attachInputRef.current?.click()}
+                >
+                  <Icon name="paperclip" size={14} />
+                </button>
                 {streaming ? (
                   <button style={styles.stopBtn} onClick={stop}>
                     停止
@@ -754,6 +782,17 @@ export function App(): React.JSX.Element {
                     <Icon name="arrowUp" size={16} />
                   </button>
                 )}
+                <input
+                  ref={attachInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  style={{ display: 'none' }}
+                  onChange={(e) => {
+                    for (const f of Array.from(e.target.files ?? [])) appendImage(f)
+                    e.target.value = ''
+                  }}
+                />
               </div>
             </div>
           </section>
@@ -840,6 +879,7 @@ export function App(): React.JSX.Element {
 }
 
 const ICONS: Record<string, React.ReactNode> = {
+  paperclip: <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 8.49 8.49l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />,
   flask: <path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.8 3h10.4a2 2 0 0 0 1.8-3l-5-9V3" />,
   menu: <path d="M3 6h18M3 12h18M3 18h18" />,
   chat: <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />,
