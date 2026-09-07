@@ -45,7 +45,7 @@ const api: RendererApi = {
     get: (): Promise<SettingsView> => ipcRenderer.invoke('settings:get'),
     save: (payload: SaveSettingsPayload): Promise<SettingsView> =>
       ipcRenderer.invoke('settings:save', payload),
-    models: (provider: string): Promise<string[]> => ipcRenderer.invoke('settings:models', provider),
+    models: (provider: string, apiKey?: string): Promise<string[]> => ipcRenderer.invoke('settings:models', provider, apiKey),
     test: (slot: ModelSlotConfig): Promise<{ ok: boolean; error?: string }> =>
       ipcRenderer.invoke('settings:test', { slot }),
     onChanged: (cb) => {

@@ -5,7 +5,7 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, watch, writeFileSync, 
 import { createPhysicsSession, lastTurnError } from './agent/agent-runner'
 import { ModelRegistry, ModelRuntime } from '@earendil-works/pi-coding-agent'
 import type { ImageContent } from '@earendil-works/pi-ai'
-import { applySlotToRuntime, listProviderModels } from './agent/provider-config'
+import { applySlotToRuntime, fetchLiveModelIds, listProviderModels, mergeModelIds } from './agent/provider-config'
 import { extractImageText, routeDecision, type ImagePayload } from './agent/vision-extract'
 import { mergeSettings, toSlotView, type ModelSlotConfig, type SaveSettingsPayload, type SettingsView } from '../shared/settings-types'
 import { friendlyErrorMessage } from '../shared/errors'
@@ -22,8 +22,10 @@ import { runChecks } from './agent/check-demo/run-checks'
 
 loadEnvFile()
 
-// check_demo 冒烟：隐藏窗口 canvas 2D 在部分 GPU 环境拿不到 context → 软渲染（教学应用软渲染也更稳）
-if (process.argv.includes('--smoke-checkdemo')) {
+// 硬件加速在本机（i7-1185G7 / T500）反复导致 electron GPU 初始化挂起（whenReady 前
+// 卡死、无 renderer 子进程）与 renderer 崩溃白屏；教学演示工具稳定性优先，默认软渲染
+// （canvas 2D 动画 Skia 软渲染可接受）。GPU 正常时设 PHYSICS_LAB_GPU=1 可恢复硬件加速。
+if (!process.env.PHYSICS_LAB_GPU) {
   app.disableHardwareAcceleration()
 }
 
@@ -230,15 +232,20 @@ function registerSettingsIpc(): void {
     return settingsView()
   })
 
-  /** 内置供应商模型列表（动态获取；custom 由用户在 UI 手动填模型名） */
-  ipcMain.handle('settings:models', async (_event, provider: string) => {
+  /** 内置供应商模型列表：SDK 静态目录 ∪ 实时 /models（deepseek 未实现 SDK 动态刷新，静态目录会落后官方）。
+   *  Key 优先用弹窗里输入的（未保存也能拉），否则按 provider 匹配已保存槽位的 Key。custom 由用户手填，不走此路。 */
+  ipcMain.handle('settings:models', async (_event, provider: string, typedKey?: string) => {
     const runtime = await ModelRuntime.create({
       authPath: join(app.getPath('userData'), 'agent', 'auth.json'),
       refreshOnCreate: false
     })
     const registry = new ModelRegistry(runtime)
     await registry.refresh()
-    return listProviderModels(runtime, provider)
+    const s = settings?.load()
+    const savedKey =
+      s?.main?.provider === provider ? s.main?.apiKey : s?.vision?.provider === provider ? s.vision?.apiKey : undefined
+    const live = await fetchLiveModelIds(provider, typedKey || savedKey)
+    return mergeModelIds(listProviderModels(runtime, provider), live)
   })
 
   /** 用给定配置发一次最小请求，验证 Key/端点可用 */

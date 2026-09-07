@@ -81,8 +81,8 @@ export interface RendererApi {
     get: () => Promise<SettingsView>
     /** 保存双槽位配置（Key 独立传，空 = 保持原样）；保存后旧会话全部释放 */
     save: (payload: SaveSettingsPayload) => Promise<SettingsView>
-    /** 内置供应商模型 id 列表（动态获取） */
-    models: (provider: string) => Promise<string[]>
+    /** 内置供应商模型 id 列表（SDK 静态目录 ∪ 实时 /models；apiKey 为弹窗中输入、未保存也能拉） */
+    models: (provider: string, apiKey?: string) => Promise<string[]>
     /** 用给定槽位发一次最小请求验证 Key/端点 */
     test: (slot: ModelSlotConfig) => Promise<{ ok: boolean; error?: string }>
     /** 订阅设置变化（保存成功）；返回取消函数 */

@@ -52,21 +52,25 @@ function initForm(view: ModelSlotView | null): SlotFormState {
   return { slot, keyInput: '', models: [], testResult: null, testing: false }
 }
 
-/** 供应商切换 → 动态拉模型列表（custom 手动填） */
-function useModels(slot: ModelSlotConfig, setForm: React.Dispatch<React.SetStateAction<SlotFormState | null>>): void {
+/** 供应商/Key 变化 → 动态拉模型列表（静态目录 ∪ 实时 /models；custom 手动填） */
+function useModels(slot: ModelSlotConfig, keyInput: string, setForm: React.Dispatch<React.SetStateAction<SlotFormState | null>>, enabled = true): void {
   useEffect(() => {
-    if (slot.provider === CUSTOM_PROVIDER_ID) {
+    if (!enabled || slot.provider === CUSTOM_PROVIDER_ID) {
       setForm((prev) => (prev ? { ...prev, models: [] } : prev))
       return
     }
     let alive = true
-    window.api?.settings.models(slot.provider).then((models) => {
-      if (alive) setForm((prev) => (prev ? { ...prev, models } : prev))
-    })
+    // Key 输入防抖后再拉列表：未保存的新 Key 也能拉到实时模型
+    const timer = setTimeout(() => {
+      window.api?.settings.models(slot.provider, keyInput || undefined).then((models) => {
+        if (alive) setForm((prev) => (prev ? { ...prev, models } : prev))
+      })
+    }, keyInput ? 500 : 0)
     return () => {
       alive = false
+      clearTimeout(timer)
     }
-  }, [slot.provider, setForm])
+  }, [slot.provider, keyInput, setForm, enabled])
 }
 
 export function SettingsModal(props: { onClose: () => void }): React.JSX.Element {
@@ -84,7 +88,10 @@ export function SettingsModal(props: { onClose: () => void }): React.JSX.Element
     })
   }, [])
 
-  useModels(main?.slot ?? DEFAULT_MAIN_SLOT, setMain)
+  useModels(main?.slot ?? DEFAULT_MAIN_SLOT, main?.keyInput ?? '', setMain)
+
+  // 视觉槽位：未启用不拉列表；Key 同样防抖传入（未保存也能实时拉）
+  useModels(vision?.slot ?? DEFAULT_MAIN_SLOT, vision?.keyInput ?? '', setVision, visionEnabled)
 
   const patchSlot = useCallback(
     (kind: 'main' | 'vision', patch: Partial<ModelSlotConfig>) => {
