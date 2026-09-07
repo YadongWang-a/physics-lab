@@ -45,7 +45,12 @@ function skillDir(): string {
 
 function broadcast(channel: string, payload: unknown): void {
   for (const win of BrowserWindow.getAllWindows()) {
-    win.webContents.send(channel, payload)
+    if (win.isDestroyed()) continue
+    try {
+      win.webContents.send(channel, payload)
+    } catch {
+      // renderer 崩溃/重载期间 frame 已销毁：跳过投递，否则每条 agent 事件刷一行 disposed 异常
+    }
   }
 }
 
@@ -378,9 +383,20 @@ function createWindow(): void {
       win.show()
     }
   })
-  win.on('show', () => console.log(`[window] shown`))
   win.webContents.on('render-process-gone', (_e, details) => {
-    console.log(`[window] render-process-gone: ${details.reason}`)
+    console.log(`[window] render-process-gone: reason=${details.reason} exitCode=${details.exitCode}`)
+    // 崩溃自愈：renderer 意外死亡（非正常关闭）短延迟后整页重载恢复；流式中的会话状态在主进程，历史不丢
+    if (details.reason !== 'clean-exit') {
+      setTimeout(() => {
+        if (!win.isDestroyed()) {
+          console.log('[window] renderer 自愈重载')
+          win.reload()
+        }
+      }, 800)
+    }
+  })
+  win.webContents.on('did-fail-load', (_e, code, desc, url, isMain) => {
+    if (isMain) console.log(`[window] did-fail-load: ${code} ${desc} ${url}`)
   })
   win.webContents.on('console-message', (_e, _level, message) => {
     console.log(`[renderer] ${message}`)
