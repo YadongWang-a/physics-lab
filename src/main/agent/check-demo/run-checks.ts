@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
-import { collectIssues, idCrossCheck, readFileHtml, skeletonCheck, syntaxCheck, type CheckIssue, type CheckResult } from './static-check'
+import { canvasTextCheck, collectIssues, idCrossCheck, readFileHtml, skeletonCheck, syntaxCheck, type CheckIssue, type CheckResult } from './static-check'
 import { DemoChecker } from './runtime-check'
 
 /**
@@ -23,7 +23,8 @@ export async function runChecks(
   const staticIssues: CheckIssue[] = [
     ...syntaxCheck(readFileHtml(htmlPath)),
     ...idCrossCheck(readFileHtml(htmlPath)),
-    ...skeletonCheck(readFileHtml(htmlPath))
+    ...skeletonCheck(readFileHtml(htmlPath)),
+    ...canvasTextCheck(readFileHtml(htmlPath))
   ]
   if (staticIssues.some((i) => i.level === 'error')) {
     return collectIssues(staticIssues)

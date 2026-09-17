@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
+  canvasTextCheck,
   collectIssues,
   idCrossCheck,
   skeletonCheck,
@@ -68,14 +69,40 @@ describe('skeletonCheck', () => {
   })
 })
 
+describe('canvasTextCheck：画布文字预算', () => {
+  const withText = (code: string): string =>
+    GOOD_HTML.replace(/<\/script>\s*<\/body>/, `${code}\n</script>\n</body>`)
+
+  it('短标签/量值不报警', () => {
+    const html = withText(`ctx.fillText('绳绷直', X(1), Y(0)); ctx.fillText('w_甲 = 1.2 m/s', X(2), Y(0));`)
+    expect(canvasTextCheck(html)).toEqual([])
+  })
+
+  it('长讲解句报警（含句读）', () => {
+    const html = withText(`ctx.fillText('绿箭头 = 相对传送带的速度 w；红箭头 F 仅在 0→t₁ 阶段存在。', X(1), Y(0));`)
+    const issues = canvasTextCheck(html)
+    expect(issues.some((i) => i.code === 'canvas-prose' && i.level === 'warning')).toBe(true)
+  })
+
+  it('无 fillText 的页面不报警', () => {
+    expect(canvasTextCheck(GOOD_HTML)).toEqual([])
+  })
+})
+
 describe('回归基准：resources/demos 全部通过', () => {
   const demoFiles = readdirSync(DEMOS_DIR).filter((f) => f.toLowerCase().endsWith('.html'))
   expect(demoFiles.length).toBeGreaterThan(0)
 
   it.each(demoFiles)('%s 静态检查通过', (file) => {
     const html = readFileSync(join(DEMOS_DIR, file), 'utf8')
-    const result = collectIssues([...syntaxCheck(html), ...idCrossCheck(html), ...skeletonCheck(html)])
-    // 存量页（v2 前）允许 no-charts-row 迁移警告（ticket 02 改造后消失），其余必须干净
-    expect(result.issues.filter((i) => i.code !== 'no-charts-row')).toEqual([])
+    const result = collectIssues([
+      ...syntaxCheck(html),
+      ...idCrossCheck(html),
+      ...skeletonCheck(html),
+      ...canvasTextCheck(html)
+    ])
+    // 存量页允许「迁移类」warning：no-charts-row(v2 图表区)、canvas-prose(画布文字预算)，
+    // 两者在页面按新规范重做后消失；其余必须干净
+    expect(result.issues.filter((i) => i.code !== 'no-charts-row' && i.code !== 'canvas-prose')).toEqual([])
   })
 })

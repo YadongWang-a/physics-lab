@@ -85,3 +85,27 @@ export function skeletonCheck(html: string): CheckIssue[] {
 export function readFileHtml(filePath: string): string {
   return readFileSync(filePath, 'utf8')
 }
+
+/**
+ * 画布文字预算（SKILL「内容规则」）：画布内 fillText 只允许 几何/结构标签、量符号+数值、极短状态词。
+ * 只查字面量（动态数值经字符串拼接不进候选）；命中长句/句读记为 warning，提示改走
+ * 解析弹层（讲解）、legend 图例栏（颜色含义）、.phase（阶段叙述）、hud/读数（数值汇总）。
+ */
+export function canvasTextCheck(html: string): CheckIssue[] {
+  const script = extractLastScript(html)
+  if (!script) return []
+  const prose: string[] = []
+  for (const m of script.matchAll(/fillText\(\s*(['"])([^'"]*)\1/g)) {
+    const text = m[2] ?? ''
+    if (text.length > 14 || /[，；。⇒]/.test(text)) prose.push(text)
+  }
+  if (prose.length === 0) return []
+  const sample = prose.slice(0, 2).map((t) => `「${t.length > 22 ? t.slice(0, 22) + '…' : t}」`).join('')
+  return [
+    {
+      level: 'warning',
+      code: 'canvas-prose',
+      message: `画布内 ${prose.length} 条文字疑似讲解${sample}：讲解走解析弹层，颜色含义走图例，数值汇总走 hud/读数面板`
+    }
+  ]
+}

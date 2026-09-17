@@ -202,6 +202,10 @@ const SC = setupScene({
     {k:'forces', label:'受力',  color:'#2f6fd0'},
     {k:'ghost',  label:'另一状态参照', color:'#8893ad'}
   ],
+  hud: [                         /* @slot:hud — 投影常驻关键量(≤4 项, 只放值不放句子); 无则传 null/删除; render() 里 SC.hud(k, 值) */
+    {k:'t',  label:'时刻 t', unit:'s'},
+    {k:'x',  label:'位移 x', unit:'m'}
+  ],
   onBeforeRun: function(){ /* @slot:beforeRun — 从结束态重启, 例: if(S.phase==='done') reset(); */ }
 });
 

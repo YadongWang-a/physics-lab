@@ -1412,7 +1412,8 @@ function setupConservation(parent, o){
    覆盖式, 无 .mpop 的页面自动隐藏「解析」标签。
    页面只保留物理专属: S / view 或 project3 / drawScene(内含 applyViewport 包裹) /
    step / 参数·读数·临界态·答案卡。
-   返回 { syncRun }: 页面在 render() 末尾调 syncRun() 每帧同步运行按钮文案。
+   返回 { syncRun, hud }: 页面在 render() 末尾调 syncRun() 每帧同步运行按钮文案;
+   hud(k, 值) 写入关键量条(投影模式侧栏读数不可见, 关键量走 hud 而非画布文字)。
 
    o = {
      canvas,         // 画布元素
@@ -1423,6 +1424,7 @@ function setupConservation(parent, o){
      runLabel,       // '▶ 运行' / '▶ 同时释放'
      panDrag,        // 2D=true (拖拽平移), 3D=false (拖拽留给旋转相机)
      legend,         // [{k,label,color,on:true}] 或 null (无可切换量, 如纯等时演示)
+     hud,            // 可选 [{k,label,unit?}] 画布下方关键量条(投影常驻可见; ≤4 项, 只放值不放句子)
      onBeforeRun,    // 可选 fn(): 开始运行前调用, 页面做"从结束态重启"
      extraActions,   // 可选 HTML: 额外动作组 (如 incline 三视图 seg), 插在 spacer 之后
      pen             // 可选 bool: 默认 true(注入「✎ 画笔」标注); false 禁用整组
@@ -1465,6 +1467,28 @@ function setupScene(o) {
     card.insertBefore(bar, canvas.nextSibling);
     state.show = showObj;
     setupLegend('legendBar', showObj, o.render);
+  }
+
+  /* 2.6 关键量条 (hud): canvas 下方、图例栏之后; 演示模式侧栏整栏隐藏(.ro 读数不可见),
+     投影必须可见的关键量放这里(值+单位, 不放句子), 页面不得再把它画进画布。 */
+  let hudEl = null;
+  if (o.hud && o.hud.length) {
+    hudEl = document.createElement('div');
+    hudEl.className = 'scene-hud';
+    hudEl.innerHTML = o.hud.map(function (it) {
+      return '<span class="hud-item" data-k="' + it.k + '">' +
+             '<span class="hud-k">' + it.label + '</span>' +
+             '<span class="hud-v">—</span>' +
+             (it.unit ? '<span class="hud-u">' + it.unit + '</span>' : '') +
+             '</span>';
+    }).join('');
+    const bar = card.querySelector('.legendbar');
+    if (bar) card.insertBefore(hudEl, bar.nextSibling);
+    else card.insertBefore(hudEl, canvas.nextSibling);
+  }
+  function hud(k, value) {
+    const el = hudEl && hudEl.querySelector('[data-k="' + k + '"] .hud-v');
+    if (el) el.textContent = value;
   }
 
   /* 2.5 画笔标注层: 「✎ 画笔」开关 → 覆盖画布的透明层, 屏幕空间笔迹。
@@ -1670,6 +1694,7 @@ function setupScene(o) {
   }
 
   return {
-    syncRun: function () { syncRunToggle('run', state.running, o.runLabel, '⏸ 暂停'); }
+    syncRun: function () { syncRunToggle('run', state.running, o.runLabel, '⏸ 暂停'); },
+    hud: hud
   };
 }

@@ -145,6 +145,20 @@ canvas { display: block; width: 100%; border-radius: 8px; min-height: 34vh; }
   border: 1px solid var(--line); border-radius: 8px; background: #fff;
 }
 
+/* ---- 关键量条 (setupScene.hud): 画布下方常驻, 演示模式侧栏隐藏时仍可见 ----
+   投影关键量走这里(值+单位), 不允许再画进画布当讲解文字。 */
+.scene-hud { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.scene-hud:empty { display: none; }
+.scene-hud .hud-item {
+  display: inline-flex; align-items: baseline; gap: 4px;
+  border: 1px solid var(--line); border-radius: 7px; background: var(--panel); padding: 3px 9px;
+}
+.scene-hud .hud-k { font-size: 11px; color: var(--dim); }
+.scene-hud .hud-v { font-size: 13px; font-weight: 600; color: var(--txt); font-variant-numeric: tabular-nums; }
+.scene-hud .hud-u { font-size: 10.5px; color: var(--dim); }
+body.present .scene-hud .hud-k { font-size: 12px; }
+body.present .scene-hud .hud-v { font-size: 15px; }
+
 /* ---- 画笔标注层 (setupScene 注入的覆盖画布, 屏幕空间笔迹) ----
    关闭时 pointer-events:none 不拦截画布交互; 开启时接管鼠标画线。 */
 .pen-layer {
