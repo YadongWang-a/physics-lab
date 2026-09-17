@@ -207,6 +207,15 @@ function registerWorkspaceIpc(): void {
     return { ok: true }
   })
 
+  /** 进行中的会话（含新会话已绑定的目标文件）：renderer 崩溃自愈重载后恢复「生成中」 */
+  ipcMain.handle('chat:active', () => {
+    if (!sessionHost || !currentWs) return []
+    return sessionHost.activeSessions().map(({ key, file }) => ({
+      key,
+      file: file ?? pendingNewSessions.get(key)?.boundFile ?? null,
+    }))
+  })
+
   ipcMain.handle('chat:history', (event, file: string) => {
     if (!currentWs) return []
     return ensureSessionHost().history(file, currentWs.dirname)
@@ -354,6 +363,12 @@ function finalizeNewSession(sessionId: string): string | null {
 }
 
 function createWindow(): void {
+  app.on('web-contents-created', (_e, wc) => {
+    // 分辨 OOM/崩溃发生在哪个页面（主窗口 / demo webview guest），url 是页面地址
+    wc.on('render-process-gone', (_e2, details) => {
+      console.log(`[wc:${wc.getType()}] render-process-gone reason=${details.reason} exitCode=${details.exitCode} url=${(wc.getURL() || '-').slice(0, 80)}`)
+    })
+  })
   const win = new BrowserWindow({
     width: 1440,
     height: 900,

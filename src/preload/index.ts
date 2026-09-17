@@ -16,6 +16,8 @@ const api: RendererApi = {
     send: (file: string | null, text: string, images?: ImagePayload[], sessionKey?: string): Promise<{ ok: boolean; key: string }> =>
       ipcRenderer.invoke('chat:send', file, text, images, sessionKey),
     abort: (file: string): Promise<{ ok: boolean }> => ipcRenderer.invoke('chat:abort', file),
+    /** 进行中的会话（renderer 自愈重载后恢复「生成中」显示） */
+    active: (): Promise<Array<{ key: string; file: string | null }>> => ipcRenderer.invoke('chat:active'),
     history: (file: string): Promise<ChatHistoryEntry[]> => ipcRenderer.invoke('chat:history', file),
     onEvent: (cb) => {
       const listener = (_e: unknown, payload: { file: string; event: unknown }): void => cb(payload)

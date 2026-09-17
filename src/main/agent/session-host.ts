@@ -89,6 +89,14 @@ export class SessionHost {
     await this.sessions.get(key)?.ps.session.abort()
   }
 
+  /** 进行中的会话（renderer 崩溃自愈重载后恢复「生成中」显示与事件挂接）；file 为 null 表示尚未绑定演示的新会话 */
+  activeSessions(): Array<{ key: string; file: string | null }> {
+    return [...this.sessions.keys()].map((key) => ({
+      key,
+      file: key.startsWith('_new-') ? null : key,
+    }))
+  }
+
   /** 会话历史：内存会话优先；否则从磁盘 .pi-sessions/<stem>.jsonl 恢复（重启后可见） */
   history(file: string, workspaceDir: string): ChatHistoryEntry[] {
     const entry = this.sessions.get(file)

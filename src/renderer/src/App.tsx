@@ -180,6 +180,25 @@ function applyChatEvent(prev: ChatMessage[], e: unknown, nextId: () => number): 
   }
 }
 
+/** 事件为流式文本 delta 时返回文本（in/typeof 收窄，不做形状断言） */
+function textDeltaOf(e: unknown): string | null {
+  if (typeof e !== 'object' || e === null) return null
+  if (!('type' in e) || e.type !== 'message_update' || !('assistantMessageEvent' in e)) return null
+  const ae = e.assistantMessageEvent
+  if (
+    typeof ae !== 'object' ||
+    ae === null ||
+    !('type' in ae) ||
+    ae.type !== 'text_delta' ||
+    !('delta' in ae) ||
+    typeof ae.delta !== 'string' ||
+    !ae.delta
+  ) {
+    return null
+  }
+  return ae.delta
+}
+
 export function App(): React.JSX.Element {
   const [ws, setWs] = useState<WorkspaceSnapshot>(EMPTY_WS)
   const [selected, setSelected] = useState<string | null>(null)
@@ -256,9 +275,32 @@ export function App(): React.JSX.Element {
   const selectTokenRef = useRef(0)
   const chatBodyRef = useRef<HTMLDivElement | null>(null)
   const attachInputRef = useRef<HTMLInputElement | null>(null)
+  /** 流式 text_delta 合并缓冲：120ms 批量落消息（delta 不丢，只降 Markdown/KaTeX 重解析频率） */
+  const deltaBufRef = useRef('')
+  const deltaFlushRef = useRef<number | null>(null)
   const append = useCallback((msg: Omit<ChatMessage, 'id'>) => {
     msgId.current += 1
     setMessages((prev) => [...prev, { ...msg, id: msgId.current }])
+  }, [])
+
+  const flushDeltas = useCallback(() => {
+    if (deltaFlushRef.current != null) {
+      window.clearTimeout(deltaFlushRef.current)
+      deltaFlushRef.current = null
+    }
+    const d = deltaBufRef.current
+    if (!d) return
+    deltaBufRef.current = ''
+    setMessages((prev) => {
+      const last = prev[prev.length - 1]
+      if (last && last.role === 'assistant' && last.streaming) {
+        const copy = [...prev]
+        copy[copy.length - 1] = { ...last, text: last.text + d }
+        return copy
+      }
+      msgId.current += 1
+      return [...prev, { id: msgId.current, role: 'assistant', text: d, streaming: true }]
+    })
   }, [])
 
   /** 加载演示对应的会话历史（html ↔ session 一一对应）；token 过期（快速切换）则丢弃 */
@@ -295,20 +337,31 @@ export function App(): React.JSX.Element {
     const offEvent = window.api?.chat.onEvent(({ file, event }) => {
       // 只处理当前活跃会话的事件
       if (file !== activeKeyRef.current && file !== selectedRef.current) return
-      // 函数式更新：同一 tick 批量到达的多个事件也基于最新累积；
-      // 值更新 + 异步 ref 会让批内只保留最后一个 delta（流式文本大面积丢失）
-      setMessages((prev) => {
-        const next = applyChatEvent(prev, event, () => {
-          msgId.current += 1
-          return msgId.current
+      evtRateRef.current += 1
+      // text_delta 走 120ms 合并缓冲：每条 delta 都触发 Markdown+KaTeX 全量重解析会打爆渲染层内存（OOM 崩溃记录）
+      const delta = textDeltaOf(event)
+      if (delta) {
+        deltaBufRef.current += delta
+        if (deltaFlushRef.current == null) {
+          deltaFlushRef.current = window.setTimeout(flushDeltas, 120)
+        }
+      } else {
+        // 函数式更新：同一 tick 批量到达的多个事件也基于最新累积；
+        // 值更新 + 异步 ref 会让批内只保留最后一个 delta（流式文本大面积丢失）
+        setMessages((prev) => {
+          const next = applyChatEvent(prev, event, () => {
+            msgId.current += 1
+            return msgId.current
+          })
+          return next ?? prev
         })
-        return next ?? prev
-      })
+      }
       const settled =
         typeof event === 'object' && event !== null && (event as { type?: string }).type === 'agent_settled'
       const errored =
         typeof event === 'object' && event !== null && (event as { type?: string }).type === 'chat_error'
       if (settled || errored) {
+        flushDeltas()
         setStreaming(false)
         // 清空每条消息的 streaming 标记，助手状态标签由「生成中」切回「推导/修改」
         setMessages((prev) => prev.map((m) => (m.streaming ? { ...m, streaming: false } : m)))
@@ -349,6 +402,41 @@ export function App(): React.JSX.Element {
       offWorkspace?.()
       offSettings?.()
     }
+  }, [])
+
+  // 内存看门狗：每 5s 打印堆占用 + DOM 体量 + 事件速率（dev 日志观察增长曲线，定位 OOM 来源）
+  const evtRateRef = useRef(0)
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      const mem = (performance as Performance & { memory?: { usedJSHeapSize: number } }).memory
+      const used = mem ? (mem.usedJSHeapSize / 1048576).toFixed(0) + 'MB' : 'n/a'
+      const body = (document.body.innerHTML.length / 1048576).toFixed(1)
+      const nodes = document.getElementsByTagName('*').length
+      console.log(`[mem] used=${used} body=${body}MB nodes=${nodes} evtRate=${evtRateRef.current}/5s`)
+      evtRateRef.current = 0
+    }, 5000)
+    return () => window.clearInterval(timer)
+  }, [])
+
+  // 崩溃自愈重载后恢复「生成中」：挂接活跃会话的事件并拉取局部历史（恢复后 live delta 会重建流式文本）
+  useEffect(() => {
+    window.api?.chat.active().then((active) => {
+      for (const s of active) {
+        if (s.key !== selectedRef.current) continue
+        activeKeyRef.current = s.key
+        setStreaming(true)
+        void window.api?.chat.history(s.key).then((history) =>
+          setMessages((prev) =>
+            prev.length
+              ? prev
+              : history.map((h) => {
+                  msgId.current += 1
+                  return { id: msgId.current, role: h.role, text: h.text }
+                })
+          )
+        )
+      }
+    })
   }, [])
 
   const selectDemo = useCallback(async (file: string) => {

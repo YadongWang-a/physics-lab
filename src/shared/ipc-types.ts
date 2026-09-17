@@ -57,6 +57,8 @@ export interface RendererApi {
     send: (file: string | null, text: string, images?: ImagePayload[], sessionKey?: string) => Promise<{ ok: boolean; key: string }>
     /** 停止当前回合 */
     abort: (file: string) => Promise<{ ok: boolean }>
+    /** 进行中的会话（renderer 自愈重载后恢复「生成中」显示）；file 为 null 表示未绑定演示的新会话 */
+    active: () => Promise<Array<{ key: string; file: string | null }>>
     /** 会话历史摘要（内存或磁盘恢复，切换演示时显示） */
     history: (file: string) => Promise<ChatHistoryEntry[]>
     /** 订阅 agent 事件流；返回取消函数 */
