@@ -17,6 +17,7 @@ import { SettingsStore } from './workspace/app-settings'
 import { UiPrefsStore } from './workspace/ui-prefs'
 import { seedLibIntoWorkspace } from './workspace/lib-seed'
 import { SessionHost } from './agent/session-host'
+import { projectChatEvent } from './agent/event-projection'
 import { DemoChecker } from './agent/check-demo/runtime-check'
 import { runChecks } from './agent/check-demo/run-checks'
 
@@ -133,7 +134,9 @@ function registerWorkspaceIpc(): void {
       const host = ensureSessionHost()
       if (file) stoppedKeys.delete(file)
       const { key, ps } = await host.getSession(currentWs.dirname, file, (e) => {
-        broadcast('chat:event', { file: key, event: e })
+        // 投影后再投递：SDK 的 message_update 每条都带整条消息快照（O(n²) IPC，曾把渲染层 OOM）
+        const projected = projectChatEvent(e)
+        if (projected) broadcast('chat:event', { file: key, event: projected })
         const settled = typeof e === 'object' && e !== null && 'type' in e && e.type === 'agent_settled'
         if (!settled) return
         // 回合以错误结束（401/限流/超时等）：chat_error 展示给用户，跳过绑定与自检

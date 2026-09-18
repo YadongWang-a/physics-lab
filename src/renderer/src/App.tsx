@@ -421,21 +421,24 @@ export function App(): React.JSX.Element {
   // 崩溃自愈重载后恢复「生成中」：挂接活跃会话的事件并拉取局部历史（恢复后 live delta 会重建流式文本）
   useEffect(() => {
     window.api?.chat.active().then((active) => {
-      for (const s of active) {
-        if (s.key !== selectedRef.current) continue
-        activeKeyRef.current = s.key
-        setStreaming(true)
-        void window.api?.chat.history(s.key).then((history) =>
-          setMessages((prev) =>
-            prev.length
-              ? prev
-              : history.map((h) => {
-                  msgId.current += 1
-                  return { id: msgId.current, role: h.role, text: h.text }
-                })
-          )
+      // 优先选中演示的会话（key = html 文件名）；没有选中演示时认领生成中的新会话
+      // （key = _new-<ts>、file = null —— 此时还没有 html，重载前它只存在于 activeKeyRef）
+      const picked =
+        active.find((s) => s.key === selectedRef.current) ??
+        (selectedRef.current === null ? active.find((s) => s.file === null) : undefined)
+      if (!picked) return
+      activeKeyRef.current = picked.key
+      setStreaming(true)
+      void window.api?.chat.history(picked.key).then((history) =>
+        setMessages((prev) =>
+          prev.length
+            ? prev
+            : history.map((h) => {
+                msgId.current += 1
+                return { id: msgId.current, role: h.role, text: h.text }
+              })
         )
-      }
+      )
     })
   }, [])
 
