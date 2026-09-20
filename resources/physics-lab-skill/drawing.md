@@ -158,7 +158,7 @@ SKILL.md「绘制」节的细则部分, 绘制场景时按需读取(2D 与 3D �
   - o = `{canvas, vp, state, render, resetFn, runLabel, panDrag, legend, hud?, onBeforeRun?, extraActions?, pen?}`
   - 注入 `.scene-actions`(运行/暂停+重置+缩放＋－还原+平移↑↓←→+画笔标注+动画倍速+快捷键提示「⌨ 空格 运行/暂停 · R 重置」; sticky 吸顶, 滚过画布仍可见)到 canvas 之前; `.legendbar` 到 canvas 之后(legend 配置生成 → `state.show`; **无可切换量传 `legend:null`, 不生成图例栏**); `.side-tabs` 到画布右缘(齿轮=参数侧栏收起/展开, 书=解析弹层 .mpop 开/关; 页面无 .mpop 时「解析」标签自动隐藏)
   - 绑定: 运行切换/重置/视口(滚轮+拖拽+按钮)/键盘(空格/R)/倍速(绑 state.speed); 页面在 render() 末尾调返回的 `SC.syncRun()`
-  - `onBeforeRun`: 从结束态重启钩子; `extraActions`: 额外动作组(如 3D 三视图 seg); `runLabel`: 运行按钮文案(如 '▶ 运行'/'▶ 同时释放'); `panDrag`: 2D=true 拖拽平移, 3D=false(拖拽留给旋转); `pen`: 默认 true 注入「✎ 画笔」标注(覆盖画布, 屏幕空间笔迹; 开启时接管鼠标画线、拖拽平移让位, 滚轮缩放仍可用; 再点一次退出并清空笔迹; 传 false 时按钮隐藏)
+  - `onBeforeRun`: 从结束态重启钩子; `extraActions`: 额外动作组(如 3D 三视图 seg); `runLabel`: 运行按钮文案; 默认 '▶ 运行'; 仅当动作与"运行"不同才改(如 '▶ 同时释放'/'▶ 单步'), 一律 ≤4 字动词, 不写题面/过程描述(说明文字走按钮 title, 标准件已内置); `panDrag`: 2D=true 拖拽平移, 3D=false(拖拽留给旋转); `pen`: 默认 true 注入「✎ 画笔」标注(覆盖画布, 屏幕空间笔迹; 开启时接管鼠标画线、拖拽平移让位, 滚轮缩放仍可用; 再点一次退出并清空笔迹; 传 false 时按钮隐藏)
   - `hud`: `[{k,label,unit?}]` 画布下方关键量条(≤4 项, 只放值不放句子; 演示模式侧栏 `.ro` 读数整栏隐藏, 投影关键量走这里), `SC.hud(k, 值)` 在 render() 里写值; 无则省略该字段
 - **画布文字预算**(与 SKILL「内容规则」同源, 违者删): 画布内 `fillText` 只允许 几何/结构标签、量符号+数值、极短状态词(≤6 字); 单条 ≤ 14 字且不含 `，；。⇒`。禁: 成句讲解/推导 → 解析弹层; 颜色说明 → `.legendbar`; 阶段叙述 → `.phase`/状态 seg; 数值卡 → `hud`/`.ro`; 标题句 → `<title>`。与标准件重复即删。
 
