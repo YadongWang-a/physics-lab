@@ -91,7 +91,7 @@ const styles: Record<string, React.CSSProperties> = {
   sendBtn: { border: 'none', background: 'var(--grad-primary)', color: 'var(--pl-primary-foreground)', borderRadius: 10, width: 32, height: 32, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 6px rgba(37,99,235,.28)' },
   sendBtnDisabled: { background: 'var(--pl-muted)', color: 'var(--pl-muted-foreground)', boxShadow: 'none', cursor: 'default' },
   attachBtn: { border: 'none', background: 'transparent', color: 'var(--pl-ink-3)', borderRadius: 'var(--pl-radius-md)', width: 30, height: 30, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  stopBtn: { border: '1px solid var(--pl-border)', background: 'var(--pl-card)', color: 'var(--pl-state-error)', borderRadius: 8, padding: '0 14px', height: 30, cursor: 'pointer', fontSize: 12.5 },
+  stopBtn: { border: '1px solid var(--pl-border)', background: 'var(--pl-card)', color: 'var(--pl-state-error)', borderRadius: 10, width: 32, height: 32, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   chatToggle: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: '50%', background: 'var(--pl-card)', border: '1px solid var(--pl-border)', color: 'var(--pl-muted-foreground)', cursor: 'pointer', fontSize: 11, boxShadow: 'var(--pl-shadow-2)', flexShrink: 0, padding: 0, lineHeight: 1 },
   // ---- 预览 ----
   preview: { flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--pl-background)', minWidth: 320 },
@@ -791,8 +791,8 @@ export function App(): React.JSX.Element {
                   <div style={{ height: 3, borderRadius: 2, background: 'var(--pl-muted)', overflow: 'hidden' }}>
                     <div style={{ height: '100%', width: '40%', borderRadius: 2, background: 'var(--grad-primary)', animation: 'gen-slide 1.2s ease-in-out infinite' }} />
                   </div>
-                  <button style={{ alignSelf: 'flex-start', border: '1px solid var(--pl-border)', background: 'var(--pl-card)', color: 'var(--pl-state-error)', borderRadius: 8, padding: '4px 14px', cursor: 'pointer', fontSize: 12.5 }} onClick={stop}>
-                    ■ 停止生成
+                  <button style={{ ...styles.stopBtn, alignSelf: 'flex-start' }} onClick={stop} title="停止生成" aria-label="停止生成">
+                    <Icon name="stop" size={12} />
                   </button>
                 </div>
               )}
@@ -860,8 +860,8 @@ export function App(): React.JSX.Element {
                   <Icon name="paperclip" size={14} />
                 </button>
                 {streaming ? (
-                  <button style={styles.stopBtn} onClick={stop}>
-                    停止
+                  <button style={styles.stopBtn} onClick={stop} title="停止生成" aria-label="停止生成">
+                    <Icon name="stop" size={12} />
                   </button>
                 ) : (
                   <button
@@ -980,6 +980,8 @@ const ICONS: Record<string, React.ReactNode> = {
   play: <path d="M8 5v14l11-7z" />,
   close: <path d="M6 6l12 12M18 6L6 18" />,
   arrowUp: <><path d="M12 19V5" /><path d="M5 12l7-7 7 7" /></>,
+  /** 停止：实心方块（红色由按钮 color 决定），铺满字形盒以便按像素给尺寸 */
+  stop: <rect x="0" y="0" width="24" height="24" rx="4" fill="currentColor" stroke="none" />,
   folder: <><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" /></>,
 }
 function Icon({ name, size = 16 }: { name: string; size?: number }) {
