@@ -20,6 +20,8 @@ import { SessionHost } from './agent/session-host'
 import { projectChatEvent } from './agent/event-projection'
 import { DemoChecker } from './agent/check-demo/runtime-check'
 import { runChecks } from './agent/check-demo/run-checks'
+import type { CheckResult } from './agent/check-demo/static-check'
+import { initFileLog, log, logError } from './log'
 
 loadEnvFile()
 
@@ -85,6 +87,55 @@ function startWorkspaceWatcher(dir: string): void {
   })
 }
 
+/** 各会话当前回合起点（settled 时算耗时）；会话 key 动态增删 → Map */
+const turnStartedAt = new Map<string, number>()
+/** 工具调用 id → 起始时间（起止配对算耗时）；SDK 分配的动态 id → Map */
+const toolStarts = new Map<string, number>()
+
+/** 日志里的会话标签：新会话显示已绑定的文件名（key 只是临时 id） */
+function sessionLabel(key: string): string {
+  return key.startsWith('_new-') ? (pendingNewSessions.get(key)?.boundFile ?? '(new)') : key
+}
+
+/** 工具参数摘要：只留文件路径类字段，write/edit 的 HTML 正文不入日志 */
+function toolArgSummary(args: unknown): string | undefined {
+  if (args === null || typeof args !== 'object') return undefined
+  const record = args as Record<string, unknown>
+  for (const field of ['file', 'file_path', 'path']) {
+    const value = record[field]
+    if (typeof value === 'string' && value) return value
+  }
+  if (Array.isArray(record.assertions)) return `assertions×${record.assertions.length}`
+  return undefined
+}
+
+/** 工具调用起止落盘；SDK 每条事件都进这里，非工具事件立即返回 */
+function logToolEvent(key: string, event: unknown): void {
+  if (typeof event !== 'object' || event === null || !('type' in event)) return
+  const ev = event as {
+    type: string
+    toolName?: string
+    toolCallId?: string
+    args?: unknown
+    result?: unknown
+    isError?: boolean
+  }
+  if (ev.type === 'tool_execution_start') {
+    if (ev.toolCallId) toolStarts.set(ev.toolCallId, Date.now())
+    log('info', 'tool', 'start', { key, tool: ev.toolName, arg: toolArgSummary(ev.args) })
+    return
+  }
+  if (ev.type !== 'tool_execution_end') return
+  const startedAt = ev.toolCallId ? toolStarts.get(ev.toolCallId) : undefined
+  if (ev.toolCallId) toolStarts.delete(ev.toolCallId)
+  log(ev.isError ? 'warn' : 'info', 'tool', 'end', {
+    key,
+    tool: ev.toolName,
+    ms: startedAt === undefined ? undefined : Date.now() - startedAt,
+    error: ev.isError ? ev.result : undefined
+  })
+}
+
 function registerWorkspaceIpc(): void {
   ipcMain.handle('workspace:choose', async () => {
     const result = await dialog.showOpenDialog({
@@ -133,18 +184,30 @@ function registerWorkspaceIpc(): void {
       if (!currentWs) throw new Error('尚未选择工作目录')
       const host = ensureSessionHost()
       if (file) stoppedKeys.delete(file)
+      log('info', 'chat', 'send', {
+        file: file ?? '(new)',
+        chars: text.length,
+        images: images?.length ?? 0,
+        sessionKey
+      })
       const { key, ps } = await host.getSession(currentWs.dirname, file, (e) => {
+        logToolEvent(key, e)
         // 投影后再投递：SDK 的 message_update 每条都带整条消息快照（O(n²) IPC，曾把渲染层 OOM）
         const projected = projectChatEvent(e)
         if (projected) broadcast('chat:event', { file: key, event: projected })
         const settled = typeof e === 'object' && e !== null && 'type' in e && e.type === 'agent_settled'
         if (!settled) return
+        const startedAt = turnStartedAt.get(key)
+        turnStartedAt.delete(key)
+        const ms = startedAt === undefined ? undefined : Date.now() - startedAt
         // 回合以错误结束（401/限流/超时等）：chat_error 展示给用户，跳过绑定与自检
         const turnError = lastTurnError(ps.session.messages)
         if (turnError) {
+          log('error', 'chat', 'turn failed', { key, file: sessionLabel(key), ms, error: turnError })
           broadcast('chat:event', { file: key, event: { type: 'chat_error', message: friendlyErrorMessage(turnError) } })
           return
         }
+        log('info', 'chat', 'turn settled', { key, file: sessionLabel(key), ms })
         // 新会话：先绑定生成的新 HTML，再自动自检
         if (!file) {
           const created = finalizeNewSession(key)
@@ -153,6 +216,7 @@ function registerWorkspaceIpc(): void {
           void autoCheckDemo(host, currentWs!.dirname, file, key)
         }
       }, sessionKey)
+      turnStartedAt.set(key, Date.now())
       // 新建会话：记录生成前的 html 集合，首个新 html 落盘后绑定（demos.json 显式关联）
       if (!file && !pendingNewSessions.has(key)) {
         pendingNewSessions.set(key, { before: new Set(currentWs.list().map((d) => d.file)) })
@@ -177,6 +241,7 @@ function registerWorkspaceIpc(): void {
             })
             promptText = `${text}\n\n【题目图片内容（视觉模型识别）】\n${extracted}`
           } catch (err) {
+            logError('ocr', 'vision extract failed', err, { key, images: images.length })
             broadcast('chat:event', {
               file: key,
               event: {
@@ -195,6 +260,7 @@ function registerWorkspaceIpc(): void {
         }
       }
       host.prompt(key, promptText, promptImages).catch((err: unknown) => {
+        logError('chat', 'prompt failed', err, { key })
         broadcast('chat:event', {
           file: key,
           event: { type: 'chat_error', message: friendlyErrorMessage(err) }
@@ -321,15 +387,40 @@ async function autoCheckDemo(
   file: string,
   key: string
 ): Promise<void> {
-  if (autoChecking.has(key)) return
+  if (autoChecking.has(key)) {
+    log('debug', 'check', 'skip (自检进行中)', { key, file })
+    return
+  }
   if (!autoChecker) autoChecker = new DemoChecker()
-  const result = await runChecks(wsDir, file, autoChecker)
+  const startedAt = Date.now()
+  let result: CheckResult
+  try {
+    result = await runChecks(wsDir, file, autoChecker)
+  } catch (err) {
+    // 自检本身异常（渲染沙箱崩溃等）：落盘，避免只留一个无结果的 UI
+    logError('check', 'auto check failed', err, { key, file })
+    return
+  }
+  log(result.ok ? 'info' : 'warn', 'check', 'auto check', {
+    key,
+    file,
+    ok: result.ok,
+    issues: result.issues.length,
+    codes: [...new Set(result.issues.map((i) => i.code))].join(','),
+    ms: Date.now() - startedAt
+  })
   broadcast('chat:event', { file: key, event: { type: 'check_demo_result', result } })
-  if (result.ok || stoppedKeys.has(key)) return
+  if (result.ok) return
+  if (stoppedKeys.has(key)) {
+    log('info', 'check', 'auto repair skipped (用户已停止)', { key, file })
+    return
+  }
   // 失败 → 注入修复指令；修复后 settled 会再次触发本流程（用户点停止可逃出）
   autoChecking.add(key)
   try {
     const summary = result.issues.map((i) => `[${i.code}] ${i.message}`).join('\n')
+    log('info', 'check', 'auto repair injected', { key, file, issues: result.issues.length })
+    turnStartedAt.set(key, Date.now())
     await host.prompt(
       key,
       `【自动自检未通过】check_demo 返回：\n${summary}\n请修复这些问题（重新生成或编辑 HTML），并调用 check_demo 验证直到通过。`
@@ -345,12 +436,23 @@ function bindPendingNewSessions(): void {
   for (const [sessionId, pending] of pendingNewSessions) {
     if (pending.boundFile) continue
     const created = [...htmls].filter((f) => !pending.before.has(f))
-    if (created.length !== 1) continue
+    if (created.length !== 1) {
+      // 0 = 本回合没产出新 html（多轮对话常见）；>1 = 一回合产出多个，绑定无解，需人工看日志
+      log(created.length > 1 ? 'warn' : 'debug', 'bind', 'skip (新建 html 数 ≠ 1)', {
+        session: sessionId,
+        created: created.length,
+        files: created.join(',')
+      })
+      continue
+    }
     const html = created[0]!
     if (currentWs.bindSession(html, `${sessionId}.jsonl`)) {
       pending.boundFile = html
+      log('info', 'bind', 'bound', { session: sessionId, file: html })
       // 告知渲染层刚生成的是哪个文件：生成后自动打开预览并在列表选中
       broadcast('workspace:changed', { created: html })
+    } else {
+      log('warn', 'bind', 'bindSession 失败（清单未落盘）', { session: sessionId, file: html })
     }
   }
 }
@@ -762,6 +864,14 @@ app.whenReady().then(async () => {
   if (process.argv.some((a) => a.startsWith('--smoke'))) {
     app.setPath('userData', mkdtempSync(join(tmpdir(), 'physics-lab-smoke-userdata-')))
   }
+  initFileLog(join(app.getPath('userData'), 'logs'))
+  log('info', 'app', 'startup', {
+    version: app.getVersion(),
+    packaged: app.isPackaged,
+    userData: app.getPath('userData'),
+    skill: skillDir(),
+    argv: process.argv.slice(1).join(' ')
+  })
   uiPrefs = UiPrefsStore.at(app.getPath('userData'))
   settings = SettingsStore.at(app.getPath('userData'))
   sessionHost = new SessionHost({
@@ -827,7 +937,7 @@ app.whenReady().then(async () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
 }).catch((err) => {
-  console.error('[main] startup FAIL', err)
+  logError('app', 'startup failed', err)
   app.exit(1)
 })
 

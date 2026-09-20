@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs'
 import { SessionManager } from '@earendil-works/pi-coding-agent'
 import type { ImageContent } from '@earendil-works/pi-ai'
 import { createPhysicsSession, skillSystemPrompt, type PhysicsSession } from './agent-runner'
+import { log } from '../log'
 import type { ModelSlotConfig } from '../../shared/settings-types'
 import type { ChatHistoryEntry } from '../../shared/ipc-types'
 
@@ -65,13 +66,27 @@ export class SessionHost {
   ): Promise<{ key: string; ps: PhysicsSession }> {
     const key = file ?? sessionKey ?? `_new-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
     const existing = this.sessions.get(key)
-    if (existing) return { key, ps: existing.ps }
+    if (existing) {
+      log('debug', 'session', 'reuse', { key })
+      return { key, ps: existing.ps }
+    }
+    const sessionFile = file
+      ? (this.opts.resolveSessionFile?.(file) ?? `${file.replace(/\.html$/i, '')}.jsonl`)
+      : `${key}.jsonl`
+    const slot = this.opts.getMainSlot()
+    log('info', 'session', 'create', {
+      key,
+      file: file ?? '(new)',
+      sessionFile,
+      model: slot ? `${slot.provider}/${slot.modelId}` : '(env)',
+      workspace: workspaceDir
+    })
     const ps = await createPhysicsSession({
       cwd: workspaceDir,
       sessionDir: join(workspaceDir, '.pi-sessions'),
       agentDir: this.opts.agentDir,
-      mainSlot: this.opts.getMainSlot(),
-      sessionFile: file ? (this.opts.resolveSessionFile?.(file) ?? `${file.replace(/\.html$/i, '')}.jsonl`) : `${key}.jsonl`,
+      mainSlot: slot,
+      sessionFile,
       systemPrompt: skillSystemPrompt(this.opts.skillDir)
     })
     ps.session.subscribe((e) => onEvent(e))
@@ -82,6 +97,7 @@ export class SessionHost {
   async prompt(key: string, text: string, images?: ImageContent[]): Promise<void> {
     const entry = this.sessions.get(key)
     if (!entry) throw new Error(`会话未创建: ${key}`)
+    log('info', 'session', 'prompt', { key, chars: text.length, images: images?.length ?? 0 })
     await entry.ps.session.prompt(text, { images })
   }
 
@@ -117,12 +133,16 @@ export class SessionHost {
   }
 
   release(key: string): void {
-    this.sessions.get(key)?.ps.dispose()
+    const entry = this.sessions.get(key)
+    if (!entry) return
+    entry.ps.dispose()
     this.sessions.delete(key)
+    log('debug', 'session', 'release', { key })
   }
 
   /** 释放全部会话（设置保存后调用：旧模型配置失效，下次消息按新配置重建并从磁盘恢复历史） */
   releaseAll(): void {
+    if (this.sessions.size > 0) log('info', 'session', 'release all', { count: this.sessions.size })
     for (const [key, entry] of this.sessions) {
       entry.ps.dispose()
       this.sessions.delete(key)
