@@ -103,7 +103,7 @@ SKILL.md「绘制」节的细则部分, 绘制场景时按需读取(2D 与 3D �
 
 ### F. 场与电路
 
-- **F1 `fieldArrow(ctx,x1,y1,x2,y2,opts)`** 场线箭头(匀强场/磁感线): 细、低对比灰; 杆+头同一条闭合路径(像素稳定)。opts: `color`(默认 #808692),`head`(px 4),`headW`(px 1.8),`scale`
+- **F1 `fieldArrow(ctx,x1,y1,x2,y2,opts)`** 场线箭头(匀强场/磁感线): 细、低对比灰; 杆+头同一条闭合路径(像素稳定)。opts: `color`(默认 #808692),`head`(px 4),`headW`(px 1.8),`scale`; **杆半宽固定 0.5px(px 语义, 内部除以 scale)** — 世界变换页漏传 `scale` 会把杆撑粗 `scale` 倍(实测 192px 宽灰块)
 - **F2 `fieldEnd(ctx,x,y,opts)`** 场线端视: ⊙(出纸面)/ ×(入纸面)。opts: `r`(px 3),`dir`('out'|'in'),`color,lw,scale`
 
 ## 5. 物理公式与计算库 (lib/common.js, 全量)

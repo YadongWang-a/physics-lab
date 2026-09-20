@@ -854,7 +854,8 @@ function ghost(ctx, x, y, w, h, opts){
 
 /* F1 场线箭头(主/侧视): 细箭头, 杆+头画成同一条闭合路径(永不断开),
    端点取整 + 不透明填充 + 轮廓描边 → 像素稳定, 与底层元素无关。
-   opts: {color(默认 #808692), head(箭头长 px, 默认4), headW(半宽 px, 默认1.8), scale} */
+   opts: {color(默认 #808692), head(箭头长 px, 默认4), headW(半宽 px, 默认1.8), scale}
+   杆半宽固定 0.5px(px 语义, 内部除以 scale): 世界变换页必须传 scale, 否则杆会被撑粗 scale 倍。 */
 function fieldArrow(ctx, x1, y1, x2, y2, opts){
   const sc = pOpt(opts, 'scale', 1);
   const ax = Math.round(x1), ay = Math.round(y1), bx = Math.round(x2), by = Math.round(y2);
@@ -862,16 +863,17 @@ function fieldArrow(ctx, x1, y1, x2, y2, opts){
   const len = Math.hypot(dx, dy); if (len * sc < 3) return;
   const ux = dx / len, uy = dy / len, px = -uy, py = ux;
   const uh = pOpt(opts, 'head', 4) / sc, hw = pOpt(opts, 'headW', 1.8) / sc;
+  const sw = 0.5 / sc;
   const hbx = bx - ux * uh, hby = by - uy * uh;
   const col = pOpt(opts, 'color', '#808692');
   ctx.fillStyle = col;
   ctx.beginPath();
-  ctx.moveTo(ax + px * 0.5, ay + py * 0.5);
-  ctx.lineTo(hbx + px * 0.5, hby + py * 0.5);
+  ctx.moveTo(ax + px * sw, ay + py * sw);
+  ctx.lineTo(hbx + px * sw, hby + py * sw);
   ctx.lineTo(hbx + hw * px, hby + hw * py);
   ctx.lineTo(bx, by);
   ctx.lineTo(hbx - hw * px, hby - hw * py);
-  ctx.lineTo(hbx - px * 0.5, hby - py * 0.5);
+  ctx.lineTo(hbx - px * sw, hby - py * sw);
   ctx.closePath(); ctx.fill();
   ctx.strokeStyle = col; ctx.lineWidth = 1 / sc;
   ctx.stroke();
