@@ -51,8 +51,8 @@
 <body>
 <div class="wrap">
 
-  <!-- ====== 顶栏(临界状态/模式切换; 无则整段删) ====== -->
-  <!-- @slot:topbar —— 例(状态/模式切换 seg, 无则整段删):
+  <!-- ====== 顶栏(临界状态/模式切换; 删前按提示词《状态切换》的临界事件判据核对) ====== -->
+  <!-- @slot:topbar —— 例(状态/模式切换 seg; 删前按《状态切换》的临界事件判据核对):
   <div class="topbar" style="gap:8px">
     <div class="seg" id="stateSeg">
       <button class="on" data-m="a">状态A</button>
@@ -189,8 +189,9 @@ function render(){
 /* ---------- 控件绑定 ---------- */
 /* @slot:bind —— bindRangeNumber('xR','xN',parseFloat, function(v){S.x=v;}); ... */
 
-/* ---------- 临界状态(有则填, 无则删) ---------- */
-/* @slot:criticals —— criticals()/setState()/按钮 onclick */
+/* ---------- 临界状态(按《状态切换》的临界事件判据填) ---------- */
+/* @slot:criticals —— criticals()/setState()/按钮 onclick;
+   每个按钮一律走: S.running=false; S.t=<该临界时刻>; render(); (不手写覆盖状态量) */
 
 /* ---------- 场景标准件 (按钮/图例/视口/键盘 由 setupScene 注入并绑定) ---------- */
 const SC = setupScene({

@@ -42,7 +42,7 @@
 <body>
 <div class="wrap">
 
-  <!-- @slot:topbar -- 状态/模式切换 seg, 例(无则整段删):
+  <!-- @slot:topbar -- 状态/模式切换 seg, 例(删前按《状态切换》的临界事件判据核对):
   <div class="topbar" style="gap:8px">
     <div class="seg" id="stateSeg">
       <button class="on" data-m="a">状态A</button>
@@ -230,8 +230,9 @@ document.querySelectorAll('#viewSeg button').forEach(function(b){ b.addEventList
   render();
 }); });
 
-/* ---------- 临界状态(有则填, 无则删) ---------- */
-/* @slot:criticals -- criticals()/setState()/顶栏按钮 onclick */
+/* ---------- 临界状态(按《状态切换》的临界事件判据填) ---------- */
+/* @slot:criticals -- criticals()/setState()/顶栏按钮 onclick;
+   每个按钮一律走: S.running=false; S.t=<该临界时刻>; render(); (不手写覆盖状态量) */
 
 /* ---------- 3D 拖拽旋转 (轨道: 左右=水平环绕 az, 上下=俯仰 el) ----------
    拖拽期间锁定 VLock(视口 fit 不变 → 旋转轴不漂移); 松手保留锁定(不跳变),

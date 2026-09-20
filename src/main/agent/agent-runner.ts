@@ -60,7 +60,7 @@ physics-lab-skill 的完整规范已经直接包含在本系统提示中：
 ${PHYSICS_SKILL_PROMPT}
 </physics-lab-skill>
 
-随 app 打包的 skill 辅助资源目录为 ${skillDir}；其中 drawing.md 可按规范需要读取，工作目录的 lib/ 已由应用预置且为最新版。
+随 app 打包的 skill 辅助资源目录为 ${skillDir}；其中 drawing.md 可按规范需要读取。工作目录的 lib/ 已由应用预置（缺失时按 §5 补齐），页面不改 lib 内容。
 严格执行上述规范，并在每次生成或修改后调用 check_demo，直到 ok=true。`
 }
 
