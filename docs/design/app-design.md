@@ -44,7 +44,7 @@
 
 数据流：
 1. 老师发消息 → IPC → `session.prompt(text)`
-2. agent 按 skill 流程：读 SKILL.md → 推导 → 拷 lib → 模板填空写 index.html → `check_demo` 自检 → 修复重跑
+2. agent 按内置 skill 规范（ADR-0005 的 7 步链）：分析题目 → 物理模型（展示维度 + 元素与位置关系）→ 解答与答案核对（推导完成后向用户索取官方答案）→ 临界状态 → 物理量 → 图像 → 落地（模板填空写 HTML → `check_demo` 自检 → 修复重跑）
 3. 事件流（text_delta / tool_execution / agent_settled）→ 聊天区流式渲染
 4. `fs.watch` 发现 index.html 变化 → 预览自动刷新
 
@@ -58,7 +58,7 @@
 
 ### 4.2 check_demo tool（自检工具化，消灭 bash 依赖）
 
-skill 第 7 步自检原本依赖 bash `node --check`；工具化后全部由 tool 完成，且符合 skill"程序化断言、不截图"的意图：
+skill 收尾自检原本依赖 bash `node --check`；工具化后全部由 tool 完成，且符合 skill"程序化断言、不截图"的意图：
 
 | 检查 | 实现 |
 |---|---|
