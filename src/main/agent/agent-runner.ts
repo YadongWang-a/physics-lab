@@ -9,6 +9,8 @@ import {
   type AgentSession
 } from '@earendil-works/pi-coding-agent'
 import { checkDemoTool } from './check-demo/tool'
+import { guardedGrepTool } from './guarded-grep'
+import { guardedReadTool } from './guarded-read'
 import { applySlotToRuntime } from './provider-config'
 import { PHYSICS_SKILL_PROMPT } from './physics-skill-prompt'
 import type { ModelSlotConfig } from '../../shared/settings-types'
@@ -60,7 +62,7 @@ physics-lab-skill 的完整规范已经直接包含在本系统提示中：
 ${PHYSICS_SKILL_PROMPT}
 </physics-lab-skill>
 
-随 app 打包的 skill 辅助资源目录为 ${skillDir}；其中 drawing.md 可按规范需要读取。工作目录的 lib/ 已由应用预置（缺失时按 §5 补齐），页面不改 lib 内容。
+随 app 打包的 skill 辅助资源目录为 ${skillDir}；其中 drawing.md 可按规范需要读取。工作目录的 lib/（common.css、common.js、mathjax.js）已由应用预置，缺失时才从该 skill 目录拷贝补齐；lib/ 的唯一真相源在 skill 内，页面不改 lib 内容。
 严格执行上述规范，并在每次生成或修改后调用 check_demo，直到 ok=true。`
 }
 
@@ -160,9 +162,9 @@ export async function createPhysicsSession(options: PhysicsAgentOptions): Promis
     modelRuntime,
     resourceLoader,
     sessionManager: manager,
-    // ADR-0003 工具面：内建子集（禁 bash）+ 唯一自定义工具 check_demo
+    // ADR-0003 工具面：内建子集（禁 bash）+ 自定义工具（check_demo 自检、read/grep 的 lib 源码拦截）
     tools: ['read', 'write', 'edit', 'grep', 'find', 'ls'],
-    customTools: [checkDemoTool]
+    customTools: [guardedReadTool(cwd), guardedGrepTool(cwd), checkDemoTool]
   })
 
   return {

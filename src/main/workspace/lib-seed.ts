@@ -1,5 +1,6 @@
-import { copyFileSync, existsSync, mkdirSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { buildLibIndex } from './lib-index'
 
 const LIB_FILES = ['common.css', 'common.js', 'mathjax.js']
 
@@ -19,5 +20,10 @@ export function seedLibIntoWorkspace(workspaceDir: string, skillDir: string): vo
     const s = join(src, file)
     const d = join(dest, file)
     if (!existsSync(d) && existsSync(s)) copyFileSync(s, d)
+  }
+  // lib/INDEX.md：从 common.js 生成的 API 索引，每次 seed 刷新（源码对 agent 不可读，见 ADR-0003 修订）
+  const commonJs = join(dest, 'common.js')
+  if (existsSync(commonJs)) {
+    writeFileSync(join(dest, 'INDEX.md'), buildLibIndex(readFileSync(commonJs, 'utf8')))
   }
 }

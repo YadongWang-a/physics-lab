@@ -4,7 +4,7 @@ import { DemoChecker } from './runtime-check'
 import { runChecks } from './run-checks'
 
 /**
- * check_demo —— agent 的唯一自定义工具（ADR-0003）。
+ * check_demo —— agent 的自检工具（ADR-0003；2026-09-29 修订后工具面还含 read 的大文件拦截包装）。
  * 静态检查（语法/ID/骨架）+ 运行时断言（沙箱加载/状态/画布/自定义断言），
  * 返回结构化 {ok, issues[]}；检查失败不视为工具错误（agent 据此修复重跑）。
  */
@@ -19,8 +19,8 @@ export const checkDemoTool = defineTool({
   name: 'check_demo',
   label: '检查演示',
   description:
-    '对生成的演示 HTML 做自检（skill 第 7 步的机械化部分，取代 node --check）：' +
-    '静态检查（末段 script 语法编译、$(\'id\')↔id 交叉核对、骨架标记 startLoop/setupScene、禁手写动画循环）' +
+    '对生成的演示 HTML 做自检（skill 收尾自检里可机械化的那部分，取代 node --check）：' +
+    '静态检查（末段 script 语法编译、$(\'id\')↔id 交叉核对、骨架标记 startLoop/setupScene、禁手写动画循环、图表 title/hud 容量/矢量证据）' +
     '与运行时断言（沙箱加载 console 错误、演示状态 NaN、画布非空白、可选自定义断言片段）。' +
     '返回 JSON：{ok: boolean, issues: [{level, code, message}]}。' +
     '失败时根据 issues 修复后重新调用 check_demo，直到 ok=true 为止。' +

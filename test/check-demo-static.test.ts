@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import {
   canvasTextCheck,
   collectIssues,
+  evidenceCheck,
   idCrossCheck,
   skeletonCheck,
   syntaxCheck
@@ -15,6 +16,15 @@ import {
  */
 
 const DEMOS_DIR = join(process.cwd(), 'resources', 'demos')
+
+/** 存量演示页允许存在的迁移类 warning（页面按新规范重做后应消失） */
+const MIGRATION_WARNINGS: Record<string, true> = {
+  'no-charts-row': true,
+  'canvas-prose': true,
+  'chart-no-title': true,
+  'hud-overflow': true,
+  'no-evidence': true
+}
 
 const GOOD_HTML = `<!doctype html><html><head><title>弹簧振子</title></head>
 <body>
@@ -89,6 +99,38 @@ describe('canvasTextCheck：画布文字预算', () => {
   })
 })
 
+describe('evidenceCheck：讲解点的投影证据（ADR-0006）', () => {
+  const withScript = (code: string): string =>
+    GOOD_HTML.replace(/<\/script>\s*<\/body>/, `${code}\n</script>\n</body>`)
+  const withHud = (items: string): string =>
+    GOOD_HTML.replace(
+      'setupScene({ canvas: scene, vp: {}, state: S, render: function(){} })',
+      `setupScene({ canvas: scene, vp: {}, state: S, render: function(){}, hud: [${items}] })`
+    )
+
+  it('图表定义缺 title 报警；有 title 则干净', () => {
+    const series = `getX: () => S.t, series: [{ label: 'v', get: () => S.v }]`
+    const noTitle = withScript(`const CH = setupCharts($('charts'), [{ yLabel: 'v/(m/s)', ${series} }]);`)
+    expect(evidenceCheck(noTitle).some((i) => i.code === 'chart-no-title')).toBe(true)
+    const titled = withScript(`const CH = setupCharts($('charts'), [{ title: 'v-t: t₁ 后速度为何不再增大', ${series} }]);`)
+    expect(evidenceCheck(titled)).toEqual([])
+  })
+
+  it('hud 超过 4 项报警，恰好 4 项干净', () => {
+    const item = (k: string) => `{ k: '${k}', label: '${k}' }`
+    const over = withHud([1, 2, 3, 4, 5].map((n) => item(`k${n}`)).join(', '))
+    expect(evidenceCheck(over).some((i) => i.code === 'hud-overflow')).toBe(true)
+    const exact = withHud([1, 2, 3, 4].map((n) => item(`k${n}`)).join(', '))
+    expect(evidenceCheck(exact).some((i) => i.code === 'hud-overflow')).toBe(false)
+  })
+
+  it('既无矢量又无图表报警；有矢量则不报警', () => {
+    expect(evidenceCheck(GOOD_HTML).some((i) => i.code === 'no-evidence')).toBe(true)
+    const withVector = withScript(`forceArrows(ctx, 0, 0, [{ x: 1, y: 0, color: '#f00', label: 'F' }], { scale: 1 });`)
+    expect(evidenceCheck(withVector)).toEqual([])
+  })
+})
+
 describe('回归基准：resources/demos 全部通过', () => {
   const demoFiles = readdirSync(DEMOS_DIR).filter((f) => f.toLowerCase().endsWith('.html'))
   expect(demoFiles.length).toBeGreaterThan(0)
@@ -99,10 +141,12 @@ describe('回归基准：resources/demos 全部通过', () => {
       ...syntaxCheck(html),
       ...idCrossCheck(html),
       ...skeletonCheck(html),
-      ...canvasTextCheck(html)
+      ...canvasTextCheck(html),
+      ...evidenceCheck(html)
     ])
-    // 存量页允许「迁移类」warning：no-charts-row(v2 图表区)、canvas-prose(画布文字预算)，
-    // 两者在页面按新规范重做后消失；其余必须干净
-    expect(result.issues.filter((i) => i.code !== 'no-charts-row' && i.code !== 'canvas-prose')).toEqual([])
+    // 存量页允许「迁移类」warning：no-charts-row(v2 图表区)、canvas-prose(画布文字预算)、
+    // 证据层（chart-no-title/hud-overflow/no-evidence，ADR-0006，存量页早于该规范）；
+    // 页面按新规范重做后应消失；其余必须干净
+    expect(result.issues.filter((i) => !MIGRATION_WARNINGS[i.code])).toEqual([])
   })
 })

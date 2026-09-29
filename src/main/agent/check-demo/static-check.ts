@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 
 /**
  * check_demo 静态检查（纯函数，可单测）。
- * 对应 skill 第 7 步自检的机械部分；取代原 `node --check`（ADR-0003 唯一自定义工具）。
+ * 对应 skill 收尾自检的可机械化部分；取代原 `node --check`（ADR-0003）。
  */
 
 export interface CheckIssue {
@@ -108,4 +108,39 @@ export function canvasTextCheck(html: string): CheckIssue[] {
       message: `画布内 ${prose.length} 条文字疑似讲解${sample}：讲解走解析弹层，颜色含义走图例，数值汇总走 hud/读数面板`
     }
   ]
+}
+
+/**
+ * 讲解点的投影证据（ADR-0006）：可机械化的那一部分。
+ * 图表 title / hud 容量 / 页面整体是否有可指认的证据——语义绑定（哪个讲解点配哪条证据）仍靠 §7 自检。
+ */
+export function evidenceCheck(html: string): CheckIssue[] {
+  const code = html.replace(HTML_COMMENT_RE, '')
+  const issues: CheckIssue[] = []
+  const chartDefs = (code.match(/\bseries\s*:/g) ?? []).length
+  const chartTitles = (code.match(/\btitle\s*:/g) ?? []).length
+  if (chartDefs > chartTitles) {
+    issues.push({
+      level: 'warning',
+      code: 'chart-no-title',
+      message: `${chartDefs} 个图表定义里只有 ${chartTitles} 个 title：每张图的 title 要写明它回答的那个讲解点`
+    })
+  }
+  const hudItems = code.match(/\bhud\s*:\s*\[([\s\S]*?)\]/)?.[1]?.match(/\{/g)?.length ?? 0
+  if (hudItems > 4) {
+    issues.push({
+      level: 'warning',
+      code: 'hud-overflow',
+      message: `hud 有 ${hudItems} 项：标准件上限 4 项，按 选项判决量 > 临界前后两值 > 初始条件量 取舍`
+    })
+  }
+  const vectors = (code.match(/\b(forceArrows|vecComp|forceTriangle|drawArrow|traj)\s*\(/g) ?? []).length
+  if (vectors === 0 && chartDefs === 0) {
+    issues.push({
+      level: 'warning',
+      code: 'no-evidence',
+      message: '页面既没有矢量（受力/速度/轨迹）也没有图表：讲解点缺少可指认的投影证据'
+    })
+  }
+  return issues
 }
