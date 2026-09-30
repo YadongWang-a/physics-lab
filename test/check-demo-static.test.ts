@@ -23,7 +23,8 @@ const MIGRATION_WARNINGS: Record<string, true> = {
   'canvas-prose': true,
   'chart-no-title': true,
   'hud-overflow': true,
-  'no-evidence': true
+  'no-evidence': true,
+  'slots-missing': true
 }
 
 const GOOD_HTML = `<!doctype html><html><head><title>弹簧振子</title></head>
@@ -70,7 +71,15 @@ describe('idCrossCheck', () => {
 
 describe('skeletonCheck', () => {
   it('使用 startLoop/setupScene 且无手写循环', () => {
-    expect(skeletonCheck(GOOD_HTML)).toEqual([])
+    // GOOD_HTML 是精简夹具（无模板槽位），故过滤 slots-missing；该码另有专测
+    expect(skeletonCheck(GOOD_HTML).filter((i) => i.code !== 'slots-missing')).toEqual([])
+  })
+
+  it('模板槽位被清除时报警（实测：26 处被清成 3 处）', () => {
+    const noSlots = GOOD_HTML
+    expect(skeletonCheck(noSlots).some((i) => i.code === 'slots-missing')).toBe(true)
+    const withSlots = GOOD_HTML.replace('<canvas id="scene"></canvas>', `${Array.from({ length: 12 }, (_, i) => `<!-- @slot:s${i} -->`).join('\n')}\n<canvas id="scene"></canvas>`)
+    expect(skeletonCheck(withSlots).some((i) => i.code === 'slots-missing')).toBe(false)
   })
 
   it('手写 requestAnimationFrame 报错', () => {

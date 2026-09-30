@@ -8,6 +8,7 @@ import {
   writeFileSync
 } from 'node:fs'
 import { basename, join } from 'node:path'
+import { log } from '../log'
 import type { DemoMeta } from '../../shared/ipc-types'
 
 /**
@@ -152,6 +153,8 @@ export class WorkspaceManager {
     }
     this.manifest.demos = this.manifest.demos.filter((d) => d.file !== file)
     this.save()
+    // 审计：会话/文件消失曾多次无法溯源（remove 无日志），这里留一条
+    log('info', 'workspace', 'remove demo', { file, sessionFile: demo.sessionFile })
   }
 
   /** 显式绑定演示 ↔ 会话文件（清单补丁，不重命名）：返回是否绑定成功 */

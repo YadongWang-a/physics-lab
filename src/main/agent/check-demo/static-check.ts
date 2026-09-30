@@ -79,6 +79,15 @@ export function skeletonCheck(html: string): CheckIssue[] {
   if (!/class="[^"]*charts-row/.test(code)) {
     issues.push({ level: 'warning', code: 'no-charts-row', message: '缺 .charts-row 图表容器（v2 模板骨架标准件；有图题型应调 setupCharts，无图题型保留空容器）' })
   }
+  // 模板槽位：内容只进 @slot 处、骨架逐行保留。实测出现过"自己重写骨架、把 26 处槽位清成 3 处"的偏离
+  const slots = (html.match(/@slot/g) ?? []).length
+  if (slots < 12) {
+    issues.push({
+      level: 'warning',
+      code: 'slots-missing',
+      message: `模板槽位只剩 ${slots} 处（2D 模板 26 / 3D 模板 32）：骨架被重写或槽位被清除——应从模板填空、骨架逐行保留`
+    })
+  }
   return issues
 }
 
