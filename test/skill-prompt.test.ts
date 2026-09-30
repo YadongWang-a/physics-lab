@@ -43,8 +43,9 @@ describe('physics-skill-prompt：生成流程步骤链（ADR-0005）', () => {
     expect(PHYSICS_SKILL_PROMPT).toContain('没有讲解点的量不出现')
     expect(PHYSICS_SKILL_PROMPT).toContain('每个阶段边界就是一个**讲解点**的时刻')
   })
-  it('讲解点证据必须落在投影可见面内', () => {
+  it('核对证据必须落在投影可见面内，图例是编码解码表', () => {
     expect(PHYSICS_SKILL_PROMPT).toContain('投影可见面')
+    expect(PHYSICS_SKILL_PROMPT).toContain('唯一解码入口')
   })
   it('落地与分析交错：落盘时刻写进各步完成条件（§1 建文件 → §2 模型 → §3 解析卡 → 对答案后其余）', () => {
     expect(PHYSICS_SKILL_PROMPT).toContain('边分析边落地')
@@ -63,8 +64,9 @@ describe('physics-skill-prompt：生成流程步骤链（ADR-0005）', () => {
   it('临界状态只认推导的阶段边界，不得新增无出处时刻', () => {
     expect(PHYSICS_SKILL_PROMPT).toContain('不得新增推导里没有出处的时刻')
   })
-  it('合成/分解的构造本身是讲解点证据（只画原始力不算，且不叠两种画法）', () => {
+  it('合成/分解的构造本身是讲解点证据（只画原始力不算，画法须与推导一致）', () => {
     expect(PHYSICS_SKILL_PROMPT).toContain('证据是**合成或分解的构造本身**')
     expect(PHYSICS_SKILL_PROMPT).toContain('只画原始的几个力、或同时叠两种画法都不算')
+    expect(PHYSICS_SKILL_PROMPT).toContain('**画法与推导一致**')
   })
 })
