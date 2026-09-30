@@ -64,4 +64,9 @@ describe('physics-skill-prompt：生成流程步骤链（ADR-0005）', () => {
   it('临界状态只认推导的阶段边界，不得新增无出处时刻', () => {
     expect(PHYSICS_SKILL_PROMPT).toContain('不得新增推导里没有出处的时刻')
   })
+  it('合成/分解的构造本身是讲解点证据（只画原始力不算）', () => {
+    expect(PHYSICS_SKILL_PROMPT).toContain('证据是**合成或分解的构造本身**')
+    expect(PHYSICS_SKILL_PROMPT).toContain('只画原始的几个力不算')
+    expect(PHYSICS_SKILL_PROMPT).toContain('**画法与推导一致**')
+  })
 })
