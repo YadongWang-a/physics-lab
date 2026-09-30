@@ -49,7 +49,7 @@ describe('physics-skill-prompt：生成流程步骤链（ADR-0005）', () => {
   })
   it('落地与分析交错：落盘时刻写进各步完成条件（§1 建文件 → §2 模型 → §3 解析卡 → 对答案后其余）', () => {
     expect(PHYSICS_SKILL_PROMPT).toContain('边分析边落地')
-    expect(PHYSICS_SKILL_PROMPT).toContain('**本步结束即建文件**')
+    expect(PHYSICS_SKILL_PROMPT).toContain('**先落文件, 再讲推导**')
     expect(PHYSICS_SKILL_PROMPT).toContain('**可运行的空页面已写入 `当前目录/<文件名>`**')
     expect(PHYSICS_SKILL_PROMPT).toContain('**基本模型已 `edit` 落盘**')
     expect(PHYSICS_SKILL_PROMPT).toContain('**解析卡已 `edit` 落盘**')
