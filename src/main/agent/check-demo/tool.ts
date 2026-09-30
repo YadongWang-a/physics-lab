@@ -24,16 +24,26 @@ export const checkDemoTool = defineTool({
     '与运行时断言（沙箱加载 console 错误、演示状态 NaN、画布非空白、可选自定义断言片段）。' +
     '返回 JSON：{ok: boolean, issues: [{level, code, message}]}。' +
     '失败时根据 issues 修复后重新调用 check_demo，直到 ok=true 为止。' +
-    '参数：file 为相对工作目录的 HTML 文件名；assertions 为可选 JS 表达式数组（truthy 通过，可写能量守恒等物理断言）。',
-  promptSnippet: 'check_demo(file, assertions?) — 自检演示 HTML（语法/ID/骨架/运行时），返回 {ok, issues}，失败修复重跑',
+    '参数：file 为相对工作目录的 HTML 文件名；assertions 为可选 JS 表达式数组（truthy 通过，可写能量守恒等物理断言）；' +
+    'drawList 为图清单每行的 {kind, text?}（kind: vector/component/cone/hud/chart/seg/label）——缺行报 error，用于核对"推导里要画的表示是否真的落到页面上"。',
+  promptSnippet: 'check_demo(file, assertions?, drawList?) — 自检演示 HTML（语法/ID/骨架/证据/图清单/运行时），返回 {ok, issues}，失败修复重跑',
   parameters: Type.Object({
     file: Type.String({ description: '相对工作目录的演示 HTML 文件名' }),
     assertions: Type.Optional(
       Type.Array(Type.String({ description: '在页面上下文执行的 JS 表达式（truthy 通过）' }))
+    ),
+    drawList: Type.Optional(
+      Type.Array(
+        Type.Object({
+          kind: Type.String({ description: 'vector | component | cone | hud | chart | seg | label' }),
+          text: Type.Optional(Type.String({ description: 'hud 的 label / 图 title / 画布标签文本（kind 为 hud/chart/label 时必填）' }))
+        }),
+        { description: '图清单：推导里要画什么，逐行核对是否已落到页面（缺行报 error）' }
+      )
     )
   }),
   execute: async (toolCallId, params, signal, onUpdate, ctx) => {
-    const result = await runChecks(ctx.cwd, params.file, getChecker(), params.assertions)
+    const result = await runChecks(ctx.cwd, params.file, getChecker(), params.assertions, params.drawList)
     return {
       content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
       details: result

@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import {
   canvasTextCheck,
   collectIssues,
+  drawListCheck,
   evidenceCheck,
   idCrossCheck,
   skeletonCheck,
@@ -153,6 +154,52 @@ describe('evidenceCheck：讲解点的投影证据（ADR-0006）', () => {
 
   it('无 setupCharts 的存量页不受该检查影响', () => {
     expect(evidenceCheck(GOOD_HTML).some((i) => i.code === 'chart-not-updated')).toBe(false)
+  })
+})
+
+describe('drawListCheck：图清单逐行核对', () => {
+  const withScript = (code: string): string =>
+    GOOD_HTML.replace(/<\/script>\s*<\/body>/, `${code}\n</script>\n</body>`)
+  const withHud = (items: string): string =>
+    GOOD_HTML.replace(
+      'setupScene({ canvas: scene, vp: {}, state: S, render: function(){} })',
+      `setupScene({ canvas: scene, vp: {}, state: S, render: function(){}, hud: [${items}] })`
+    )
+
+  it('声明的表示在页面上找不到 → 逐行 error', () => {
+    const issues = drawListCheck(GOOD_HTML, [{ kind: 'component' }, { kind: 'vector' }])
+    expect(issues.filter((i) => i.code === 'draw-missing')).toHaveLength(2)
+    expect(issues.every((i) => i.level === 'error')).toBe(true)
+  })
+
+  it('component / label / cone 命中时不报', () => {
+    const html = withScript(`vecComp(ctx, 0, 0, 1, 0, { label: 'F' }); dashLine(ctx, 0, 0, 1, 0); angleArc(ctx, 0, 0, 1, 0, 1);`)
+    const issues = drawListCheck(html, [{ kind: 'component' }, { kind: 'label', text: 'F' }, { kind: 'cone' }])
+    expect(issues).toEqual([])
+  })
+
+  it('hud 需要 text 且按文本匹配；chart 需 setupCharts+update+title', () => {
+    const html = withHud(`{ k: 'N', label: '压力 N', unit: 'mg' }`)
+    expect(drawListCheck(html, [{ kind: 'hud', text: '压力 N' }])).toEqual([])
+    expect(drawListCheck(html, [{ kind: 'hud', text: '摩擦裕度' }]).some((i) => i.code === 'draw-missing')).toBe(true)
+    expect(drawListCheck(html, [{ kind: 'hud' }]).some((i) => i.code === 'draw-needs-text')).toBe(true)
+
+    const chart = withScript(`const CH = setupCharts($('charts'), [{ title: 'v-t: 讲解点', series: [{ label: 'v', get: () => S.v }] }]);\nCH.update();`)
+    expect(drawListCheck(chart, [{ kind: 'chart', text: 'v-t' }])).toEqual([])
+    expect(drawListCheck(chart, [{ kind: 'chart', text: 's-t' }]).some((i) => i.code === 'draw-missing')).toBe(true)
+  })
+
+  it('seg 按页面里的状态 seg 判定；kind 闭集外 / 超 8 行 → warning', () => {
+    const seg = GOOD_HTML.replace('<canvas id="scene"></canvas>', '<div class="seg" id="stateSeg"></div>\n<canvas id="scene"></canvas>')
+    expect(drawListCheck(seg, [{ kind: 'seg' }])).toEqual([])
+    expect(drawListCheck(GOOD_HTML, [{ kind: 'seg' }]).some((i) => i.code === 'draw-missing')).toBe(true)
+    expect(drawListCheck(GOOD_HTML, [{ kind: 'cube' }]).some((i) => i.code === 'draw-unknown-kind')).toBe(true)
+    const many = Array.from({ length: 9 }, () => ({ kind: 'vector' }))
+    expect(drawListCheck(GOOD_HTML, many).some((i) => i.code === 'draw-too-many')).toBe(true)
+  })
+
+  it('未传 drawList 时不产生任何 issue', () => {
+    expect(drawListCheck(GOOD_HTML, undefined)).toEqual([])
   })
 })
 

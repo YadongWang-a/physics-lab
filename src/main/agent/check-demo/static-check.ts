@@ -120,6 +120,82 @@ export function canvasTextCheck(html: string): CheckIssue[] {
 }
 
 /**
+ * 图清单核对（ADR-0006 / 方案 ①②③）：把"推导里要画什么"变成可机械核对的行。
+ * 只查**存在性/计数/文本**——闭合是否正确、抵消方向是否真的相反属语义，仍靠 §7 自检。
+ * kind 闭集：vector(矢量) / component(分量或平行四边形) / cone(摩擦锥) / hud(关键量) / chart(曲线) / seg(状态 seg) / label(画布标签，需 text)
+ */
+export interface DrawListItem {
+  kind: string
+  /** 文本匹配用（hud / chart title / 画布标签） */
+  text?: string
+}
+
+const DRAW_KINDS: Record<string, 1> = {
+  vector: 1,
+  component: 1,
+  cone: 1,
+  hud: 1,
+  chart: 1,
+  seg: 1,
+  label: 1
+}
+const TEXT_REQUIRED: Record<string, 1> = { hud: 1, chart: 1, label: 1 }
+
+export function drawListCheck(html: string, drawList: readonly DrawListItem[] | undefined): CheckIssue[] {
+  if (!drawList || drawList.length === 0) return []
+  const code = html.replace(HTML_COMMENT_RE, '')
+  const issues: CheckIssue[] = []
+  if (drawList.length > 8) {
+    issues.push({ level: 'warning', code: 'draw-too-many', message: `图清单 ${drawList.length} 行（上限 8）：只列需要老师在投影上指认的关键表示` })
+  }
+  drawList.forEach((row, i) => {
+    const at = `图清单第 ${i + 1} 行`
+    if (!DRAW_KINDS[row.kind]) {
+      issues.push({ level: 'warning', code: 'draw-unknown-kind', message: `${at} kind=${row.kind} 不在允许集(vector/component/cone/hud/chart/seg/label)` })
+      return
+    }
+    if (TEXT_REQUIRED[row.kind] && !row.text) {
+      issues.push({ level: 'warning', code: 'draw-needs-text', message: `${at}(${row.kind}) 需要 text 才能核对（hud 的 label / 图 title / 画布标签文本）` })
+      return
+    }
+    if (!drawFound(row.kind, row.text, code, html)) {
+      issues.push({ level: 'error', code: 'draw-missing', message: `${at}(${row.kind}${row.text ? ' ' + row.text : ''}) 在页面上找不到对应表示` })
+    }
+  })
+  return issues
+}
+
+function drawFound(kind: string, text: string | undefined, code: string, html: string): boolean {
+  const has = (re: RegExp): boolean => re.test(code)
+  switch (kind) {
+    case 'vector':
+      return has(/\b(forceArrows|drawArrow)\s*\(/)
+    case 'component':
+      return has(/\bvecComp\s*\(/) || has(/\bforceTriangle\s*\(/)
+    case 'cone':
+      return has(/\bdashLine\s*\(/) && has(/\bangleArc\s*\(/)
+    case 'seg':
+      return /class="[^"]*\bseg\b/.test(html) || /id="stateSeg"/.test(html)
+    case 'hud': {
+      const block = code.match(/\bhud\s*:\s*\[([\s\S]*?)\]\s*[,}]/)?.[1]
+      return block !== undefined && (text === undefined || block.includes(text))
+    }
+    case 'chart': {
+      const ok = /\bsetupCharts\s*\(/.test(code) && /\.update\s*\(/.test(code)
+      if (!ok) return false
+      return text === undefined || new RegExp(`title\\s*:\\s*['"][^'"]*${text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`).test(code)
+    }
+    case 'label': {
+      if (text === undefined) return false
+      const t = text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      return new RegExp(`label\\s*:\\s*['"][^'"]*${t}`).test(code) || code.includes(`fillText('${text}`)
+    }
+    default:
+      return false
+  }
+}
+
+/**
  * 讲解点的投影证据（ADR-0006）：可机械化的那一部分。
  * 图表 title / hud 容量 / 页面整体是否有可指认的证据——语义绑定（哪个讲解点配哪条证据）仍靠 §7 自检。
  */

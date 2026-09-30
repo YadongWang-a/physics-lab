@@ -34,7 +34,9 @@ describe('physics-skill-prompt：生成流程步骤链（ADR-0005）', () => {
     expect(PHYSICS_SKILL_PROMPT).not.toContain('先索取答案/解析')
   })
   it('物理量表给出量、计算式与承载通道；图像按判据决定画或不画', () => {
-    expect(PHYSICS_SKILL_PROMPT).toContain('讲解点证据表')
+    expect(PHYSICS_SKILL_PROMPT).toContain('**产出图清单**')
+    expect(PHYSICS_SKILL_PROMPT).toContain('逐行落图清单')
+    expect(PHYSICS_SKILL_PROMPT).toContain('**图清单逐行清零**')
     expect(PHYSICS_SKILL_PROMPT).toContain('承载通道')
     expect(PHYSICS_SKILL_PROMPT).toContain('title')
   })
