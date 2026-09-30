@@ -142,5 +142,13 @@ export function evidenceCheck(html: string): CheckIssue[] {
       message: '页面既没有矢量（受力/速度/轨迹）也没有图表：讲解点缺少可指认的投影证据'
     })
   }
+  // 调了 setupCharts 却不更新 → 图表永远空白（实测出现过的缺陷；error 级才会触发修复循环）
+  if (/\bsetupCharts\s*\(/.test(code) && !/\.update\s*\(/.test(code)) {
+    issues.push({
+      level: 'error',
+      code: 'chart-not-updated',
+      message: '调了 setupCharts 但没有 render() 末尾的 CH.update()：图表不会出线'
+    })
+  }
   return issues
 }

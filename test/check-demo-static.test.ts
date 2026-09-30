@@ -112,7 +112,7 @@ describe('evidenceCheck：讲解点的投影证据（ADR-0006）', () => {
     const series = `getX: () => S.t, series: [{ label: 'v', get: () => S.v }]`
     const noTitle = withScript(`const CH = setupCharts($('charts'), [{ yLabel: 'v/(m/s)', ${series} }]);`)
     expect(evidenceCheck(noTitle).some((i) => i.code === 'chart-no-title')).toBe(true)
-    const titled = withScript(`const CH = setupCharts($('charts'), [{ title: 'v-t: t₁ 后速度为何不再增大', ${series} }]);`)
+    const titled = withScript(`const CH = setupCharts($('charts'), [{ title: 'v-t: t₁ 后速度为何不再增大', ${series} }]);\nCH.update();`)
     expect(evidenceCheck(titled)).toEqual([])
   })
 
@@ -128,6 +128,22 @@ describe('evidenceCheck：讲解点的投影证据（ADR-0006）', () => {
     expect(evidenceCheck(GOOD_HTML).some((i) => i.code === 'no-evidence')).toBe(true)
     const withVector = withScript(`forceArrows(ctx, 0, 0, [{ x: 1, y: 0, color: '#f00', label: 'F' }], { scale: 1 });`)
     expect(evidenceCheck(withVector)).toEqual([])
+  })
+
+  it('调了 setupCharts 却没有 CH.update() 报 error（图表会空白）', () => {
+    const stale = withScript(
+      `const CH = setupCharts($('charts'), [{ title: 'v-t', series: [{ label: 'v', get: () => S.v }] }]);`
+    )
+    const issue = evidenceCheck(stale).find((i) => i.code === 'chart-not-updated')
+    expect(issue?.level).toBe('error')
+    const ok = withScript(
+      `const CH = setupCharts($('charts'), [{ title: 'v-t', series: [{ label: 'v', get: () => S.v }] }]);\nCH.update();`
+    )
+    expect(evidenceCheck(ok).some((i) => i.code === 'chart-not-updated')).toBe(false)
+  })
+
+  it('无 setupCharts 的存量页不受该检查影响', () => {
+    expect(evidenceCheck(GOOD_HTML).some((i) => i.code === 'chart-not-updated')).toBe(false)
   })
 })
 
