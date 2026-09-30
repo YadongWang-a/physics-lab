@@ -47,11 +47,12 @@ describe('physics-skill-prompt：生成流程步骤链（ADR-0005）', () => {
     expect(PHYSICS_SKILL_PROMPT).toContain('投影可见面')
     expect(PHYSICS_SKILL_PROMPT).toContain('唯一解码入口')
   })
-  it('落地与分析交错（§1 后即建文件、§2 后落模型、§3 后补解析卡、对答案后补其余），核对先于语法检查', () => {
+  it('落地与分析交错：落盘时刻写进各步完成条件（§1 建文件 → §2 模型 → §3 解析卡 → 对答案后其余）', () => {
     expect(PHYSICS_SKILL_PROMPT).toContain('边分析边落地')
-    expect(PHYSICS_SKILL_PROMPT).toContain('**§1 之后建文件**')
-    expect(PHYSICS_SKILL_PROMPT).toContain('**§2 之后**')
-    expect(PHYSICS_SKILL_PROMPT).toContain('**§3 推导之后**')
+    expect(PHYSICS_SKILL_PROMPT).toContain('**本步结束即建文件**')
+    expect(PHYSICS_SKILL_PROMPT).toContain('**可运行的空页面已写入 `当前目录/<文件名>`**')
+    expect(PHYSICS_SKILL_PROMPT).toContain('**基本模型已 `edit` 落盘**')
+    expect(PHYSICS_SKILL_PROMPT).toContain('**解析卡已 `edit` 落盘**')
     expect(PHYSICS_SKILL_PROMPT).toContain('增量补 `@slot`')
     expect(PHYSICS_SKILL_PROMPT.indexOf('核对(§4/§5/§6 ↔ §2/§3)')).toBeLessThan(
       PHYSICS_SKILL_PROMPT.indexOf('4. 语法与 ID')
