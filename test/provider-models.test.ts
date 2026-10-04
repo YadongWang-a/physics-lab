@@ -41,6 +41,20 @@ describe('applySlotToRuntime：目录外模型兜底注册', () => {
     await applySlotToRuntime(runtime, { provider: 'deepseek', modelId: 'deepseek-v4-flash' })
     expect(runtime.getModels('deepseek').map((m) => m.id)).toEqual(before)
   })
+
+  // 目录外视觉模型（如 deepseek-v4-flash-vision-exp）曾按保守默认注册成 text-only：
+  // pi-ai 的 downgradeUnsupportedImages 会把请求里的图片换成占位文本，模型只回「图片未提供」。
+  it('声明 image 输入时兜底条目可收图', async () => {
+    const authPath = join(mkdtempSync(join(tmpdir(), 'pml-')), 'auth.json')
+    const runtime = await ModelRuntime.create({ authPath, refreshOnCreate: false })
+    const ghost = 'deepseek-future-vision-x'
+    await applySlotToRuntime(
+      runtime,
+      { provider: 'deepseek', modelId: ghost },
+      { input: ['text', 'image'] }
+    )
+    expect(runtime.getModel('deepseek', ghost)?.input).toEqual(['text', 'image'])
+  })
 })
 
 describe('fetchLiveModelIds：实时 /models 拉取', () => {

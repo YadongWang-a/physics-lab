@@ -20,3 +20,12 @@
 - smoke-workspace 含贴图占位符断言 PASS
 - 技术点：直通用 SDK 原生 `PromptOptions.images`（ImageContent，pi-ai 类型）；转文本用独立 ModelRuntime + 视觉槽位运行时注入（不写 auth.json）；注入文本标注「【题目图片内容（视觉模型识别）】」保证 agent 明确图片来源
 - 路由判定基于 `Model.input`（模型目录能力声明），非猜测
+
+回归修复（老师实测：贴图后主模型收到「图片未提供，无法转述。」）：
+- 现象：视觉槽位选 `deepseek/deepseek-v4-flash-vision-exp`（实时列表/手填的 exp 模型，不在 pi-ai 静态目录 deepseek 条目里：目录只有 `deepseek-v4-flash`、`deepseek-v4-pro`，均 text-only）→ `applySlotToRuntime` 走兜底注册，`customModel()` 把输入模态写死 `['text']` → pi-ai `transform-messages.downgradeUnsupportedImages` 把请求里的 image block 换成 `(image omitted: model does not support images)` → 视觉模型只看到占位符，回「图片未提供，无法转述。」→ 非空校验放行，这句废话被当作「题目图片内容」注入主模型。
+- 复现证据（一次性探针，真实 Key + 真实 API，修复前）：`model.input = ["text"]`、`extract output >>> 图片未提供，无法转述。`
+- 修复：`applySlotToRuntime(runtime, slot, { input })` / `customModel(id, input)` 允许声明输入模态；`extractImageText` 显式声明 `['text','image']`，并断言解析到的模型确实含 image（目录内 text-only 模型被误设为视觉槽位时报「视觉模型不支持图片输入」，而不是静默降级）。原始默认值仍为 `['text']`（目录外主模型能力未知，图片直发纯文本模型会 400）。
+- 修复后同一探针：模型逐字转述测试图片（题干/数值/两问全部正确）。
+- 回归测试：`provider-models.test.ts`（目录外兜底注册声明 image 后可收图）+ `provider-config.test.ts`（customModel 可声明 image）。判别力已验证：去掉声明则该断言失败（`expected [ 'text' ] to include 'image'`）。
+- 已知边界：目录外（实时列表/手填）模型若被设为**主**模型，能力仍按保守 `['text']` 处理 → 图片走 OCR 通道而非直通；未配置视觉槽位时才提示「当前无法识别图片」。实时 `/models` 只回 `{id, object, owned_by}`，拿不到模态元数据。
+

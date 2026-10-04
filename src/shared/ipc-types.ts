@@ -54,7 +54,12 @@ export interface RendererApi {
   }
   chat: {
     /** 向某演示的 agent 会话发送消息；file 为 null 表示新会话；images 为聊天图片（OCR 路由）；sessionKey 为沿用会话的 key（新会话多轮延续）。返回会话 key */
-    send: (file: string | null, text: string, images?: ImagePayload[], sessionKey?: string) => Promise<{ ok: boolean; key: string }>
+    send: (
+      file: string | null,
+      text: string,
+      images?: ImagePayload[],
+      sessionKey?: string
+    ) => Promise<{ ok: boolean; key: string; error?: string }>
     /** 停止当前回合 */
     abort: (file: string) => Promise<{ ok: boolean }>
     /** 进行中的会话（renderer 自愈重载后恢复「生成中」显示）；file 为 null 表示未绑定演示的新会话 */

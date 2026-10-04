@@ -46,7 +46,20 @@ export interface PhysicsAgentOptions {
   sessionFile?: string
   /** 追加到系统提示的固定指令（physics-lab-skill 正文已内置） */
   systemPrompt?: string
+  /** 深度思考档位（Pi SDK ThinkingLevel）；缺省用 DEFAULT_THINKING_LEVEL='low' */
+  thinkingLevel?: ThinkingLevel
 }
+
+/** 与 Pi SDK 的 ThinkingLevel 一致。deepseek-v4-flash 的 thinkingLevelMap 支持 low/high/max（medium 为 null=不支持） */
+export type ThinkingLevel = 'minimal' | 'low' | 'medium' | 'high' | 'max'
+
+/**
+ * 主模型思考档位固定 low（ADR-0009）。SDK 默认是 high，实测代价：
+ * 请求流静默挂死（SDK 空闲超时 300s → terminated → 自动重试，单轮白等 330–834s）、
+ * 单请求推理 29k–86k token（占输出 96%+，单次 2–6 min）。
+ * 同题 A/B（自由落体 5m，同一提示词）：high 467.9s / 22 请求，low 135.3s / 13 请求。
+ */
+export const DEFAULT_THINKING_LEVEL: ThinkingLevel = 'low'
 
 /**
  * physics-lab-skill 内置系统提示（ADR-0003）。
@@ -63,6 +76,13 @@ ${PHYSICS_SKILL_PROMPT}
 </physics-lab-skill>
 
 随 app 打包的 skill 辅助资源目录为 ${skillDir}；其中 drawing.md 可按规范需要读取。工作目录的 lib/（common.css、common.js、mathjax.js）已由应用预置，缺失时才从该 skill 目录拷贝补齐；lib/ 的唯一真相源在 skill 内，页面不改 lib 内容。
+
+## 资源位置（照路径直取，不用 ls/find/grep 探索）
+- 模板：${skillDir}/template-2d.html（3D 用 template-3d.html）——骨架逐行保留，内容只进 @slot 处
+- 画法细则：${skillDir}/drawing.md——按需读取（§0/§2/§4/§6）
+- lib 助手清单：lib/INDEX.md（**工作目录内**，不是 skill 目录）
+- lib 三件套：lib/common.js、lib/common.css、lib/mathjax.js（工作目录内，已预置，不改内容）
+
 严格执行上述规范，并在每次生成或修改后调用 check_demo，直到 ok=true。`
 }
 
@@ -115,7 +135,8 @@ export async function createPhysicsSession(options: PhysicsAgentOptions): Promis
     modelId = DEFAULT_MODEL,
     mainSlot,
     sessionManager,
-    systemPrompt
+    systemPrompt,
+    thinkingLevel = DEFAULT_THINKING_LEVEL
   } = options
   ensureDir(sessionDir)
   ensureDir(agentDir)
@@ -162,6 +183,7 @@ export async function createPhysicsSession(options: PhysicsAgentOptions): Promis
     modelRuntime,
     resourceLoader,
     sessionManager: manager,
+    thinkingLevel,
     // ADR-0003 工具面：内建子集（禁 bash）+ 自定义工具（check_demo 自检、read/grep 的 lib 源码拦截）
     tools: ['read', 'write', 'edit', 'grep', 'find', 'ls'],
     customTools: [guardedReadTool(cwd), guardedGrepTool(cwd), checkDemoTool]

@@ -29,6 +29,11 @@ describe('provider-config：槽位解析', () => {
     expect(typeof m.cost.cacheWrite).toBe('number')
   })
 
+  // 视觉槽位走同一条兜底注册路径：显式声明 image，SDK 才不会把图片降级成占位文本
+  it('custom 模型目录条目：可声明 image 输入（视觉端点）', () => {
+    expect(customModel('qwen-vl-max', ['text', 'image']).input).toEqual(['text', 'image'])
+  })
+
   it('自定义端点无模型名 → 空目录（注册时应拒绝）', () => {
     expect(customModelsOf({ provider: CUSTOM_PROVIDER_ID, modelId: '' })).toEqual([])
   })

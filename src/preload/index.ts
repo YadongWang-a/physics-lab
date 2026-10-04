@@ -13,7 +13,12 @@ const api: RendererApi = {
     close: (): Promise<boolean> => ipcRenderer.invoke('workspace:close'),
   },
   chat: {
-    send: (file: string | null, text: string, images?: ImagePayload[], sessionKey?: string): Promise<{ ok: boolean; key: string }> =>
+    send: (
+      file: string | null,
+      text: string,
+      images?: ImagePayload[],
+      sessionKey?: string
+    ): Promise<{ ok: boolean; key: string; error?: string }> =>
       ipcRenderer.invoke('chat:send', file, text, images, sessionKey),
     abort: (file: string): Promise<{ ok: boolean }> => ipcRenderer.invoke('chat:abort', file),
     /** 进行中的会话（renderer 自愈重载后恢复「生成中」显示） */

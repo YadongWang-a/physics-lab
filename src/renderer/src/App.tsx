@@ -3,6 +3,7 @@ import { Markdown } from './Markdown'
 import { SettingsModal } from './SettingsModal'
 import { WorkspaceDialog } from './WorkspaceDialog'
 import { friendlyErrorMessage } from '../../shared/errors'
+import { APP_NAME } from '../../shared/app-meta'
 import type { DemoMeta, ImagePayload, RendererApi, WorkspaceChangedPayload, WorkspaceSnapshot } from '../../shared/ipc-types'
 
 declare global {
@@ -28,6 +29,9 @@ interface WebviewElement extends HTMLElement {
 
 /** 空工作空间快照：未选目录时主界面照常渲染（三栏布局不变），仅以对话框叠加引导 */
 const EMPTY_WS: WorkspaceSnapshot = { dir: '', demos: [] }
+
+/** "思考中"小窗保留的尾部字符数（只看最近一段，不把整段思考堆进 DOM） */
+const THINK_TAIL = 700
 
 /** 三栏宽度比例（列表:对话:预览）；收起的栏不占份额，其余栏按此重新归一化 */
 const COL_RATIOS = { browse: 0.12, chat: 0.23, preview: 0.65 } as const
@@ -81,6 +85,8 @@ const styles: Record<string, React.CSSProperties> = {
   chat: { minWidth: 260, display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--pl-border)', background: 'var(--pl-card)', transition: 'width 240ms ease, opacity 200ms ease, min-width 240ms ease' },
   chatCollapsed: { width: 0, minWidth: 0, opacity: 0, overflow: 'hidden', borderRight: 'none' },
   chatBody: { flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: 14 },
+  thinkBox: { border: '1px dashed var(--pl-border)', borderRadius: 10, background: 'var(--pl-muted)', padding: '6px 10px 8px', maxHeight: 132, overflowY: 'auto', fontFamily: 'ui-monospace, SFMono-Regular, Consolas, monospace', fontSize: 11.5, lineHeight: 1.6, color: 'var(--pl-ink-2)', whiteSpace: 'pre-wrap', wordBreak: 'break-word' },
+  thinkHead: { fontFamily: 'inherit', fontSize: 11, fontWeight: 600, color: 'var(--pl-muted-foreground)', marginBottom: 4 },
   msgUser: { alignSelf: 'flex-end', textAlign: 'right', background: 'var(--pl-muted)', color: 'var(--pl-ink)', padding: '10px 16px', borderRadius: 'var(--pl-radius-lg) var(--pl-radius-lg) 4px var(--pl-radius-lg)', maxWidth: '88%', whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: 13.5, lineHeight: 1.6, boxShadow: '0 1px 2px rgba(15,23,42,.10)' },
   msgAssistant: { alignSelf: 'flex-start', background: 'transparent', border: 'none', padding: '4px 0', borderRadius: 0, maxWidth: '94%', whiteSpace: 'normal', overflowWrap: 'break-word', fontSize: 13.5, lineHeight: 1.75, boxShadow: 'none' },
   msgError: { alignSelf: 'flex-start', maxWidth: '94%', whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'anywhere', fontSize: 12.5, lineHeight: 1.6, color: 'var(--pl-state-error)', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 'var(--pl-radius-md)', padding: '10px 12px' },
@@ -199,6 +205,25 @@ function textDeltaOf(e: unknown): string | null {
   return ae.delta
 }
 
+/** 事件为思考增量时返回文本（in/typeof 收窄，不做形状断言） */
+function thinkingDeltaOf(e: unknown): string | null {
+  if (typeof e !== 'object' || e === null) return null
+  if (!('type' in e) || e.type !== 'message_update' || !('assistantMessageEvent' in e)) return null
+  const ae = e.assistantMessageEvent
+  if (
+    typeof ae !== 'object' ||
+    ae === null ||
+    !('type' in ae) ||
+    ae.type !== 'thinking_delta' ||
+    !('delta' in ae) ||
+    typeof ae.delta !== 'string' ||
+    !ae.delta
+  ) {
+    return null
+  }
+  return ae.delta
+}
+
 export function App(): React.JSX.Element {
   const [ws, setWs] = useState<WorkspaceSnapshot>(EMPTY_WS)
   const [selected, setSelected] = useState<string | null>(null)
@@ -215,6 +240,8 @@ export function App(): React.JSX.Element {
   const [images, setImages] = useState<ImagePayload[]>([])
   /** 拖拽图片悬停输入卡片的高亮态 */
   const [imageDragOver, setImageDragOver] = useState(false)
+  /** 模型思考的尾部（"思考中"小窗滚动显示；思考结束即清空） */
+  const [thinking, setThinking] = useState('')
   /** 预览缩放比例（0.6~1），默认 0.75；演示模式强制 100% */
   const [zoom, setZoom] = useState<number>(0.75)
   const [presenting, setPresenting] = useState(false)
@@ -267,6 +294,12 @@ export function App(): React.JSX.Element {
     const el = chatBodyRef.current
     if (el) el.scrollTop = el.scrollHeight
   }, [messages])
+
+  // "思考中"小窗：内容增长时滚到底（只显示尾部，视觉上就是滚动）
+  useEffect(() => {
+    const el = thinkingRef.current
+    if (el) el.scrollTop = el.scrollHeight
+  }, [thinking])
   const activeKeyRef = useRef<string | null>(null)
   const selectedRef = useRef<string | null>(null)
   selectedRef.current = selected
@@ -278,6 +311,10 @@ export function App(): React.JSX.Element {
   /** 流式 text_delta 合并缓冲：120ms 批量落消息（delta 不丢，只降 Markdown/KaTeX 重解析频率） */
   const deltaBufRef = useRef('')
   const deltaFlushRef = useRef<number | null>(null)
+  /** 思考增量缓冲：同样 120ms 批量更新；只保留尾部 THINK_TAIL 字符（小窗只看最近一段） */
+  const thinkBufRef = useRef('')
+  const thinkFlushRef = useRef<number | null>(null)
+  const thinkingRef = useRef<HTMLDivElement | null>(null)
   const append = useCallback((msg: Omit<ChatMessage, 'id'>) => {
     msgId.current += 1
     setMessages((prev) => [...prev, { ...msg, id: msgId.current }])
@@ -302,6 +339,26 @@ export function App(): React.JSX.Element {
       return [...prev, { id: msgId.current, role: 'assistant', text: d, streaming: true }]
     })
   }, [])
+
+  /** 思考增量落状态（120ms 批量；只留尾部 THINK_TAIL 字符，小窗滚动显示最近一段） */
+  const flushThinking = useCallback(() => {
+    if (thinkFlushRef.current != null) {
+      window.clearTimeout(thinkFlushRef.current)
+      thinkFlushRef.current = null
+    }
+    setThinking(thinkBufRef.current)
+  }, [])
+
+  /** 思考结束（开始输出正文 / 开始调工具 / 回合结束）→ 清空小窗 */
+  const clearThinking = useCallback(() => {
+    if (thinkFlushRef.current != null) {
+      window.clearTimeout(thinkFlushRef.current)
+      thinkFlushRef.current = null
+    }
+    if (!thinkBufRef.current && !thinking) return
+    thinkBufRef.current = ''
+    setThinking('')
+  }, [thinking])
 
   /** 加载演示对应的会话历史（html ↔ session 一一对应）；token 过期（快速切换）则丢弃 */
   const loadDemoSession = useCallback(async (file: string, token: number): Promise<ChatMessage[]> => {
@@ -338,14 +395,26 @@ export function App(): React.JSX.Element {
       // 只处理当前活跃会话的事件
       if (file !== activeKeyRef.current && file !== selectedRef.current) return
       evtRateRef.current += 1
+      // 思考增量：只更新"思考中"小窗，不落聊天消息
+      const thinkDelta = thinkingDeltaOf(event)
+      if (thinkDelta) {
+        thinkBufRef.current = (thinkBufRef.current + thinkDelta).slice(-THINK_TAIL)
+        if (thinkFlushRef.current == null) {
+          thinkFlushRef.current = window.setTimeout(flushThinking, 120)
+        }
+        return
+      }
       // text_delta 走 120ms 合并缓冲：每条 delta 都触发 Markdown+KaTeX 全量重解析会打爆渲染层内存（OOM 崩溃记录）
       const delta = textDeltaOf(event)
       if (delta) {
+        clearThinking()
         deltaBufRef.current += delta
         if (deltaFlushRef.current == null) {
           deltaFlushRef.current = window.setTimeout(flushDeltas, 120)
         }
       } else {
+        // 思考结束（开始调工具 / 回合结束 / 报错）→ 收起小窗
+        clearThinking()
         // 函数式更新：同一 tick 批量到达的多个事件也基于最新累积；
         // 值更新 + 异步 ref 会让批内只保留最后一个 delta（流式文本大面积丢失）
         setMessages((prev) => {
@@ -488,8 +557,14 @@ export function App(): React.JSX.Element {
       setMessages((prev) => [...prev, { id: msgId.current, role: 'user', text }])
       setStreaming(true)
       try {
-        const { key } = await window.api!.chat.send(selected, text, payload, activeKeyRef.current ?? undefined)
-        activeKeyRef.current = key
+        const res = await window.api!.chat.send(selected, text, payload, activeKeyRef.current ?? undefined)
+        activeKeyRef.current = res.key
+        // 主进程在"还没轮到模型"就失败时（图片识别失败等）用返回值报错：
+        // 那条路径上的广播发生在渲染层知道 key 之前，会被活跃会话守卫丢掉
+        if (!res.ok) {
+          append({ role: 'error', text: `出错：${res.error ?? '发送失败'}` })
+          setStreaming(false)
+        }
       } catch (err) {
         append({ role: 'error', text: friendlyErrorMessage(err) })
         setStreaming(false)
@@ -564,7 +639,7 @@ export function App(): React.JSX.Element {
       <header style={styles.titlebar} className="titlebar-drag">
         <div style={styles.brand}>
           <div style={styles.brandLogo}><Icon name="flask" size={15} /></div>
-          <span style={styles.brandName}>物理演示生成器</span>
+          <span style={styles.brandName}>{APP_NAME}</span>
         </div>
         <div style={styles.titlebarRight} className="titlebar-no-drag">
           <button style={styles.iconBtn} className="icon-btn" title="模型设置" onClick={() => setSettingsOpen(true)}>
@@ -714,7 +789,7 @@ export function App(): React.JSX.Element {
             <div style={styles.chatBody} ref={chatBodyRef}>
               {messages.length === 0 && (
                 <div style={styles.welcome}>
-                  <div style={styles.welcomeKicker}>物理演示生成器</div>
+                  <div style={styles.welcomeKicker}>{APP_NAME}</div>
                   <h2 style={styles.welcomeTitle}>输入一道物理题，开始生成</h2>
                   <p style={styles.welcomeDesc}>支持文字描述或粘贴题目照片。AI 会按流程推导、生成交互演示并自动自检。</p>
                   <div style={styles.welcomeExamples}>
@@ -782,6 +857,12 @@ export function App(): React.JSX.Element {
                 </div>
                 )
               })}
+              {thinking && (
+                <div style={styles.thinkBox} ref={thinkingRef}>
+                  <div style={styles.thinkHead}>思考中…</div>
+                  {thinking}
+                </div>
+              )}
               {streaming && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '4px 0' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, color: 'var(--pl-ink-2)' }}>

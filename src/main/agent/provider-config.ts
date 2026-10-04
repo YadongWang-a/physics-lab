@@ -14,14 +14,33 @@ export interface SlotLike {
   customModels?: string[]
 }
 
+/** 模型输入模态 */
+export type InputModality = 'text' | 'image'
+
+export interface SlotRuntimeOptions {
+  /**
+   * 兜底注册条目的输入模态。默认 ['text']：目录外模型能力未知，声明 image 会让
+   * SDK 把图片直接发给可能是纯文本的模型（后者 400）。
+   * 视觉槽位的用途就是收图，必须显式声明 ['text', 'image']：pi-ai 的
+   * downgradeUnsupportedImages 会把「不支持 image」的请求里的图片替换成占位文本，
+   * 模型只看到占位符 → 回「图片未提供，无法转述」。
+   */
+  input?: readonly InputModality[]
+}
+
 /**
  * 槽位 → 运行时注入。规则：
  * - 内置供应商（deepseek）：setRuntimeApiKey 运行时注入（不落 auth.json 明文）；
- *   槽位模型不在运行时目录时（实时列表领先 SDK 静态目录），用保守默认条目兜底注册，
- *   否则 registry.find 报「模型不存在」
+ *   槽位模型不在运行时目录时（实时列表领先 SDK 静态目录），用兜底条目注册
+ *   （输入模态由 options.input 声明），否则 registry.find 报「模型不存在」
  * - custom：先注册自定义端点（baseUrl + 协议 + 模型目录），再运行时注入 Key
  */
-export async function applySlotToRuntime(runtime: ModelRuntime, slot: SlotLike): Promise<void> {
+export async function applySlotToRuntime(
+  runtime: ModelRuntime,
+  slot: SlotLike,
+  options: SlotRuntimeOptions = {}
+): Promise<void> {
+  const input = options.input ?? (['text'] as const)
   if (slot.provider === CUSTOM_PROVIDER_ID) {
     const models = customModelsOf(slot)
     if (!slot.baseUrl) throw new Error('自定义端点缺少 baseURL')
@@ -30,7 +49,7 @@ export async function applySlotToRuntime(runtime: ModelRuntime, slot: SlotLike):
       name: '自定义端点',
       baseUrl: slot.baseUrl,
       api: slot.api ?? DEFAULT_CUSTOM_API,
-      models: models.map((m) => customModel(m))
+      models: models.map((m) => customModel(m, input))
     })
   } else if (slot.modelId && !runtime.getModels(slot.provider).some((m) => m.id === slot.modelId)) {
     const def = runtime.getProvider(slot.provider)
@@ -38,7 +57,7 @@ export async function applySlotToRuntime(runtime: ModelRuntime, slot: SlotLike):
       name: def?.name ?? slot.provider,
       baseUrl: def?.baseUrl,
       api: DEFAULT_CUSTOM_API,
-      models: [customModel(slot.modelId)]
+      models: [customModel(slot.modelId, input)]
     })
   }
   if (slot.apiKey) {
@@ -52,12 +71,12 @@ export function customModelsOf(slot: SlotLike): string[] {
   return slot.modelId ? [slot.modelId] : []
 }
 /** 自定义端点模型目录条目（未声明的元数据用保守默认，全部由端点自己决定）；亦用于实时列表目录外模型的兜底注册 */
-export function customModel(id: string) {
+export function customModel(id: string, input: readonly InputModality[] = ['text']) {
   return {
     id,
     name: id,
     reasoning: false,
-    input: ['text'] as ('text' | 'image')[],
+    input: [...input],
     cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
     contextWindow: 128000,
     maxTokens: 8192

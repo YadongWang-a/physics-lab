@@ -20,8 +20,25 @@ describe('projectChatEvent：SDK 事件 → 渲染层投影', () => {
     expect('message' in projected).toBe(false)
   })
 
-  it('thinking/toolcall 增量不投递（渲染层不消费）', () => {
-    for (const t of ['thinking_delta', 'thinking_start', 'toolcall_delta', 'toolcall_end']) {
+  it('思考增量投递（只留 delta，供"思考中"小窗）；thinking_start/toolcall 增量不投递', () => {
+    const accumulated = 'y'.repeat(40_000)
+    const projected = projectChatEvent({
+      type: 'message_update',
+      message: { role: 'assistant', content: [] },
+      assistantMessageEvent: {
+        type: 'thinking_delta',
+        contentIndex: 0,
+        delta: '再想',
+        partial: { role: 'assistant', content: [{ type: 'thinking', thinking: accumulated }] }
+      }
+    }) as Record<string, unknown>
+    expect(projected).toEqual({
+      type: 'message_update',
+      assistantMessageEvent: { type: 'thinking_delta', delta: '再想' }
+    })
+    expect(JSON.stringify(projected).length).toBeLessThan(100)
+
+    for (const t of ['thinking_start', 'toolcall_delta', 'toolcall_end']) {
       expect(
         projectChatEvent({
           type: 'message_update',
@@ -31,6 +48,9 @@ describe('projectChatEvent：SDK 事件 → 渲染层投影', () => {
       ).toBeNull()
     }
     // 空 delta 不投递（渲染层会当成长度 0 的追加）
+    expect(
+      projectChatEvent({ type: 'message_update', assistantMessageEvent: { type: 'thinking_delta', delta: '' } })
+    ).toBeNull()
     expect(projectChatEvent(sdkTextDelta('', 'abc'))).toBeNull()
   })
 

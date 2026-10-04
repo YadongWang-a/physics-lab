@@ -22,8 +22,13 @@ import { DemoChecker } from './agent/check-demo/runtime-check'
 import { runChecks } from './agent/check-demo/run-checks'
 import type { CheckResult } from './agent/check-demo/static-check'
 import { initFileLog, log, logError } from './log'
+import { applyAppIdentity } from './app-identity'
+import { setLlmTraceSink } from './agent/llm-trace'
 
 loadEnvFile()
+
+// 早于任何 safeStorage 使用：固定加密身份 + 显示名派生的 userData 目录（原因见模块注释）
+applyAppIdentity()
 
 // 硬件加速在本机（i7-1185G7 / T500）反复导致 electron GPU 初始化挂起（whenReady 前
 // 卡死、无 renderer 子进程）与 renderer 崩溃白屏；教学演示工具稳定性优先，默认软渲染
@@ -60,6 +65,21 @@ function broadcast(channel: string, payload: unknown): void {
 function snapshot(): WorkspaceSnapshot {
   if (!currentWs) throw new Error('尚未选择工作目录')
   return { dir: currentWs.dirname, demos: currentWs.list() }
+}
+
+/**
+ * LLM 交互追踪：仅当环境变量 PHYSICS_LAB_LLM_TRACE=1 时写日志（无 UI、无弹窗）。
+ * 打开/关闭即时生效（追踪模块包的是 globalThis.fetch，会话不必重建）。
+ */
+function llmTraceSink(line: string): void {
+  log('info', 'llm', line)
+}
+
+function applyLlmTrace(): void {
+  if (process.env.PHYSICS_LAB_LLM_TRACE === '1') {
+    setLlmTraceSink(llmTraceSink)
+    log('info', 'llm', '追踪已开（PHYSICS_LAB_LLM_TRACE=1）')
+  }
 }
 
 async function openWorkspace(dir: string): Promise<WorkspaceSnapshot> {
@@ -242,21 +262,16 @@ function registerWorkspaceIpc(): void {
             promptText = `${text}\n\n【题目图片内容（视觉模型识别）】\n${extracted}`
           } catch (err) {
             logError('ocr', 'vision extract failed', err, { key, images: images.length })
-            broadcast('chat:event', {
-              file: key,
-              event: {
-                type: 'chat_error',
-                message: `图片识别失败：${friendlyErrorMessage(err)}`
-              }
-            })
-            return { ok: false, key }
+            // 不在返回前广播：此时渲染层还不知道新会话 key，会被"只处理活跃会话"的守卫丢掉
+            // （界面于是永远停在"生成中"）。错误随返回值交给 doSend 渲染。
+            return { ok: false, key, error: `图片识别失败：${friendlyErrorMessage(err)}` }
           }
         } else {
-          broadcast('chat:event', {
-            file: key,
-            event: { type: 'chat_error', message: '当前无法识别图片：主模型不支持视觉，且未配置视觉模型（请在设置中配置）' }
-          })
-          return { ok: false, key }
+          return {
+            ok: false,
+            key,
+            error: '当前无法识别图片：主模型不支持视觉，且未配置视觉模型（请在设置中配置）'
+          }
         }
       }
       host.prompt(key, promptText, promptImages).catch((err: unknown) => {
@@ -492,6 +507,8 @@ function createWindow(): void {
   })
 
   console.log(`[window] created; id=${win.id}`)
+  win.on('close', () => console.log(`[window] close; id=${win.id}`))
+  win.on('closed', () => console.log(`[window] closed; id=${win.id}`))
   win.on('ready-to-show', () => {
     console.log(`[window] ready-to-show → show`)
     win.show()
@@ -861,7 +878,8 @@ async function smokeSettings(): Promise<void> {
 
 app.whenReady().then(async () => {
   // 冒烟模式隔离 userData：不污染真实 settings.json（恢复上次工作目录）
-  if (process.argv.some((a) => a.startsWith('--smoke'))) {
+  const isSmoke = process.argv.some((a) => a.startsWith('--smoke'))
+  if (isSmoke) {
     app.setPath('userData', mkdtempSync(join(tmpdir(), 'physics-lab-smoke-userdata-')))
   }
   initFileLog(join(app.getPath('userData'), 'logs'))
@@ -874,6 +892,7 @@ app.whenReady().then(async () => {
   })
   uiPrefs = UiPrefsStore.at(app.getPath('userData'))
   settings = SettingsStore.at(app.getPath('userData'))
+  applyLlmTrace()
   sessionHost = new SessionHost({
     agentDir: join(app.getPath('userData'), 'agent'),
     skillDir: skillDir(),
@@ -942,5 +961,7 @@ app.whenReady().then(async () => {
 })
 
 app.on('window-all-closed', () => {
+  // 排查"应用莫名消失"：这条日志区分"窗口被关闭（走 app.quit）"与"进程被外部杀掉"
+  log('info', 'app', 'window-all-closed → quit', { windows: BrowserWindow.getAllWindows().length })
   if (process.platform !== 'darwin') app.quit()
 })

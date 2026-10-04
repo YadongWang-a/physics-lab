@@ -35,11 +35,16 @@ export async function extractImageText(options: {
 }): Promise<string> {
   const { authPath, slot, images } = options
   const runtime = await ModelRuntime.create({ authPath, refreshOnCreate: false })
-  await applySlotToRuntime(runtime, slot)
+  // 视觉槽位必须声明 image 输入：目录外模型（如实时列表里的 vision 变体）若按保守默认
+  // 注册为 text-only，SDK 会把图片换成占位文本，模型只能回「图片未提供」
+  await applySlotToRuntime(runtime, slot, { input: ['text', 'image'] })
   await runtime.refresh()
   const model = runtime.getModel(slot.provider, slot.modelId)
   if (!model) {
     throw new Error(`视觉模型不存在：${slot.provider}/${slot.modelId}`)
+  }
+  if (!model.input.includes('image')) {
+    throw new Error(`视觉模型不支持图片输入：${slot.provider}/${slot.modelId}（请改选支持视觉的模型）`)
   }
   const msg = await runtime.complete(
     model,

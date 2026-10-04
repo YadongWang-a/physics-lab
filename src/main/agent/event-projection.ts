@@ -7,9 +7,10 @@
  * 渲染层为此做结构化克隆 + 反序列化，主线程饱和（setInterval 漂移 18s）、堆涨到
  * 2.9GB 后被 Chromium 以 reason=oom 杀掉（exitCode=-536870904）。
  *
- * 渲染层只用三类信息（见 App.tsx 的 textDeltaOf / applyChatEvent）：文本增量、
- * 工具调用起止、回合落地。其余（thinking/toolcall 增量、message/turn 生命周期）
- * 它拿不到也没用。这里按渲染层契约白名单投影，把 IPC 从 O(n²) 降到 O(n)。
+ * 渲染层只用四类信息（见 App.tsx 的 textDeltaOf / thinkingDeltaOf / applyChatEvent）：
+ * 文本增量、思考增量（"思考中"小窗，只留尾部）、工具调用起止、回合落地。
+ * 其余（toolcall 增量、message/turn 生命周期）它拿不到也没用。这里按渲染层契约白名单投影，
+ * 把 IPC 从 O(n²) 降到 O(n)。
  *
  * 返回 null = 该事件渲染层不需要（不投递）。
  */
@@ -20,6 +21,13 @@ export function projectChatEvent(e: unknown): unknown | null {
     case 'message_update': {
       const ae = ev.assistantMessageEvent
       if (typeof ae !== 'object' || ae === null || !('type' in ae)) return null
+      // 思考增量：渲染层用它显示"思考中"小窗（只留尾部，思考结束即清空）
+      if (ae.type === 'thinking_delta') {
+        if (!('delta' in ae)) return null
+        const think = ae.delta
+        if (typeof think !== 'string' || think === '') return null
+        return { type: 'message_update', assistantMessageEvent: { type: 'thinking_delta', delta: think } }
+      }
       // 只留文本增量；`partial` / `message` 整条快照在投影层丢弃
       if (ae.type !== 'text_delta') return null
       if (!('delta' in ae)) return null
