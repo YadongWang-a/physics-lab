@@ -135,3 +135,18 @@ OCR 2.4s、自动自检 1.4s、工具执行 ~1s、渲染层 IPC —— 实测非
 **后续调研项**：剥离历史 reasoning（DeepSeek `requiresReasoningContentOnAssistantMessages` 要求回传）可让每步上下文 −60%，但请求装配权在 SDK（ADR-0003），需先做可行性实验。
 
 **执行顺序**：P5 → P0 → P1 → P2(a) → P2(b) → P3 →（P4），每步各自 A/B。
+
+## Comments
+
+**2026-10-04：落地 P0（部分）+ P2(a) 的口径，走提示词侧。**
+
+改动（`src/main/agent/physics-skill-prompt.ts` + `agent-runner.ts` 包装文本）：
+
+- **两轮生成（P0 的提示词侧）**：新建演示默认「分析轮（§1→§3，推导作为可见文本输出后止轮等确认）→ 落地轮（一次补齐）」，豁免：物理过程 / 已给答案 / 用户要求直接生成 / 已确认。与 P0 原稿的差别：分析轮仍落盘骨架（保住 ADR-0007 的早预览），P0 的「不得同回合写文件」未采纳。
+- **落盘合并**：四段增量 `edit` → 骨架 `write` + 一次 `edit` 补齐（phased 实测 31 请求 / 565.1s 不优于 12–17 请求 / 495.6–582.3s）。
+- **核对工具化（P2(a) 方向）**：§7 里可机械化的自审（语法 / ID / 骨架 / 画布文字预算 / 图清单缺行 / 图表 title·hud 容量·矢量证据）改由 `check_demo` 的 issues 承担，不再要求模型逐行扫代码；图清单缺行走 `drawList`。
+- **单源化 + 正说替代禁止**：删掉重复表述（骨架 / charts-row / hud / 不问不停 / 文字预算），禁止句改陈述目标行为。
+
+未做：P1（资源绑定只补了措辞去重，路径绑定沿用现状）、P2(b)（模板 / drawing.md 内联，常驻上下文风险）、P3（修复循环上限）、P4（机械回合关思考）。
+
+验收：`npx vitest run test/skill-prompt.test.ts`（15 passed）、`npm run typecheck`、`npm test`。**端到端 A/B 未跑**（需真实 Key 与同题两轮），收益归因仍需 P5 的会话统计行 + `.scratch/perf/timeline.mjs`。

@@ -78,12 +78,11 @@ ${PHYSICS_SKILL_PROMPT}
 随 app 打包的 skill 辅助资源目录为 ${skillDir}；其中 drawing.md 可按规范需要读取。工作目录的 lib/（common.css、common.js、mathjax.js）已由应用预置，缺失时才从该 skill 目录拷贝补齐；lib/ 的唯一真相源在 skill 内，页面不改 lib 内容。
 
 ## 资源位置（照路径直取，不用 ls/find/grep 探索）
-- 模板：${skillDir}/template-2d.html（3D 用 template-3d.html）——骨架逐行保留，内容只进 @slot 处
+- 模板：${skillDir}/template-2d.html（3D 用 template-3d.html）——骨架逐行保留
 - 画法细则：${skillDir}/drawing.md——按需读取（§0/§2/§4/§6）
 - lib 助手清单：lib/INDEX.md（**工作目录内**，不是 skill 目录）
 - lib 三件套：lib/common.js、lib/common.css、lib/mathjax.js（工作目录内，已预置，不改内容）
-
-严格执行上述规范，并在每次生成或修改后调用 check_demo，直到 ok=true。`
+`
 }
 
 export const DEFAULT_MODEL = 'deepseek-v4-flash'
