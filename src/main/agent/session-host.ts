@@ -1,5 +1,5 @@
 import { join } from 'node:path'
-import { existsSync } from 'node:fs'
+import { existsSync, readdirSync } from 'node:fs'
 import { SessionManager } from '@earendil-works/pi-coding-agent'
 import type { ImageContent } from '@earendil-works/pi-ai'
 import { createPhysicsSession, skillSystemPrompt, type PhysicsSession } from './agent-runner'
@@ -18,6 +18,8 @@ export interface SessionHostOptions {
   skillDir: string
   /** 当前主模型槽位（每次建会话时读取，设置保存后新配置生效） */
   getMainSlot: () => ModelSlotConfig | undefined
+  /** 当前视觉槽位：存在时给会话挂 `read_image`（回看老师贴的题图） */
+  getVisionSlot?: () => ModelSlotConfig | undefined
   /** 清单解析：html 文件名 → 会话文件名（demos.json 显式关联）；缺省回退 stem 同名约定 */
   resolveSessionFile?: (file: string) => string | undefined
 }
@@ -81,13 +83,21 @@ export class SessionHost {
       model: slot ? `${slot.provider}/${slot.modelId}` : '(env)',
       workspace: workspaceDir
     })
+    // 命名查重名单：注入 system prompt，省掉模型"先 ls 看有什么文件"的那一轮
+    const existingDemos = existsSync(workspaceDir)
+      ? readdirSync(workspaceDir, { withFileTypes: true })
+          .filter((d) => d.isFile() && d.name.toLowerCase().endsWith('.html'))
+          .map((d) => d.name)
+          .sort()
+      : []
     const ps = await createPhysicsSession({
       cwd: workspaceDir,
       sessionDir: join(workspaceDir, '.pi-sessions'),
       agentDir: this.opts.agentDir,
       mainSlot: slot,
       sessionFile,
-      systemPrompt: skillSystemPrompt(this.opts.skillDir)
+      getVisionSlot: this.opts.getVisionSlot,
+      systemPrompt: skillSystemPrompt(this.opts.skillDir, existingDemos)
     })
     ps.session.subscribe((e) => onEvent(e))
     this.sessions.set(key, { ps, workspaceDir })

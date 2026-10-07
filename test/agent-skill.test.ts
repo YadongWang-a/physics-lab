@@ -29,6 +29,23 @@ describe('内置 skill prompt（无 Key）', () => {
     expect(systemPrompt).not.toContain('必须用 read 工具读取技能文件')
     expect(systemPrompt).not.toContain('find/ls')
   })
+
+  it('注入工作目录现有演示名单（命名查重靠它，省掉 ls 探索）', () => {
+    const withDemos = skillSystemPrompt(SKILL_DIR, ['alpha.html', 'beta-3d.html'])
+    expect(withDemos).toContain('## 工作目录现有演示')
+    expect(withDemos).toContain('- alpha.html')
+    expect(withDemos).toContain('- beta-3d.html')
+    expect(skillSystemPrompt(SKILL_DIR)).toContain('- （工作目录暂无 .html）')
+  })
+})
+
+describe('skill 资产（无 Key）', () => {
+  it('drawing.md §11 带 3D 取景判据与可运行的收尾自查断言', () => {
+    const md = readFileSync(join(SKILL_DIR, 'drawing.md'), 'utf8')
+    expect(md).toContain('### 取景与观感(3D 专属, 画完必查)')
+    expect(md).toContain("querySelector('#scene')")
+    expect(md).toContain('>=0.5')
+  })
 })
 
 describe('lib 预置（无 Key）', () => {

@@ -7,6 +7,7 @@ import { ModelRegistry, ModelRuntime } from '@earendil-works/pi-coding-agent'
 import type { ImageContent } from '@earendil-works/pi-ai'
 import { applySlotToRuntime, fetchLiveModelIds, listProviderModels, mergeModelIds } from './agent/provider-config'
 import { extractImageText, routeDecision, type ImagePayload } from './agent/vision-extract'
+import { saveChatImages } from './agent/image-attachments'
 import { mergeSettings, toSlotView, type ModelSlotConfig, type SaveSettingsPayload, type SettingsView } from '../shared/settings-types'
 import { friendlyErrorMessage } from '../shared/errors'
 import { loadEnvFile } from '../shared/load-env'
@@ -254,12 +255,16 @@ function registerWorkspaceIpc(): void {
         } else if (kind === 'extract' && s?.vision) {
           broadcast('chat:event', { file: key, event: { type: 'ocr_note', text: `正在用视觉模型识别 ${images.length} 张图片…` } })
           try {
+            log('info', 'ocr', 'vision extract start', { key, images: images.length, model: `${s.vision.provider}/${s.vision.modelId}` })
+            // 原图落进工作目录（会话附件）：转述只有一次，主模型看不到图，后续靠 read_image 回看
+            const stored = saveChatImages(currentWs.dirname, key, images)
             const extracted = await extractImageText({
               authPath: join(app.getPath('userData'), 'agent', 'auth.json'),
               slot: s.vision,
               images
             })
-            promptText = `${text}\n\n【题目图片内容（视觉模型识别）】\n${extracted}`
+            log('info', 'ocr', 'vision extract done', { key, chars: extracted.length, stored })
+            promptText = `${text}\n\n【题目图片内容（视觉模型识别）】原图未进入本会话（已存: ${stored.join('、')}）：图形类型、视角、位置关系一律以本节转述为准；本节标为「不确定」或「冲突」的项若影响解题，先用 read_image 就那一点定向追问，仍不清再问用户。\n${extracted}`
           } catch (err) {
             logError('ocr', 'vision extract failed', err, { key, images: images.length })
             // 不在返回前广播：此时渲染层还不知道新会话 key，会被"只处理活跃会话"的守卫丢掉
@@ -897,6 +902,7 @@ app.whenReady().then(async () => {
     agentDir: join(app.getPath('userData'), 'agent'),
     skillDir: skillDir(),
     getMainSlot: () => settings?.load().main,
+    getVisionSlot: () => settings?.load().vision,
     resolveSessionFile: (file) => currentWs?.list().find((d) => d.file === file)?.sessionFile
   })
   registerWorkspaceIpc()

@@ -9,6 +9,7 @@ import {
   type AgentSession
 } from '@earendil-works/pi-coding-agent'
 import { checkDemoTool } from './check-demo/tool'
+import { readImageTool } from './read-image'
 import { guardedGrepTool } from './guarded-grep'
 import { guardedReadTool } from './guarded-read'
 import { applySlotToRuntime } from './provider-config'
@@ -46,6 +47,11 @@ export interface PhysicsAgentOptions {
   sessionFile?: string
   /** 追加到系统提示的固定指令（physics-lab-skill 正文已内置） */
   systemPrompt?: string
+  /**
+   * 视觉槽位（每次调用读最新配置）：存在时注册 `read_image`，
+   * 让 agent 能回看老师贴的题图（视觉转述是一次性的，主模型看不到原图）。
+   */
+  getVisionSlot?: () => ModelSlotConfig | undefined
   /** 深度思考档位（Pi SDK ThinkingLevel）；缺省用 DEFAULT_THINKING_LEVEL='low' */
   thinkingLevel?: ThinkingLevel
 }
@@ -65,8 +71,10 @@ export const DEFAULT_THINKING_LEVEL: ThinkingLevel = 'low'
  * physics-lab-skill 内置系统提示（ADR-0003）。
  * SKILL.md 的正文在构建时固化进 app；运行时不读取或注册 SKILL.md。
  * skillDir 仅用于提示 agent 定位随 app 打包的 drawing.md 等辅助资源。
+ * existingDemos：创建会话时工作目录已有的 *.html 名单——命名查重靠它，
+ * 省掉模型"先 ls 看有什么文件"的那一轮（实测 95.7s / 22.8k 推理令牌）。
  */
-export function skillSystemPrompt(skillDir: string): string {
+export function skillSystemPrompt(skillDir: string, existingDemos: readonly string[] = []): string {
   return `你是「物理演示生成助手」，为中学物理老师生成课堂演示 HTML。
 下方 physics-lab-skill 规范适用于本 session 中的每一条用户请求，包括新建演示、修改已有 HTML、继续对话、图片输入、参数调整和重新生成。
 physics-lab-skill 的完整规范已经直接包含在本系统提示中：
@@ -82,6 +90,10 @@ ${PHYSICS_SKILL_PROMPT}
 - 画法细则：${skillDir}/drawing.md——按需读取（§0/§2/§4/§6）
 - lib 助手清单：lib/INDEX.md（**工作目录内**，不是 skill 目录）
 - lib 三件套：lib/common.js、lib/common.css、lib/mathjax.js（工作目录内，已预置，不改内容）
+
+## 工作目录现有演示（命名查重的唯一来源，不用 ls/find/read 去探）
+${existingDemos.length ? existingDemos.map((d) => `- ${d}`).join('\n') : '- （工作目录暂无 .html）'}
+新建演示命名避开上面的名字（含近似写法）；重名时换一个名字继续写，不询问、不列目录。
 `
 }
 
@@ -135,6 +147,7 @@ export async function createPhysicsSession(options: PhysicsAgentOptions): Promis
     mainSlot,
     sessionManager,
     systemPrompt,
+    getVisionSlot,
     thinkingLevel = DEFAULT_THINKING_LEVEL
   } = options
   ensureDir(sessionDir)
@@ -175,6 +188,12 @@ export async function createPhysicsSession(options: PhysicsAgentOptions): Promis
     (options.sessionFile
       ? SessionManager.open(join(sessionDir, options.sessionFile), sessionDir, cwd)
       : SessionManager.create(cwd, sessionDir))
+  // ADR-0003 工具面：内建子集（禁 bash）+ 自定义工具。除 check_demo 自检与 read/grep 的
+  // lib 源码拦截外，配置了视觉槽位时再挂 read_image——它是"与原图保真"的唯一回看通道。
+  const customTools = [guardedReadTool(cwd), guardedGrepTool(cwd), checkDemoTool]
+  if (getVisionSlot) {
+    customTools.push(readImageTool({ cwd, authPath: join(agentDir, 'auth.json'), getVisionSlot }))
+  }
   const { session } = await createAgentSession({
     cwd,
     agentDir,
@@ -183,9 +202,8 @@ export async function createPhysicsSession(options: PhysicsAgentOptions): Promis
     resourceLoader,
     sessionManager: manager,
     thinkingLevel,
-    // ADR-0003 工具面：内建子集（禁 bash）+ 自定义工具（check_demo 自检、read/grep 的 lib 源码拦截）
     tools: ['read', 'write', 'edit', 'grep', 'find', 'ls'],
-    customTools: [guardedReadTool(cwd), guardedGrepTool(cwd), checkDemoTool]
+    customTools
   })
 
   return {
