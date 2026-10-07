@@ -33,6 +33,13 @@ const EMPTY_WS: WorkspaceSnapshot = { dir: '', demos: [] }
 /** "思考中"小窗保留的尾部字符数（只看最近一段，不把整段思考堆进 DOM） */
 const THINK_TAIL = 700
 
+/** "思考中"小窗正文最多显示 THINK_LINES 行，超出只留最近几行（前面截断） */
+const THINK_LINES = 5
+const THINK_FONT_SIZE = 11.5
+const THINK_LINE_HEIGHT = 1.6
+/** 正文可视高度 = 行数 × 行高（px）；取整使截断落在整行边界上 */
+const THINK_BODY_MAX_HEIGHT = Math.round(THINK_LINES * THINK_FONT_SIZE * THINK_LINE_HEIGHT)
+
 /** 三栏宽度比例（列表:对话:预览）；收起的栏不占份额，其余栏按此重新归一化 */
 const COL_RATIOS = { browse: 0.12, chat: 0.23, preview: 0.65 } as const
 
@@ -85,8 +92,10 @@ const styles: Record<string, React.CSSProperties> = {
   chat: { minWidth: 260, display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--pl-border)', background: 'var(--pl-card)', transition: 'width 240ms ease, opacity 200ms ease, min-width 240ms ease' },
   chatCollapsed: { width: 0, minWidth: 0, opacity: 0, overflow: 'hidden', borderRight: 'none' },
   chatBody: { flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: 14 },
-  thinkBox: { border: '1px dashed var(--pl-border)', borderRadius: 10, background: 'var(--pl-muted)', padding: '6px 10px 8px', maxHeight: 132, overflowY: 'auto', fontFamily: 'ui-monospace, SFMono-Regular, Consolas, monospace', fontSize: 11.5, lineHeight: 1.6, color: 'var(--pl-ink-2)', whiteSpace: 'pre-wrap', wordBreak: 'break-word' },
+  thinkBox: { border: '1px dashed var(--pl-border)', borderRadius: 10, background: 'var(--pl-muted)', padding: '6px 10px 8px', fontFamily: 'ui-monospace, SFMono-Regular, Consolas, monospace', fontSize: THINK_FONT_SIZE, lineHeight: THINK_LINE_HEIGHT, color: 'var(--pl-ink-2)' },
   thinkHead: { fontFamily: 'inherit', fontSize: 11, fontWeight: 600, color: 'var(--pl-muted-foreground)', marginBottom: 4 },
+  // 正文固定最多 THINK_LINES 行：超出从前面截断（hidden 仍可程序化 scrollTop，锚在尾部）
+  thinkBody: { maxHeight: THINK_BODY_MAX_HEIGHT, overflow: 'hidden', whiteSpace: 'pre-wrap', wordBreak: 'break-word' },
   msgUser: { alignSelf: 'flex-end', textAlign: 'right', background: 'var(--pl-muted)', color: 'var(--pl-ink)', padding: '10px 16px', borderRadius: 'var(--pl-radius-lg) var(--pl-radius-lg) 4px var(--pl-radius-lg)', maxWidth: '88%', whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: 13.5, lineHeight: 1.6, boxShadow: '0 1px 2px rgba(15,23,42,.10)' },
   msgAssistant: { alignSelf: 'flex-start', background: 'transparent', border: 'none', padding: '4px 0', borderRadius: 0, maxWidth: '94%', whiteSpace: 'normal', overflowWrap: 'break-word', fontSize: 13.5, lineHeight: 1.75, boxShadow: 'none' },
   msgError: { alignSelf: 'flex-start', maxWidth: '94%', whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'anywhere', fontSize: 12.5, lineHeight: 1.6, color: 'var(--pl-state-error)', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 'var(--pl-radius-md)', padding: '10px 12px' },
@@ -858,9 +867,11 @@ export function App(): React.JSX.Element {
                 )
               })}
               {thinking && (
-                <div style={styles.thinkBox} ref={thinkingRef}>
+                <div style={styles.thinkBox}>
                   <div style={styles.thinkHead}>思考中…</div>
-                  {thinking}
+                  <div style={styles.thinkBody} ref={thinkingRef}>
+                    {thinking}
+                  </div>
                 </div>
               )}
               {streaming && (
